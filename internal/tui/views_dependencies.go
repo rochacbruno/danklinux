@@ -1,0 +1,209 @@
+package tui
+
+import (
+	"context"
+	"fmt"
+	"strings"
+
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/AvengeMedia/dankinstall/internal/deps"
+	installerPkg "github.com/AvengeMedia/dankinstall/internal/installer"
+)
+
+func (m Model) viewDetectingDeps() string {
+	var b strings.Builder
+	
+	b.WriteString(m.renderBanner())
+	b.WriteString("\n")
+	
+	title := m.styles.Title.Render("Detecting Dependencies")
+	b.WriteString(title)
+	b.WriteString("\n\n")
+	
+	spinner := m.spinner.View()
+	status := m.styles.Normal.Render("Scanning system for existing packages and configurations...")
+	b.WriteString(fmt.Sprintf("%s %s", spinner, status))
+	
+	return b.String()
+}
+
+func (m Model) viewDependencyReview() string {
+	var b strings.Builder
+	
+	b.WriteString(m.renderBanner())
+	b.WriteString("\n")
+	
+	title := m.styles.Title.Render("Dependency Review")
+	b.WriteString(title)
+	b.WriteString("\n\n")
+	
+	if len(m.dependencies) > 0 {
+		for i, dep := range m.dependencies {
+			var status string
+			var reinstallMarker string
+			
+			// Check if this item is marked for reinstall
+			if m.reinstallItems[dep.Name] {
+				reinstallMarker = "🔄 "
+				status = m.styles.Warning.Render("Will reinstall")
+			} else {
+				switch dep.Status {
+				case deps.StatusInstalled:
+					status = m.styles.Success.Render("✓ Already Installed")
+				case deps.StatusMissing:
+					status = m.styles.Warning.Render("○ Will be installed") 
+				case deps.StatusNeedsUpdate:
+					status = m.styles.Warning.Render("△ Needs update")
+				case deps.StatusNeedsReinstall:
+					status = m.styles.Error.Render("! Needs reinstall")
+				}
+			}
+			
+			// Highlight selected item
+			var line string
+			if i == m.selectedDep {
+				line = fmt.Sprintf("▶ %s%-25s %s", reinstallMarker, dep.Name, status)
+				if dep.Version != "" {
+					line += fmt.Sprintf(" (%s)", dep.Version)
+				}
+				line = m.styles.SelectedOption.Render(line)
+			} else {
+				line = fmt.Sprintf("  %s%-25s %s", reinstallMarker, dep.Name, status)
+				if dep.Version != "" {
+					line += fmt.Sprintf(" (%s)", dep.Version)
+				}
+				line = m.styles.Normal.Render(line)
+			}
+			
+			b.WriteString(line)
+			b.WriteString("\n")
+		}
+	}
+	
+	b.WriteString("\n")
+	help := m.styles.Subtle.Render("↑/↓: Navigate, Space: Toggle reinstall, Enter: Continue")
+	b.WriteString(help)
+	
+	return b.String()
+}
+
+
+func (m Model) updateDetectingDepsState(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if depsMsg, ok := msg.(depsDetectedMsg); ok {
+		m.isLoading = false
+		if depsMsg.err != nil {
+			m.err = depsMsg.err
+			m.state = StateError
+		} else {
+			m.dependencies = depsMsg.deps
+			m.state = StateDependencyReview
+		}
+		return m, m.listenForLogs()
+	}
+	return m, m.listenForLogs()
+}
+
+func (m Model) updateDependencyReviewState(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+		switch keyMsg.String() {
+		case "up":
+			if m.selectedDep > 0 {
+				m.selectedDep--
+			}
+		case "down":
+			if m.selectedDep < len(m.dependencies)-1 {
+				m.selectedDep++
+			}
+		case " ":
+			if len(m.dependencies) > 0 {
+				depName := m.dependencies[m.selectedDep].Name
+				// Only allow toggling reinstall for installed items or items that need reinstall
+				if m.dependencies[m.selectedDep].Status == deps.StatusInstalled || 
+				   m.dependencies[m.selectedDep].Status == deps.StatusNeedsReinstall {
+					m.reinstallItems[depName] = !m.reinstallItems[depName]
+				}
+			}
+		case "enter":
+			m.state = StatePasswordPrompt
+			m.isLoading = false
+			return m, nil
+		}
+	}
+	return m, m.listenForLogs()
+}
+
+func (m Model) installPackages() tea.Cmd {
+	return func() tea.Msg {
+		if m.osInfo == nil {
+			return packageInstallProgressMsg{
+				progress:   0.0,
+				step:       "Error: OS info not available",
+				isComplete: true,
+			}
+		}
+
+		// Create installer
+		installer, err := installerPkg.NewPackageInstaller(m.osInfo.Distribution, m.logChan)
+		if err != nil {
+			return packageInstallProgressMsg{
+				progress:   0.0,
+				step:       fmt.Sprintf("Error: %s", err.Error()),
+				isComplete: true,
+			}
+		}
+
+		// Convert TUI selection to deps enum
+		var wm deps.WindowManager
+		if m.selectedWM == 0 {
+			wm = deps.WindowManagerNiri
+		} else {
+			wm = deps.WindowManagerHyprland
+		}
+
+		// Create progress channel
+		installerProgressChan := make(chan installerPkg.InstallProgressMsg, 100)
+		
+		// Start installation in background
+		go func() {
+			defer close(installerProgressChan)
+			err := installer.InstallPackages(context.Background(), m.dependencies, wm, m.sudoPassword, m.reinstallItems, installerProgressChan)
+			if err != nil {
+				installerProgressChan <- installerPkg.InstallProgressMsg{
+					Progress:   0.0,
+					Step:       fmt.Sprintf("Installation error: %s", err.Error()),
+					IsComplete: true,
+					Error:      err,
+				}
+			}
+		}()
+
+		// Convert installer messages to TUI messages
+		go func() {
+			for msg := range installerProgressChan {
+				tuiMsg := packageInstallProgressMsg{
+					progress:    msg.Progress,
+					step:        msg.Step,
+					isComplete:  msg.IsComplete,
+					needsSudo:   msg.NeedsSudo,
+					commandInfo: msg.CommandInfo,
+					logOutput:   msg.LogOutput,
+					error:       msg.Error,
+				}
+				// Debug logging
+				if msg.IsComplete {
+					m.logChan <- fmt.Sprintf("[DEBUG] Sending completion signal: step=%s, progress=%.2f", msg.Step, msg.Progress)
+				}
+				m.packageProgressChan <- tuiMsg
+			}
+			m.logChan <- "[DEBUG] Installer channel closed"
+		}()
+
+		// Return initial progress
+		return packageInstallProgressMsg{
+			progress:   0.05,
+			step:       "Starting installation...",
+			isComplete: false,
+		}
+	}
+}
+
