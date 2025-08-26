@@ -34,7 +34,7 @@ func (m Model) viewWelcome() string {
 			Foreground(lipgloss.Color(m.osInfo.Distribution.HexColorCode)).
 			Bold(true)
 		distroName := distroStyle.Render(m.osInfo.PrettyName)
-		
+
 		info := fmt.Sprintf("System: %s (%s)\n", distroName, m.osInfo.Architecture)
 		b.WriteString(info)
 		b.WriteString("\n")
@@ -43,7 +43,7 @@ func (m Model) viewWelcome() string {
 		bullet := m.styles.Key.Render("•")
 		overview += fmt.Sprintf("  %s %s\n", bullet, m.styles.Normal.Render("The dms (DankMaterialShell)"))
 		overview += fmt.Sprintf("  %s %s\n", bullet, m.styles.Normal.Render("niri or Hyprland"))
-		overview += fmt.Sprintf("  %s %s\n", bullet, m.styles.Normal.Render("Ghostty - terminal"))
+		overview += fmt.Sprintf("  %s %s\n", bullet, m.styles.Normal.Render("Ghostty or kitty - terminal"))
 		overview += fmt.Sprintf("  %s %s\n", bullet, m.styles.Normal.Render("Automatic theming"))
 		overview += fmt.Sprintf("  %s %s\n", bullet, m.styles.Normal.Render("Sane default configuration"))
 		overview += fmt.Sprintf("  %s %s\n\n", bullet, m.styles.Normal.Render("A lot more for a pretty, highly functional desktop"))

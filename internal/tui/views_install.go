@@ -126,15 +126,45 @@ func (m Model) viewError() string {
 	b.WriteString(m.renderBanner())
 	b.WriteString("\n")
 	
-	title := m.styles.Error.Render("Error")
+	title := m.styles.Error.Render("Installation Failed")
 	b.WriteString(title)
 	b.WriteString("\n\n")
 	
 	if m.err != nil {
-		error := m.styles.Error.Render(m.err.Error())
+		error := m.styles.Error.Render("✗ " + m.err.Error())
 		b.WriteString(error)
+		b.WriteString("\n\n")
 	}
-	b.WriteString("\n\n")
+	
+	// Show package progress error if available
+	if m.packageProgress.error != nil {
+		packageError := m.styles.Error.Render("Package Installation Error: " + m.packageProgress.error.Error())
+		b.WriteString(packageError)
+		b.WriteString("\n\n")
+	}
+	
+	// Show persistent installation logs
+	if len(m.installationLogs) > 0 {
+		logHeader := m.styles.Warning.Render("Installation Logs (last 15 lines):")
+		b.WriteString(logHeader)
+		b.WriteString("\n")
+		
+		// Show more lines in error state for better debugging
+		maxLines := 15
+		startIdx := 0
+		if len(m.installationLogs) > maxLines {
+			startIdx = len(m.installationLogs) - maxLines
+		}
+		
+		for i := startIdx; i < len(m.installationLogs); i++ {
+			if m.installationLogs[i] != "" {
+				logLine := m.styles.Subtle.Render("  " + m.installationLogs[i])
+				b.WriteString(logLine)
+				b.WriteString("\n")
+			}
+		}
+		b.WriteString("\n")
+	}
 	
 	help := m.styles.Subtle.Render("Press Enter to exit")
 	b.WriteString(help)
@@ -149,9 +179,9 @@ func (m Model) updateInstallingPackagesState(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Accumulate log output
 		if progressMsg.logOutput != "" {
 			m.installationLogs = append(m.installationLogs, progressMsg.logOutput)
-			// Keep only last 20 lines to prevent memory issues
-			if len(m.installationLogs) > 20 {
-				m.installationLogs = m.installationLogs[len(m.installationLogs)-20:]
+			// Keep only last 50 lines to preserve more context for debugging
+			if len(m.installationLogs) > 50 {
+				m.installationLogs = m.installationLogs[len(m.installationLogs)-50:]
 			}
 		}
 		

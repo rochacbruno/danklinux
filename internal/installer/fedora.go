@@ -141,10 +141,14 @@ func (f *FedoraInstaller) ensureDnfPlugins(ctx context.Context, sudoPassword str
 		LogOutput:   "Installing dnf-plugins-core for COPR support",
 	}
 
-	cmd := exec.CommandContext(ctx, "bash", "-c", fmt.Sprintf("echo '%s' | sudo -S dnf install -y dnf-plugins-core", sudoPassword))
-	if err := cmd.Run(); err != nil {
+	cmd := exec.CommandContext(ctx, "bash", "-c", fmt.Sprintf("echo '%s' | sudo -S dnf install -y dnf-plugins-core 2>&1", sudoPassword))
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		f.logError("failed to install dnf-plugins-core", err)
+		f.log(fmt.Sprintf("dnf-plugins-core command output: %s", string(output)))
 		return fmt.Errorf("failed to install dnf-plugins-core: %w", err)
 	}
+	f.log(fmt.Sprintf("dnf-plugins-core install output: %s", string(output)))
 
 	return nil
 }
@@ -194,10 +198,14 @@ func (f *FedoraInstaller) enableCOPRRepos(ctx context.Context, coprPkgs []Fedora
 			}
 
 			cmd := exec.CommandContext(ctx, "bash", "-c", 
-				fmt.Sprintf("echo '%s' | sudo -S dnf copr enable -y %s", sudoPassword, pkg.COPRRepo))
-			if err := cmd.Run(); err != nil {
+				fmt.Sprintf("echo '%s' | sudo -S dnf copr enable -y %s 2>&1", sudoPassword, pkg.COPRRepo))
+			output, err := cmd.CombinedOutput()
+			if err != nil {
+				f.logError(fmt.Sprintf("failed to enable COPR repo %s", pkg.COPRRepo), err)
+				f.log(fmt.Sprintf("COPR enable command output: %s", string(output)))
 				return fmt.Errorf("failed to enable COPR repo %s: %w", pkg.COPRRepo, err)
 			}
+			f.log(fmt.Sprintf("COPR repo %s enabled successfully: %s", pkg.COPRRepo, string(output)))
 			enabledRepos[pkg.COPRRepo] = true
 		}
 	}
@@ -337,6 +345,8 @@ func (f *FedoraInstaller) runWithProgress(cmd *exec.Cmd, progressChan chan<- Ins
 		select {
 		case err := <-done:
 			if err != nil {
+				f.logError("Command execution failed", err)
+				f.log(fmt.Sprintf("Last output before failure: %s", lastOutput))
 				progressChan <- InstallProgressMsg{
 					Phase:      phase,
 					Progress:   startProgress,
@@ -448,4 +458,9 @@ func (f *FedoraInstaller) log(message string) {
 	if f.logChan != nil {
 		f.logChan <- message
 	}
+}
+
+func (f *FedoraInstaller) logError(message string, err error) {
+	errorMsg := fmt.Sprintf("ERROR: %s: %v", message, err)
+	f.log(errorMsg)
 }

@@ -414,6 +414,8 @@ func (a *ArchInstaller) runWithProgress(cmd *exec.Cmd, progressChan chan<- Insta
 		select {
 		case err := <-done:
 			if err != nil {
+				a.logError("Command execution failed", err)
+				a.log(fmt.Sprintf("Last output before failure: %s", lastOutput))
 				progressChan <- InstallProgressMsg{
 					Phase:      phase,
 					Progress:   startProgress,
@@ -512,4 +514,9 @@ func (a *ArchInstaller) log(message string) {
 	if a.logChan != nil {
 		a.logChan <- message
 	}
+}
+
+func (a *ArchInstaller) logError(message string, err error) {
+	errorMsg := fmt.Sprintf("ERROR: %s: %v", message, err)
+	a.log(errorMsg)
 }
