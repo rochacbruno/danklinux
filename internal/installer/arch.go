@@ -14,12 +14,12 @@ import (
 )
 
 type ArchInstaller struct {
-	logChan chan<- string
+	*BaseInstaller
 }
 
 func NewArchInstaller(logChan chan<- string) *ArchInstaller {
 	return &ArchInstaller{
-		logChan: logChan,
+		BaseInstaller: NewBaseInstaller(logChan),
 	}
 }
 
@@ -40,7 +40,7 @@ func (a *ArchInstaller) InstallPackages(ctx context.Context, dependencies []deps
 	}
 
 
-	systemPkgs, aurPkgs := a.categorizePackages(dependencies, wm, reinstallFlags)
+	systemPkgs, aurPkgs, manualPkgs := a.categorizePackages(dependencies, wm, reinstallFlags)
 
 	// Phase 3: System Packages
 	if len(systemPkgs) > 0 {
@@ -87,6 +87,19 @@ func (a *ArchInstaller) InstallPackages(ctx context.Context, dependencies []deps
 		}
 	}
 
+	// Phase 5: Manual Builds
+	if len(manualPkgs) > 0 {
+		progressChan <- InstallProgressMsg{
+			Phase:      PhaseSystemPackages,
+			Progress:   0.85,
+			Step:       fmt.Sprintf("Building %d packages from source...", len(manualPkgs)),
+			IsComplete: false,
+			LogOutput:  fmt.Sprintf("Building from source: %s", strings.Join(manualPkgs, ", ")),
+		}
+		if err := a.InstallManualPackages(ctx, manualPkgs, sudoPassword, progressChan); err != nil {
+			return fmt.Errorf("failed to install manual packages: %w", err)
+		}
+	}
 
 	// Phase 6: Configuration
 	progressChan <- InstallProgressMsg{
@@ -164,9 +177,10 @@ func (a *ArchInstaller) ensureBaseDevel(ctx context.Context, sudoPassword string
 	return nil
 }
 
-func (a *ArchInstaller) categorizePackages(dependencies []deps.Dependency, wm deps.WindowManager, reinstallFlags map[string]bool) ([]string, []string) {
+func (a *ArchInstaller) categorizePackages(dependencies []deps.Dependency, wm deps.WindowManager, reinstallFlags map[string]bool) ([]string, []string, []string) {
 	systemPkgs := []string{}
 	aurPkgs := []string{}
+	manualPkgs := []string{}
 
 	packageMap := a.getPackageMap(wm)
 
@@ -178,7 +192,8 @@ func (a *ArchInstaller) categorizePackages(dependencies []deps.Dependency, wm de
 
 		pkgInfo, exists := packageMap[dep.Name]
 		if !exists {
-			a.log(fmt.Sprintf("Warning: No package mapping for %s", dep.Name))
+			// If no mapping exists, treat as manual build
+			manualPkgs = append(manualPkgs, dep.Name)
 			continue
 		}
 
@@ -189,7 +204,7 @@ func (a *ArchInstaller) categorizePackages(dependencies []deps.Dependency, wm de
 		}
 	}
 
-	return systemPkgs, aurPkgs
+	return systemPkgs, aurPkgs, manualPkgs
 }
 
 func (a *ArchInstaller) installSystemPackages(ctx context.Context, packages []string, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
@@ -252,6 +267,12 @@ func (a *ArchInstaller) installAURPackages(ctx context.Context, packages []strin
 	}
 
 	return nil
+}
+
+// Override dgop installation to use AUR instead of manual build
+func (a *ArchInstaller) installDgop(ctx context.Context, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
+	a.log("Installing dgop from AUR...")
+	return a.installSingleAURPackage(ctx, "dgop", sudoPassword, progressChan, 0.1, 0.9)
 }
 
 func (a *ArchInstaller) installSingleAURPackage(ctx context.Context, pkg, sudoPassword string, progressChan chan<- InstallProgressMsg, startProgress, endProgress float64) error {

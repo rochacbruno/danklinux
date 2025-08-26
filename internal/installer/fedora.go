@@ -14,7 +14,7 @@ import (
 )
 
 type FedoraInstaller struct {
-	logChan chan<- string
+	*BaseInstaller
 }
 
 type FedoraPackageInfo struct {
@@ -25,7 +25,7 @@ type FedoraPackageInfo struct {
 
 func NewFedoraInstaller(logChan chan<- string) *FedoraInstaller {
 	return &FedoraInstaller{
-		logChan: logChan,
+		BaseInstaller: NewBaseInstaller(logChan),
 	}
 }
 
@@ -45,7 +45,7 @@ func (f *FedoraInstaller) InstallPackages(ctx context.Context, dependencies []de
 		return fmt.Errorf("failed to install dnf-plugins-core: %w", err)
 	}
 
-	dnfPkgs, coprPkgs := f.categorizePackages(dependencies, wm, reinstallFlags)
+	dnfPkgs, coprPkgs, manualPkgs := f.categorizePackages(dependencies, wm, reinstallFlags)
 
 	// Phase 2: Enable COPR repositories
 	if len(coprPkgs) > 0 {
@@ -90,6 +90,19 @@ func (f *FedoraInstaller) InstallPackages(ctx context.Context, dependencies []de
 		}
 	}
 
+	// Phase 5: Manual Builds
+	if len(manualPkgs) > 0 {
+		progressChan <- InstallProgressMsg{
+			Phase:      PhaseSystemPackages,
+			Progress:   0.85,
+			Step:       fmt.Sprintf("Building %d packages from source...", len(manualPkgs)),
+			IsComplete: false,
+			LogOutput:  fmt.Sprintf("Building from source: %s", strings.Join(manualPkgs, ", ")),
+		}
+		if err := f.InstallManualPackages(ctx, manualPkgs, sudoPassword, progressChan); err != nil {
+			return fmt.Errorf("failed to install manual packages: %w", err)
+		}
+	}
 
 	// Phase 6: Configuration
 	progressChan <- InstallProgressMsg{
@@ -153,9 +166,10 @@ func (f *FedoraInstaller) ensureDnfPlugins(ctx context.Context, sudoPassword str
 	return nil
 }
 
-func (f *FedoraInstaller) categorizePackages(dependencies []deps.Dependency, wm deps.WindowManager, reinstallFlags map[string]bool) ([]string, []FedoraPackageInfo) {
+func (f *FedoraInstaller) categorizePackages(dependencies []deps.Dependency, wm deps.WindowManager, reinstallFlags map[string]bool) ([]string, []FedoraPackageInfo, []string) {
 	dnfPkgs := []string{}
 	coprPkgs := []FedoraPackageInfo{}
+	manualPkgs := []string{}
 
 	packageMap := f.getPackageMap(wm)
 
@@ -176,10 +190,12 @@ func (f *FedoraInstaller) categorizePackages(dependencies []deps.Dependency, wm 
 			dnfPkgs = append(dnfPkgs, pkgInfo.PackageName)
 		case "copr":
 			coprPkgs = append(coprPkgs, pkgInfo)
+		case "manual":
+			manualPkgs = append(manualPkgs, dep.Name)
 		}
 	}
 
-	return dnfPkgs, coprPkgs
+	return dnfPkgs, coprPkgs, manualPkgs
 }
 
 func (f *FedoraInstaller) enableCOPRRepos(ctx context.Context, coprPkgs []FedoraPackageInfo, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
@@ -261,6 +277,7 @@ func (f *FedoraInstaller) installCOPRPackages(ctx context.Context, coprPkgs []Fe
 	cmd := exec.CommandContext(ctx, "bash", "-c", cmdStr)
 	return f.runWithProgress(cmd, progressChan, PhaseAURPackages, 0.70, 0.85)
 }
+
 
 
 func (f *FedoraInstaller) postInstallConfig(ctx context.Context, wm deps.WindowManager, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
@@ -418,10 +435,12 @@ func (f *FedoraInstaller) getPackageMap(wm deps.WindowManager) map[string]Fedora
 		"font-inter":              {"google-inter-fonts", "dnf", ""},
 		"font-firacode":           {"fira-code-fonts", "dnf", ""},
 		
-		// COPR packages
-		"quickshell":              {"quickshell", "copr", "outfoxxed/quickshell"},
-		"matugen":                 {"matugen", "copr", "fiftydinar/pywal-16-colors"},
-		"dgop":                    {"dgop", "copr", "david-geiger/dgop"},
+		// COPR packages  
+		"quickshell":              {"quickshell", "copr", "errornointernet/quickshell"},
+		"matugen":                 {"matugen", "copr", "heus-sueh/packages"},
+		
+		// Manual builds
+		"dgop":                    {"dgop", "manual", ""},
 		"cliphist":                {"cliphist", "copr", "atim/cliphist"},
 		"font-material-symbols":   {"google-material-design-icons-fonts", "copr", "petersen/google-material-design-icons"},
 	}
@@ -454,13 +473,3 @@ func (f *FedoraInstaller) InstallAURHelper(ctx context.Context, sudoPassword str
 	return nil
 }
 
-func (f *FedoraInstaller) log(message string) {
-	if f.logChan != nil {
-		f.logChan <- message
-	}
-}
-
-func (f *FedoraInstaller) logError(message string, err error) {
-	errorMsg := fmt.Sprintf("ERROR: %s: %v", message, err)
-	f.log(errorMsg)
-}
