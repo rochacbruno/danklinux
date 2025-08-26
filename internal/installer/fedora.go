@@ -130,13 +130,13 @@ func (f *FedoraInstaller) InstallPackages(ctx context.Context, dependencies []de
 
 func (f *FedoraInstaller) ensureDnfPlugins(ctx context.Context, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
 	progressChan <- InstallProgressMsg{
-		Phase:       PhasePrerequisites,
-		Progress:    0.06,
-		Step:        "Checking dnf-plugins-core...",
-		IsComplete:  false,
-		LogOutput:   "Checking if dnf-plugins-core is installed",
+		Phase:      PhasePrerequisites,
+		Progress:   0.06,
+		Step:       "Checking dnf-plugins-core...",
+		IsComplete: false,
+		LogOutput:  "Checking if dnf-plugins-core is installed",
 	}
-	
+
 	checkCmd := exec.CommandContext(ctx, "rpm", "-q", "dnf-plugins-core")
 	if err := checkCmd.Run(); err == nil {
 		f.log("dnf-plugins-core already installed")
@@ -200,7 +200,7 @@ func (f *FedoraInstaller) categorizePackages(dependencies []deps.Dependency, wm 
 
 func (f *FedoraInstaller) enableCOPRRepos(ctx context.Context, coprPkgs []FedoraPackageInfo, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
 	enabledRepos := make(map[string]bool)
-	
+
 	for _, pkg := range coprPkgs {
 		if pkg.COPRRepo != "" && !enabledRepos[pkg.COPRRepo] {
 			f.log(fmt.Sprintf("Enabling COPR repository: %s", pkg.COPRRepo))
@@ -213,7 +213,7 @@ func (f *FedoraInstaller) enableCOPRRepos(ctx context.Context, coprPkgs []Fedora
 				CommandInfo: fmt.Sprintf("sudo dnf copr enable -y %s", pkg.COPRRepo),
 			}
 
-			cmd := exec.CommandContext(ctx, "bash", "-c", 
+			cmd := exec.CommandContext(ctx, "bash", "-c",
 				fmt.Sprintf("echo '%s' | sudo -S dnf copr enable -y %s 2>&1", sudoPassword, pkg.COPRRepo))
 			output, err := cmd.CombinedOutput()
 			if err != nil {
@@ -278,8 +278,6 @@ func (f *FedoraInstaller) installCOPRPackages(ctx context.Context, coprPkgs []Fe
 	return f.runWithProgress(cmd, progressChan, PhaseAURPackages, 0.70, 0.85)
 }
 
-
-
 func (f *FedoraInstaller) postInstallConfig(ctx context.Context, wm deps.WindowManager, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
 	// Clone DMS config if needed (same as Arch)
 	dmsPath := filepath.Join(os.Getenv("HOME"), ".config/quickshell/dms")
@@ -297,7 +295,7 @@ func (f *FedoraInstaller) postInstallConfig(ctx context.Context, wm deps.WindowM
 			return fmt.Errorf("failed to create quickshell config directory: %w", err)
 		}
 
-		cloneCmd := exec.CommandContext(ctx, "git", "clone", 
+		cloneCmd := exec.CommandContext(ctx, "git", "clone",
 			"https://github.com/AvengeMedia/DankMaterialShell.git", dmsPath)
 		if err := cloneCmd.Run(); err != nil {
 			return fmt.Errorf("failed to clone DankMaterialShell: %w", err)
@@ -426,24 +424,24 @@ func (f *FedoraInstaller) runWithProgress(cmd *exec.Cmd, progressChan chan<- Ins
 func (f *FedoraInstaller) getPackageMap(wm deps.WindowManager) map[string]FedoraPackageInfo {
 	packageMap := map[string]FedoraPackageInfo{
 		// Standard DNF packages
-		"git":                     {"git", "dnf", ""},
-		"ghostty":                 {"ghostty", "dnf", ""}, // Available in Fedora 41+
-		"kitty":                   {"kitty", "dnf", ""},
-		"wl-clipboard":            {"wl-clipboard", "dnf", ""},
-		"xdg-desktop-portal-gtk":  {"xdg-desktop-portal-gtk", "dnf", ""},
-		"mate-polkit":             {"mate-polkit", "dnf", ""},
-		"font-inter":              {"google-inter-fonts", "dnf", ""},
-		"font-firacode":           {"fira-code-fonts", "dnf", ""},
-		
-		// COPR packages  
-		"quickshell":              {"quickshell", "copr", "errornointernet/quickshell"},
-		"matugen":                 {"matugen", "copr", "heus-sueh/packages"},
-		
-		"cliphist":                {"cliphist", "copr", "atim/cliphist"},
-		
+		"git":                    {"git", "dnf", ""},
+		"ghostty":                {"ghostty", "dnf", ""}, // Available in Fedora 41+
+		"kitty":                  {"kitty", "dnf", ""},
+		"wl-clipboard":           {"wl-clipboard", "dnf", ""},
+		"xdg-desktop-portal-gtk": {"xdg-desktop-portal-gtk", "dnf", ""},
+		"mate-polkit":            {"mate-polkit", "dnf", ""},
+		"font-inter":             {"google-inter-fonts", "dnf", ""},
+		"font-firacode":          {"fira-code-fonts", "dnf", ""},
+
+		// COPR packages
+		"quickshell": {"quickshell", "copr", "errornointernet/quickshell"},
+		"matugen":    {"matugen", "copr", "heus-sueh/packages"},
+
+		"cliphist": {"cliphist", "copr", "alternateved/cliphist"},
+
 		// Manual builds
-		"dgop":                    {"dgop", "manual", ""},
-		"font-material-symbols":   {"font-material-symbols", "manual", ""},
+		"dgop":                  {"dgop", "manual", ""},
+		"font-material-symbols": {"font-material-symbols", "manual", ""},
 	}
 
 	// Add window manager specific packages
@@ -473,4 +471,3 @@ func (f *FedoraInstaller) InstallAURHelper(ctx context.Context, sudoPassword str
 	// No AUR helper needed for Fedora - we use COPR instead
 	return nil
 }
-
