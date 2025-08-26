@@ -223,6 +223,29 @@ func (f *FedoraInstaller) enableCOPRRepos(ctx context.Context, coprPkgs []Fedora
 			}
 			f.log(fmt.Sprintf("COPR repo %s enabled successfully: %s", pkg.COPRRepo, string(output)))
 			enabledRepos[pkg.COPRRepo] = true
+			
+			// Special handling for niri COPR repo - set priority=1
+			if pkg.COPRRepo == "yalter/niri-git" {
+				f.log("Setting priority=1 for niri COPR repo...")
+				progressChan <- InstallProgressMsg{
+					Phase:       PhaseSystemPackages,
+					Progress:    0.22,
+					Step:        "Setting niri COPR repo priority...",
+					IsComplete:  false,
+					NeedsSudo:   true,
+					CommandInfo: "echo \"priority=1\" | sudo tee -a /etc/yum.repos.d/_copr:copr.fedorainfracloud.org:yalter:niri-git.repo",
+				}
+				
+				priorityCmd := exec.CommandContext(ctx, "bash", "-c",
+					fmt.Sprintf("echo '%s' | sudo -S bash -c 'echo \"priority=1\" | tee -a /etc/yum.repos.d/_copr:copr.fedorainfracloud.org:yalter:niri-git.repo' 2>&1", sudoPassword))
+				priorityOutput, err := priorityCmd.CombinedOutput()
+				if err != nil {
+					f.logError("failed to set niri COPR repo priority", err)
+					f.log(fmt.Sprintf("Priority command output: %s", string(priorityOutput)))
+					return fmt.Errorf("failed to set niri COPR repo priority: %w", err)
+				}
+				f.log(fmt.Sprintf("niri COPR repo priority set successfully: %s", string(priorityOutput)))
+			}
 		}
 	}
 
@@ -449,7 +472,7 @@ func (f *FedoraInstaller) getPackageMap(wm deps.WindowManager) map[string]Fedora
 	case deps.WindowManagerHyprland:
 		packageMap["hyprland"] = FedoraPackageInfo{"hyprland", "copr", "solopasha/hyprland"}
 	case deps.WindowManagerNiri:
-		packageMap["niri"] = FedoraPackageInfo{"niri", "copr", "yalter/niri-git"}
+		packageMap["niri"] = FedoraPackageInfo{"niri-git", "copr", "yalter/niri-git"}
 	}
 
 	return packageMap
