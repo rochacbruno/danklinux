@@ -439,10 +439,11 @@ func (f *FedoraInstaller) getPackageMap(wm deps.WindowManager) map[string]Fedora
 		"quickshell":              {"quickshell", "copr", "errornointernet/quickshell"},
 		"matugen":                 {"matugen", "copr", "heus-sueh/packages"},
 		
+		"cliphist":                {"cliphist", "copr", "atim/cliphist"},
+		
 		// Manual builds
 		"dgop":                    {"dgop", "manual", ""},
-		"cliphist":                {"cliphist", "copr", "atim/cliphist"},
-		"font-material-symbols":   {"google-material-design-icons-fonts", "copr", "petersen/google-material-design-icons"},
+		"font-material-symbols":   {"font-material-symbols", "manual", ""},
 	}
 
 	// Add window manager specific packages
