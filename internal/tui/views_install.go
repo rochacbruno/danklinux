@@ -7,6 +7,35 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+// wrapText wraps text to the specified width
+func wrapText(text string, width int) string {
+	if len(text) <= width {
+		return text
+	}
+	
+	var result strings.Builder
+	words := strings.Fields(text)
+	currentLine := ""
+	
+	for _, word := range words {
+		if len(currentLine) == 0 {
+			currentLine = word
+		} else if len(currentLine)+1+len(word) <= width {
+			currentLine += " " + word
+		} else {
+			result.WriteString(currentLine)
+			result.WriteString("\n")
+			currentLine = word
+		}
+	}
+	
+	if len(currentLine) > 0 {
+		result.WriteString(currentLine)
+	}
+	
+	return result.String()
+}
+
 func (m Model) viewInstallingPackages() string {
 	var b strings.Builder
 	
@@ -64,7 +93,8 @@ func (m Model) viewInstallingPackages() string {
 		// Show error if any
 		if m.packageProgress.error != nil {
 			b.WriteString("\n")
-			errorMsg := m.styles.Error.Render("Error: " + m.packageProgress.error.Error())
+			wrappedErrorMsg := wrapText("Error: " + m.packageProgress.error.Error(), 80)
+			errorMsg := m.styles.Error.Render(wrappedErrorMsg)
 			b.WriteString(errorMsg)
 		}
 		
@@ -75,7 +105,8 @@ func (m Model) viewInstallingPackages() string {
 		}
 	} else {
 		if m.packageProgress.error != nil {
-			errorMsg := m.styles.Error.Render("✗ Installation failed: " + m.packageProgress.error.Error())
+			wrappedFailedMsg := wrapText("✗ Installation failed: " + m.packageProgress.error.Error(), 80)
+			errorMsg := m.styles.Error.Render(wrappedFailedMsg)
 			b.WriteString(errorMsg)
 		} else {
 			success := m.styles.Success.Render("✓ Installation complete!")
@@ -131,14 +162,16 @@ func (m Model) viewError() string {
 	b.WriteString("\n\n")
 	
 	if m.err != nil {
-		error := m.styles.Error.Render("✗ " + m.err.Error())
+		wrappedError := wrapText("✗ " + m.err.Error(), 80)
+		error := m.styles.Error.Render(wrappedError)
 		b.WriteString(error)
 		b.WriteString("\n\n")
 	}
 	
 	// Show package progress error if available
 	if m.packageProgress.error != nil {
-		packageError := m.styles.Error.Render("Package Installation Error: " + m.packageProgress.error.Error())
+		wrappedPackageError := wrapText("Package Installation Error: " + m.packageProgress.error.Error(), 80)
+		packageError := m.styles.Error.Render(wrappedPackageError)
 		b.WriteString(packageError)
 		b.WriteString("\n\n")
 	}

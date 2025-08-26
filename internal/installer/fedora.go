@@ -425,12 +425,12 @@ func (f *FedoraInstaller) getPackageMap(wm deps.WindowManager) map[string]Fedora
 	packageMap := map[string]FedoraPackageInfo{
 		// Standard DNF packages
 		"git":                    {"git", "dnf", ""},
-		"ghostty":                {"ghostty", "dnf", ""}, // Available in Fedora 41+
+		"ghostty":                {"ghostty", "dnf", "alternateved/ghostty"},
 		"kitty":                  {"kitty", "dnf", ""},
 		"wl-clipboard":           {"wl-clipboard", "dnf", ""},
 		"xdg-desktop-portal-gtk": {"xdg-desktop-portal-gtk", "dnf", ""},
 		"mate-polkit":            {"mate-polkit", "dnf", ""},
-		"font-inter":             {"google-inter-fonts", "dnf", ""},
+		"font-inter":             {"rsms-inter-fonts", "dnf", ""},
 		"font-firacode":          {"fira-code-fonts", "dnf", ""},
 
 		// COPR packages
