@@ -431,7 +431,7 @@ func (f *FedoraInstaller) getPackageMap(wm deps.WindowManager) map[string]Fedora
 	case deps.WindowManagerHyprland:
 		packageMap["hyprland"] = FedoraPackageInfo{"hyprland", "copr", "solopasha/hyprland"}
 	case deps.WindowManagerNiri:
-		packageMap["niri"] = FedoraPackageInfo{"niri", "copr", "wezm/niri-git"}
+		packageMap["niri"] = FedoraPackageInfo{"niri", "copr", "yalter/niri-git"}
 	}
 
 	return packageMap
