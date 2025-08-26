@@ -425,7 +425,7 @@ func (f *FedoraInstaller) getPackageMap(wm deps.WindowManager) map[string]Fedora
 	packageMap := map[string]FedoraPackageInfo{
 		// Standard DNF packages
 		"git":                    {"git", "dnf", ""},
-		"ghostty":                {"ghostty", "dnf", "alternateved/ghostty"},
+		"ghostty":                {"ghostty", "copr", "alternateved/ghostty"},
 		"kitty":                  {"kitty", "dnf", ""},
 		"wl-clipboard":           {"wl-clipboard", "dnf", ""},
 		"xdg-desktop-portal-gtk": {"xdg-desktop-portal-gtk", "dnf", ""},
