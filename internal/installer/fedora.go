@@ -453,7 +453,6 @@ func (f *FedoraInstaller) getPackageMap(wm deps.WindowManager) map[string]Fedora
 		"wl-clipboard":           {"wl-clipboard", "dnf", ""},
 		"xdg-desktop-portal-gtk": {"xdg-desktop-portal-gtk", "dnf", ""},
 		"mate-polkit":            {"mate-polkit", "dnf", ""},
-		"font-inter":             {"rsms-inter-fonts", "dnf", ""},
 		"font-firacode":          {"fira-code-fonts", "dnf", ""},
 
 		// COPR packages

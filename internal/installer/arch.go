@@ -516,7 +516,6 @@ func (a *ArchInstaller) getPackageMap(wm deps.WindowManager) map[string]PackageI
 		"xdg-desktop-portal-gtk":  {"xdg-desktop-portal-gtk", false},
 		"mate-polkit":             {"mate-polkit", false},
 		"font-material-symbols":   {"ttf-material-symbols-variable-git", true},
-		"font-inter":              {"inter-font", false},
 		"font-firacode":           {"ttf-fira-code", false},
 	}
 

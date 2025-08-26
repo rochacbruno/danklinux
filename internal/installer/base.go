@@ -36,6 +36,10 @@ func (b *BaseInstaller) InstallManualPackages(ctx context.Context, packages []st
 			if err := b.installMaterialSymbolsFont(ctx, progressChan); err != nil {
 				return fmt.Errorf("failed to install material symbols font: %w", err)
 			}
+		case "font-inter":
+			if err := b.installInterFont(ctx, progressChan); err != nil {
+				return fmt.Errorf("failed to install Inter font: %w", err)
+			}
 		default:
 			b.log(fmt.Sprintf("Warning: No manual build method for %s", pkg))
 		}
@@ -163,10 +167,85 @@ func (b *BaseInstaller) installMaterialSymbolsFont(ctx context.Context, progress
 	return nil
 }
 
+func (b *BaseInstaller) installInterFont(ctx context.Context, progressChan chan<- InstallProgressMsg) error {
+	b.log("Installing Inter font manually...")
+
+	// Create fonts directory
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
+		Progress:    0.1,
+		Step:        "Creating fonts directory...",
+		IsComplete:  false,
+		CommandInfo: "mkdir -p ~/.local/share/fonts",
+	}
+
+	homeDir := os.Getenv("HOME")
+	fontsDir := homeDir + "/.local/share/fonts"
+	if err := os.MkdirAll(fontsDir, 0755); err != nil {
+		b.logError("failed to create fonts directory", err)
+		return fmt.Errorf("failed to create fonts directory: %w", err)
+	}
+
+	// Download font zip
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
+		Progress:    0.3,
+		Step:        "Downloading Inter font...",
+		IsComplete:  false,
+		CommandInfo: "curl -L Inter-4.0.zip",
+	}
+
+	fontURL := "https://github.com/rsms/inter/releases/download/v4.0/Inter-4.0.zip"
+	zipPath := "/tmp/Inter.zip"
+	
+	downloadCmd := exec.CommandContext(ctx, "curl", "-L", fontURL, "-o", zipPath)
+	if err := downloadCmd.Run(); err != nil {
+		b.logError("failed to download Inter font", err)
+		return fmt.Errorf("failed to download Inter font: %w", err)
+	}
+
+	// Extract specific font files
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
+		Progress:    0.6,
+		Step:        "Extracting Inter font files...",
+		IsComplete:  false,
+		CommandInfo: "unzip InterVariable.ttf InterVariable-Italic.ttf",
+	}
+
+	extractCmd := exec.CommandContext(ctx, "unzip", "-j", zipPath, "InterVariable.ttf", "InterVariable-Italic.ttf", "-d", fontsDir)
+	if err := extractCmd.Run(); err != nil {
+		b.logError("failed to extract Inter font files", err)
+		return fmt.Errorf("failed to extract Inter font files: %w", err)
+	}
+
+	// Clean up zip file
+	os.Remove(zipPath)
+
+	// Refresh font cache
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
+		Progress:    0.8,
+		Step:        "Refreshing font cache...",
+		IsComplete:  false,
+		CommandInfo: "fc-cache -f",
+	}
+
+	cacheCmd := exec.CommandContext(ctx, "fc-cache", "-f")
+	if err := cacheCmd.Run(); err != nil {
+		b.logError("failed to refresh font cache", err)
+		return fmt.Errorf("failed to refresh font cache: %w", err)
+	}
+
+	b.log("Inter font installed successfully")
+	return nil
+}
+
 // Base package map - can be extended by specific distros
 func (b *BaseInstaller) getBasePackageMap() map[string]string {
 	return map[string]string{
-		"dgop": "manual", // Indicates manual build required
+		"dgop":       "manual", // Indicates manual build required
+		"font-inter": "manual", // Manual download and install required
 	}
 }
 
