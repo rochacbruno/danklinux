@@ -5,43 +5,43 @@ import (
 	"fmt"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/AvengeMedia/dankinstall/internal/deps"
 	installerPkg "github.com/AvengeMedia/dankinstall/internal/installer"
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 func (m Model) viewDetectingDeps() string {
 	var b strings.Builder
-	
+
 	b.WriteString(m.renderBanner())
 	b.WriteString("\n")
-	
+
 	title := m.styles.Title.Render("Detecting Dependencies")
 	b.WriteString(title)
 	b.WriteString("\n\n")
-	
+
 	spinner := m.spinner.View()
 	status := m.styles.Normal.Render("Scanning system for existing packages and configurations...")
 	b.WriteString(fmt.Sprintf("%s %s", spinner, status))
-	
+
 	return b.String()
 }
 
 func (m Model) viewDependencyReview() string {
 	var b strings.Builder
-	
+
 	b.WriteString(m.renderBanner())
 	b.WriteString("\n")
-	
+
 	title := m.styles.Title.Render("Dependency Review")
 	b.WriteString(title)
 	b.WriteString("\n\n")
-	
+
 	if len(m.dependencies) > 0 {
 		for i, dep := range m.dependencies {
 			var status string
 			var reinstallMarker string
-			
+
 			// Check if this item is marked for reinstall
 			if m.reinstallItems[dep.Name] {
 				reinstallMarker = "🔄 "
@@ -51,14 +51,14 @@ func (m Model) viewDependencyReview() string {
 				case deps.StatusInstalled:
 					status = m.styles.Success.Render("✓ Already Installed")
 				case deps.StatusMissing:
-					status = m.styles.Warning.Render("○ Will be installed") 
+					status = m.styles.Warning.Render("○ Will be installed")
 				case deps.StatusNeedsUpdate:
 					status = m.styles.Warning.Render("△ Needs update")
 				case deps.StatusNeedsReinstall:
 					status = m.styles.Error.Render("! Needs reinstall")
 				}
 			}
-			
+
 			// Highlight selected item
 			var line string
 			if i == m.selectedDep {
@@ -74,19 +74,18 @@ func (m Model) viewDependencyReview() string {
 				}
 				line = m.styles.Normal.Render(line)
 			}
-			
+
 			b.WriteString(line)
 			b.WriteString("\n")
 		}
 	}
-	
+
 	b.WriteString("\n")
 	help := m.styles.Subtle.Render("↑/↓: Navigate, Space: Toggle reinstall, Enter: Continue")
 	b.WriteString(help)
-	
+
 	return b.String()
 }
-
 
 func (m Model) updateDetectingDepsState(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if depsMsg, ok := msg.(depsDetectedMsg); ok {
@@ -118,8 +117,8 @@ func (m Model) updateDependencyReviewState(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if len(m.dependencies) > 0 {
 				depName := m.dependencies[m.selectedDep].Name
 				// Only allow toggling reinstall for installed items or items that need reinstall
-				if m.dependencies[m.selectedDep].Status == deps.StatusInstalled || 
-				   m.dependencies[m.selectedDep].Status == deps.StatusNeedsReinstall {
+				if m.dependencies[m.selectedDep].Status == deps.StatusInstalled ||
+					m.dependencies[m.selectedDep].Status == deps.StatusNeedsReinstall {
 					m.reinstallItems[depName] = !m.reinstallItems[depName]
 				}
 			}
@@ -143,7 +142,7 @@ func (m Model) installPackages() tea.Cmd {
 		}
 
 		// Create installer
-		installer, err := installerPkg.NewPackageInstaller(m.osInfo.Distribution, m.logChan)
+		installer, err := installerPkg.NewPackageInstaller(m.osInfo.Distribution.ID, m.logChan)
 		if err != nil {
 			return packageInstallProgressMsg{
 				progress:   0.0,
@@ -159,10 +158,11 @@ func (m Model) installPackages() tea.Cmd {
 		} else {
 			wm = deps.WindowManagerHyprland
 		}
+		
 
 		// Create progress channel
 		installerProgressChan := make(chan installerPkg.InstallProgressMsg, 100)
-		
+
 		// Start installation in background
 		go func() {
 			defer close(installerProgressChan)
@@ -206,4 +206,3 @@ func (m Model) installPackages() tea.Cmd {
 		}
 	}
 }
-

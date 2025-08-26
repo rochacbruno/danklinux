@@ -19,8 +19,18 @@ func NewArchDetector(logChan chan<- string) *ArchDetector {
 }
 
 func (a *ArchDetector) DetectDependencies(ctx context.Context, wm WindowManager) ([]Dependency, error) {
+	return a.DetectDependenciesWithTerminal(ctx, wm, TerminalGhostty)
+}
+
+func (a *ArchDetector) DetectDependenciesWithTerminal(ctx context.Context, wm WindowManager, terminal Terminal) ([]Dependency, error) {
 	var deps []Dependency
 
+	// DMS at the top (shell is prominent)
+	deps = append(deps, a.detectDMS())
+	
+	// Terminal with choice support
+	deps = append(deps, a.detectSpecificTerminal(terminal))
+	
 	// Arch-specific detections
 	deps = append(deps, a.detectGit())
 	deps = append(deps, a.detectWindowManager(wm)) // Only detect chosen WM
@@ -31,9 +41,6 @@ func (a *ArchDetector) DetectDependencies(ctx context.Context, wm WindowManager)
 	// Base detections (common across distros)
 	deps = append(deps, a.detectMatugen())
 	deps = append(deps, a.detectDgop())
-	deps = append(deps, a.detectDMS())
-	deps = append(deps, a.detectTerminal())
-	deps = append(deps, a.detectCursorTheme())
 	deps = append(deps, a.detectFonts()...)
 	deps = append(deps, a.detectClipboardTools()...)
 

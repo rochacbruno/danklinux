@@ -15,8 +15,7 @@ func (m Model) renderBanner() string {
 	style := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(theme.Primary)).
 		Bold(true).
-		Align(lipgloss.Center).
-		MarginBottom(2)
+		MarginBottom(1)
 
 	return style.Render(logo)
 }

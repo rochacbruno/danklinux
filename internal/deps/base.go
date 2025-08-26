@@ -32,7 +32,7 @@ func (b *BaseDetector) detectMatugen() Dependency {
 	if b.commandExists("matugen") {
 		status = StatusInstalled
 	}
-	
+
 	return Dependency{
 		Name:        "matugen",
 		Status:      status,
@@ -46,7 +46,7 @@ func (b *BaseDetector) detectDgop() Dependency {
 	if b.commandExists("dgop") {
 		status = StatusInstalled
 	}
-	
+
 	return Dependency{
 		Name:        "dgop",
 		Status:      status,
@@ -57,14 +57,14 @@ func (b *BaseDetector) detectDgop() Dependency {
 
 func (b *BaseDetector) detectDMS() Dependency {
 	dmsPath := filepath.Join(os.Getenv("HOME"), ".config/quickshell/dms")
-	
+
 	status := StatusMissing
 	if _, err := os.Stat(dmsPath); err == nil {
 		status = StatusInstalled
 	}
-	
+
 	return Dependency{
-		Name:        "dms",
+		Name:        "dms (DankMaterialShell)",
 		Status:      status,
 		Description: "Desktop Management System configuration",
 		Required:    true,
@@ -73,17 +73,17 @@ func (b *BaseDetector) detectDMS() Dependency {
 
 func (b *BaseDetector) detectClipboardTools() []Dependency {
 	var deps []Dependency
-	
+
 	cliphist := StatusMissing
 	if b.commandExists("cliphist") {
 		cliphist = StatusInstalled
 	}
-	
-	wlClipboard := StatusMissing  
+
+	wlClipboard := StatusMissing
 	if b.commandExists("wl-copy") && b.commandExists("wl-paste") {
 		wlClipboard = StatusInstalled
 	}
-	
+
 	deps = append(deps,
 		Dependency{
 			Name:        "cliphist",
@@ -98,37 +98,40 @@ func (b *BaseDetector) detectClipboardTools() []Dependency {
 			Required:    true,
 		},
 	)
-	
+
 	return deps
 }
 
-func (b *BaseDetector) detectTerminal() Dependency {
-	status := StatusMissing
-	if b.commandExists("ghostty") {
-		status = StatusInstalled
-	}
-	
-	return Dependency{
-		Name:        "ghostty",
-		Status:      status,
-		Description: "Fast, feature-rich terminal emulator",
-		Required:    true,
+func (b *BaseDetector) detectSpecificTerminal(terminal Terminal) Dependency {
+	switch terminal {
+	case TerminalGhostty:
+		status := StatusMissing
+		if b.commandExists("ghostty") {
+			status = StatusInstalled
+		}
+		return Dependency{
+			Name:        "ghostty",
+			Status:      status,
+			Description: "A fast, native terminal emulator built in Zig.",
+			Required:    true,
+		}
+	case TerminalKitty:
+		status := StatusMissing
+		if b.commandExists("kitty") {
+			status = StatusInstalled
+		}
+		return Dependency{
+			Name:        "kitty",
+			Status:      status,
+			Description: "A feature-rich, customizable terminal emulator.",
+			Required:    true,
+		}
+	default:
+		// Fallback to ghostty
+		return b.detectSpecificTerminal(TerminalGhostty)
 	}
 }
 
-func (b *BaseDetector) detectCursorTheme() Dependency {
-	status := StatusMissing
-	if _, err := os.Stat("/usr/share/icons/Bibata-Original-Ice"); err == nil {
-		status = StatusInstalled
-	}
-	
-	return Dependency{
-		Name:        "bibata-cursor",
-		Status:      status,
-		Description: "Modern cursor theme for better visual experience",
-		Required:    true,
-	}
-}
 
 func (b *BaseDetector) detectFonts() []Dependency {
 	requiredFonts := []string{
@@ -136,16 +139,16 @@ func (b *BaseDetector) detectFonts() []Dependency {
 		"inter",
 		"firacode",
 	}
-	
+
 	var deps []Dependency
-	
+
 	for _, font := range requiredFonts {
 		found, _ := b.fontDetector.DetectFont(font)
 		status := StatusMissing
 		if found {
 			status = StatusInstalled
 		}
-		
+
 		deps = append(deps, Dependency{
 			Name:        "font-" + font,
 			Status:      status,
@@ -153,20 +156,26 @@ func (b *BaseDetector) detectFonts() []Dependency {
 			Required:    true,
 		})
 	}
-	
+
 	return deps
 }
 
 // Default implementation - can be overridden by distros
 func (b *BaseDetector) DetectDependencies(ctx context.Context, wm WindowManager) ([]Dependency, error) {
+	return b.DetectDependenciesWithTerminal(ctx, wm, TerminalGhostty)
+}
+
+// New method with terminal choice support
+func (b *BaseDetector) DetectDependenciesWithTerminal(ctx context.Context, wm WindowManager, terminal Terminal) ([]Dependency, error) {
 	var deps []Dependency
-	
-	// Add base dependencies that are common across distros
+
+	// Add base dependencies that are common across distros, with DMS at the top
+	deps = append(deps, b.detectDMS())                      // Shell/DMS moved to top
+	deps = append(deps, b.detectSpecificTerminal(terminal)) // Terminal with choice
 	deps = append(deps, b.detectMatugen())
 	deps = append(deps, b.detectDgop())
-	deps = append(deps, b.detectDMS())
 	deps = append(deps, b.detectFonts()...)
 	deps = append(deps, b.detectClipboardTools()...)
-	
+
 	return deps, nil
 }

@@ -1,27 +1,27 @@
 package tui
 
 import (
+	"github.com/AvengeMedia/dankinstall/internal/deps"
+	"github.com/AvengeMedia/dankinstall/internal/osinfo"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/AvengeMedia/dankinstall/internal/deps"
-	"github.com/AvengeMedia/dankinstall/internal/osinfo"
 )
 
 type Model struct {
 	version string
 	state   ApplicationState
 
-	osInfo       *OSInfo
+	osInfo       *osinfo.OSInfo
 	dependencies []deps.Dependency
 	err          error
 
-	spinner      spinner.Model
+	spinner       spinner.Model
 	passwordInput textinput.Model
-	width        int
-	height       int
-	isLoading    bool
-	styles       Styles
+	width         int
+	height        int
+	isLoading     bool
+	styles        Styles
 
 	logMessages         []string
 	logChan             chan string
@@ -29,11 +29,12 @@ type Model struct {
 	packageProgress     packageInstallProgressMsg
 	installationLogs    []string
 
-	selectedWM     int
-	selectedDep    int
-	reinstallItems map[string]bool
-	sudoPassword   string
-	existingConfigs []ExistingConfigInfo
+	selectedWM       int
+	selectedTerminal int
+	selectedDep      int
+	reinstallItems   map[string]bool
+	sudoPassword     string
+	existingConfigs  []ExistingConfigInfo
 }
 
 func NewModel(version string) Model {
@@ -71,6 +72,7 @@ func NewModel(version string) Model {
 			isComplete: false,
 		},
 		selectedWM:       0,
+		selectedTerminal: 0,  // Default to Ghostty
 		selectedDep:      0,
 		reinstallItems:   make(map[string]bool),
 		installationLogs: []string{},
@@ -114,6 +116,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateWelcomeState(msg)
 	case StateSelectWindowManager:
 		return m.updateSelectWindowManagerState(msg)
+	case StateSelectTerminal:
+		return m.updateSelectTerminalState(msg)
 	case StateDetectingDeps:
 		return m.updateDetectingDepsState(msg)
 	case StateDependencyReview:
@@ -141,6 +145,8 @@ func (m Model) View() string {
 		return m.viewWelcome()
 	case StateSelectWindowManager:
 		return m.viewSelectWindowManager()
+	case StateSelectTerminal:
+		return m.viewSelectTerminal()
 	case StateDetectingDeps:
 		return m.viewDetectingDeps()
 	case StateDependencyReview:
@@ -179,7 +185,7 @@ func (m Model) listenForLogs() tea.Cmd {
 func (m Model) detectOS() tea.Cmd {
 	return func() tea.Msg {
 		info, err := osinfo.GetOSInfo()
-		osInfoMsg := &OSInfo{}
+		osInfoMsg := &osinfo.OSInfo{}
 		if info != nil {
 			osInfoMsg.Distribution = info.Distribution
 			osInfoMsg.Version = info.Version

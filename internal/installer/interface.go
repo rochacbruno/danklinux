@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/AvengeMedia/dankinstall/internal/deps"
+	"github.com/AvengeMedia/dankinstall/internal/osinfo"
 )
 
 type InstallPhase int
@@ -35,12 +36,17 @@ type PackageInstaller interface {
 }
 
 func NewPackageInstaller(distribution string, logChan chan<- string) (PackageInstaller, error) {
-	switch distribution {
+	distroInfo, err := osinfo.GetDistroInfo(distribution)
+	if err != nil {
+		return nil, err
+	}
+
+	switch distroInfo.InstallerType {
 	case "arch":
 		return NewArchInstaller(logChan), nil
 	case "fedora":
 		return NewFedoraInstaller(logChan), nil
 	default:
-		return nil, fmt.Errorf("unsupported distribution: %s", distribution)
+		return nil, fmt.Errorf("unsupported installer type: %s", distroInfo.InstallerType)
 	}
 }

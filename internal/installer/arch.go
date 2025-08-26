@@ -33,7 +33,7 @@ func (a *ArchInstaller) InstallPackages(ctx context.Context, dependencies []deps
 		LogOutput:  "Starting prerequisite check...",
 	}
 
-	// Ensure we have base-devel for AUR helper
+	// Ensure we have base-devel for building packages
 	a.log("Checking base-devel installation...")
 	if err := a.ensureBaseDevel(ctx, sudoPassword, progressChan); err != nil {
 		return fmt.Errorf("failed to install base-devel: %w", err)
@@ -87,10 +87,6 @@ func (a *ArchInstaller) InstallPackages(ctx context.Context, dependencies []deps
 		}
 	}
 
-	// Phase 5: Cursor Theme
-	if err := a.installCursorTheme(ctx, dependencies, sudoPassword, progressChan); err != nil {
-		return fmt.Errorf("failed to install cursor theme: %w", err)
-	}
 
 	// Phase 6: Configuration
 	progressChan <- InstallProgressMsg{
@@ -479,97 +475,6 @@ func (a *ArchInstaller) runWithProgress(cmd *exec.Cmd, progressChan chan<- Insta
 	}
 }
 
-func (a *ArchInstaller) installCursorTheme(ctx context.Context, dependencies []deps.Dependency, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
-	// Check if cursor theme is needed
-	var cursorDep *deps.Dependency
-	for _, dep := range dependencies {
-		if dep.Name == "bibata-cursor" {
-			cursorDep = &dep
-			break
-		}
-	}
-
-	// If cursor theme is not in dependencies, skip silently
-	if cursorDep == nil {
-		return nil
-	}
-
-	// If cursor theme is already installed, log but continue
-	if cursorDep.Status == deps.StatusInstalled {
-		progressChan <- InstallProgressMsg{
-			Phase:      PhaseCursorTheme,
-			Progress:   0.85,
-			Step:       "Cursor theme already installed",
-			IsComplete: false,
-			LogOutput:  "Bibata cursor theme is already available",
-		}
-		return nil
-	}
-
-	progressChan <- InstallProgressMsg{
-		Phase:      PhaseCursorTheme,
-		Progress:   0.80,
-		Step:       "Installing Bibata cursor theme...",
-		IsComplete: false,
-		LogOutput:  "Downloading Bibata-Original-Ice cursor theme",
-	}
-
-	// Download the cursor theme
-	a.log("Downloading Bibata cursor theme...")
-	downloadCmd := exec.CommandContext(ctx, "wget", 
-		"https://github.com/ful1e5/Bibata_Cursor/releases/download/v2.0.7/Bibata-Original-Ice.tar.xz")
-	if err := downloadCmd.Run(); err != nil {
-		return fmt.Errorf("failed to download cursor theme: %w", err)
-	}
-
-	progressChan <- InstallProgressMsg{
-		Phase:      PhaseCursorTheme,
-		Progress:   0.82,
-		Step:       "Extracting cursor theme...",
-		IsComplete: false,
-		LogOutput:  "Extracting Bibata-Original-Ice.tar.xz",
-	}
-
-	// Extract the archive
-	a.log("Extracting cursor theme...")
-	extractCmd := exec.CommandContext(ctx, "tar", "-xvf", "Bibata-Original-Ice.tar.xz")
-	if err := extractCmd.Run(); err != nil {
-		return fmt.Errorf("failed to extract cursor theme: %w", err)
-	}
-
-	progressChan <- InstallProgressMsg{
-		Phase:      PhaseCursorTheme,
-		Progress:   0.84,
-		Step:       "Installing cursor theme to system...",
-		IsComplete: false,
-		LogOutput:  "Moving cursor theme to /usr/share/icons/",
-	}
-
-	// Move to system directory
-	a.log("Installing cursor theme to system...")
-	moveCmd := exec.CommandContext(ctx, "bash", "-c", 
-		fmt.Sprintf("echo '%s' | sudo -S mv Bibata-Original-Ice /usr/share/icons/", sudoPassword))
-	if err := moveCmd.Run(); err != nil {
-		return fmt.Errorf("failed to install cursor theme to system: %w", err)
-	}
-
-	// Clean up downloaded file
-	a.log("Cleaning up...")
-	cleanupCmd := exec.CommandContext(ctx, "rm", "Bibata-Original-Ice.tar.xz")
-	if err := cleanupCmd.Run(); err != nil {
-		a.log(fmt.Sprintf("Warning: Failed to cleanup archive: %v", err))
-	}
-
-	progressChan <- InstallProgressMsg{
-		Phase:      PhaseCursorTheme,
-		Progress:   0.88,
-		Step:       "Cursor theme installation complete",
-		IsComplete: false,
-		LogOutput:  "Bibata-Original-Ice cursor theme installed successfully",
-	}
-
-	return nil
-}
 
 type PackageInfo struct {
 	PackageName string

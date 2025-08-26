@@ -114,11 +114,22 @@ func (m Model) deployConfigurations() tea.Cmd {
 			wm = deps.WindowManagerNiri
 		}
 		
+		// Determine the selected terminal
+		var terminal deps.Terminal
+		switch m.selectedTerminal {
+		case 0:
+			terminal = deps.TerminalGhostty
+		case 1:
+			terminal = deps.TerminalKitty
+		default:
+			terminal = deps.TerminalGhostty
+		}
+		
 		// Create config deployer
 		deployer := config.NewConfigDeployer(m.logChan)
 		
-		// Deploy configurations
-		results, err := deployer.DeployConfigurations(context.Background(), wm)
+		// Deploy configurations with terminal choice
+		results, err := deployer.DeployConfigurationsWithTerminal(context.Background(), wm, terminal)
 		
 		return configDeploymentResult{
 			results: results,
@@ -228,17 +239,32 @@ func (m Model) checkExistingConfigurations() tea.Cmd {
 			Exists:     niriExists,
 		})
 		
-		// Check Ghostty config
-		ghosttyPath := filepath.Join(os.Getenv("HOME"), ".config", "ghostty", "config")
-		ghosttyExists := false
-		if _, err := os.Stat(ghosttyPath); err == nil {
-			ghosttyExists = true
+		// Check terminal config based on selection
+		if m.selectedTerminal == 0 {
+			// Check Ghostty config
+			ghosttyPath := filepath.Join(os.Getenv("HOME"), ".config", "ghostty", "config")
+			ghosttyExists := false
+			if _, err := os.Stat(ghosttyPath); err == nil {
+				ghosttyExists = true
+			}
+			configs = append(configs, ExistingConfigInfo{
+				ConfigType: "Ghostty",
+				Path:       ghosttyPath,
+				Exists:     ghosttyExists,
+			})
+		} else {
+			// Check Kitty config
+			kittyPath := filepath.Join(os.Getenv("HOME"), ".config", "kitty", "kitty.conf")
+			kittyExists := false
+			if _, err := os.Stat(kittyPath); err == nil {
+				kittyExists = true
+			}
+			configs = append(configs, ExistingConfigInfo{
+				ConfigType: "Kitty",
+				Path:       kittyPath,
+				Exists:     kittyExists,
+			})
 		}
-		configs = append(configs, ExistingConfigInfo{
-			ConfigType: "Ghostty",
-			Path:       ghosttyPath,
-			Exists:     ghosttyExists,
-		})
 		
 		return configCheckResult{
 			configs: configs,

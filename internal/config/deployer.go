@@ -38,11 +38,16 @@ func (cd *ConfigDeployer) log(message string) {
 
 // DeployConfigurations deploys all necessary configurations based on the chosen window manager
 func (cd *ConfigDeployer) DeployConfigurations(ctx context.Context, wm deps.WindowManager) ([]DeploymentResult, error) {
+	return cd.DeployConfigurationsWithTerminal(ctx, wm, deps.TerminalGhostty)
+}
+
+// DeployConfigurationsWithTerminal deploys all necessary configurations based on chosen window manager and terminal
+func (cd *ConfigDeployer) DeployConfigurationsWithTerminal(ctx context.Context, wm deps.WindowManager, terminal deps.Terminal) ([]DeploymentResult, error) {
 	var results []DeploymentResult
 
 	switch wm {
 	case deps.WindowManagerNiri:
-		result, err := cd.deployNiriConfig(ctx)
+		result, err := cd.deployNiriConfig(ctx, terminal)
 		results = append(results, result)
 		if err != nil {
 			return results, fmt.Errorf("failed to deploy Niri config: %w", err)
@@ -52,18 +57,27 @@ func (cd *ConfigDeployer) DeployConfigurations(ctx context.Context, wm deps.Wind
 		cd.log("Hyprland configuration deployment not yet implemented")
 	}
 
-	// Deploy Ghostty config regardless of window manager
-	ghosttyResult, err := cd.deployGhosttyConfig(ctx)
-	results = append(results, ghosttyResult)
-	if err != nil {
-		return results, fmt.Errorf("failed to deploy Ghostty config: %w", err)
+	// Deploy terminal config based on choice
+	switch terminal {
+	case deps.TerminalGhostty:
+		ghosttyResult, err := cd.deployGhosttyConfig(ctx)
+		results = append(results, ghosttyResult)
+		if err != nil {
+			return results, fmt.Errorf("failed to deploy Ghostty config: %w", err)
+		}
+	case deps.TerminalKitty:
+		kittyResult, err := cd.deployKittyConfig(ctx)
+		results = append(results, kittyResult)
+		if err != nil {
+			return results, fmt.Errorf("failed to deploy Kitty config: %w", err)
+		}
 	}
 
 	return results, nil
 }
 
 // deployNiriConfig handles Niri configuration deployment with backup and merging
-func (cd *ConfigDeployer) deployNiriConfig(ctx context.Context) (DeploymentResult, error) {
+func (cd *ConfigDeployer) deployNiriConfig(ctx context.Context, terminal deps.Terminal) (DeploymentResult, error) {
 	result := DeploymentResult{
 		ConfigType: "Niri",
 		Path:       filepath.Join(os.Getenv("HOME"), ".config", "niri", "config.kdl"),
@@ -106,8 +120,20 @@ func (cd *ConfigDeployer) deployNiriConfig(ctx context.Context) (DeploymentResul
 		polkitPath = "/usr/lib/mate-polkit/polkit-mate-authentication-agent-1" // fallback
 	}
 
-	// Generate new config with polkit path injection
+	// Determine terminal command based on choice
+	var terminalCommand string
+	switch terminal {
+	case deps.TerminalGhostty:
+		terminalCommand = "ghostty"
+	case deps.TerminalKitty:
+		terminalCommand = "kitty"
+	default:
+		terminalCommand = "ghostty" // fallback to ghostty
+	}
+
+	// Generate new config with polkit path and terminal command injection
 	newConfig := strings.Replace(NiriConfig, "{{POLKIT_AGENT_PATH}}", polkitPath, 1)
+	newConfig = strings.Replace(newConfig, "{{TERMINAL_COMMAND}}", terminalCommand, 1)
 
 	// If there was an existing config, merge the output sections
 	if existingConfig != "" {
@@ -174,6 +200,52 @@ func (cd *ConfigDeployer) deployGhosttyConfig(ctx context.Context) (DeploymentRe
 
 	result.Deployed = true
 	cd.log("Successfully deployed Ghostty configuration")
+	return result, nil
+}
+
+// deployKittyConfig handles Kitty configuration deployment with backup
+func (cd *ConfigDeployer) deployKittyConfig(ctx context.Context) (DeploymentResult, error) {
+	result := DeploymentResult{
+		ConfigType: "Kitty",
+		Path:       filepath.Join(os.Getenv("HOME"), ".config", "kitty", "kitty.conf"),
+	}
+
+	// Create config directory if it doesn't exist
+	configDir := filepath.Dir(result.Path)
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		result.Error = fmt.Errorf("failed to create config directory: %w", err)
+		return result, result.Error
+	}
+
+	// Check if existing config exists
+	if _, err := os.Stat(result.Path); err == nil {
+		cd.log("Found existing Kitty configuration")
+		
+		// Read existing config for backup
+		existingData, err := os.ReadFile(result.Path)
+		if err != nil {
+			result.Error = fmt.Errorf("failed to read existing config: %w", err)
+			return result, result.Error
+		}
+
+		// Create backup
+		timestamp := time.Now().Format("2006-01-02_15-04-05")
+		result.BackupPath = result.Path + ".backup." + timestamp
+		if err := os.WriteFile(result.BackupPath, existingData, 0644); err != nil {
+			result.Error = fmt.Errorf("failed to create backup: %w", err)
+			return result, result.Error
+		}
+		cd.log(fmt.Sprintf("Backed up existing config to %s", result.BackupPath))
+	}
+
+	// Write new config
+	if err := os.WriteFile(result.Path, []byte(KittyConfig), 0644); err != nil {
+		result.Error = fmt.Errorf("failed to write config: %w", err)
+		return result, result.Error
+	}
+
+	result.Deployed = true
+	cd.log("Successfully deployed Kitty configuration")
 	return result, nil
 }
 

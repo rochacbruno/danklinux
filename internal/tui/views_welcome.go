@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 func (m Model) viewWelcome() string {
@@ -13,18 +14,41 @@ func (m Model) viewWelcome() string {
 	b.WriteString(m.renderBanner())
 	b.WriteString("\n")
 
-	title := m.styles.Title.Render("DANK installer")
-	b.WriteString(title)
+	// Create title - it IS left-aligned, just appears centered due to banner width
+	theme := PurpleTheme()
+	titleText := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(theme.Primary)).
+		Bold(true).
+		Render("Dank Linux Suite Installer")
+	subtitle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(theme.Text)).
+		Render("Installs the complete dank desktop suite.")
+	b.WriteString(titleText)
 	b.WriteString("\n")
+	b.WriteString(subtitle)
+	b.WriteString("\n\n")
 
 	if m.osInfo != nil {
-		info := fmt.Sprintf("System: %s %s (%s)\n", m.osInfo.PrettyName, m.osInfo.VersionID, m.osInfo.Architecture)
-		b.WriteString(m.styles.Normal.Render(info))
+		// Style the distro name with its color
+		distroStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color(m.osInfo.Distribution.HexColorCode)).
+			Bold(true)
+		distroName := distroStyle.Render(m.osInfo.PrettyName)
+		
+		info := fmt.Sprintf("System: %s (%s)\n", distroName, m.osInfo.Architecture)
+		b.WriteString(info)
 		b.WriteString("\n")
 
-		overview := "This will install and configure a complete niri or Hyprland environment.\n"
-		overview += "Preconfigured with dms, dynamic theming, and all the out of the box things you need..\n"
-		b.WriteString(m.styles.Normal.Render(overview))
+		overview := m.styles.Bold.Render("What you get:") + "\n"
+		bullet := m.styles.Key.Render("•")
+		overview += fmt.Sprintf("  %s %s\n", bullet, m.styles.Normal.Render("The dms (DankMaterialShell)"))
+		overview += fmt.Sprintf("  %s %s\n", bullet, m.styles.Normal.Render("niri or Hyprland"))
+		overview += fmt.Sprintf("  %s %s\n", bullet, m.styles.Normal.Render("Ghostty - terminal"))
+		overview += fmt.Sprintf("  %s %s\n", bullet, m.styles.Normal.Render("Automatic theming"))
+		overview += fmt.Sprintf("  %s %s\n", bullet, m.styles.Normal.Render("Sane default configuration"))
+		overview += fmt.Sprintf("  %s %s\n\n", bullet, m.styles.Normal.Render("A lot more for a pretty, highly functional desktop"))
+		overview += m.styles.Normal.Render("Already have niri/Hyprland? Your existing config will be backed up.")
+		b.WriteString(overview)
 		b.WriteString("\n\n")
 
 	} else if m.isLoading {

@@ -1,13 +1,16 @@
 package tui
 
-import "github.com/AvengeMedia/dankinstall/internal/deps"
+import (
+	"github.com/AvengeMedia/dankinstall/internal/deps"
+	"github.com/AvengeMedia/dankinstall/internal/osinfo"
+)
 
 type logMsg struct {
 	message string
 }
 
 type osInfoCompleteMsg struct {
-	info *OSInfo
+	info *osinfo.OSInfo
 	err  error
 }
 
@@ -31,12 +34,4 @@ type packageProgressCompletedMsg struct{}
 type passwordValidMsg struct {
 	password string
 	valid    bool
-}
-
-type OSInfo struct {
-	Distribution string
-	Version      string
-	VersionID    string
-	PrettyName   string
-	Architecture string
 }
