@@ -483,6 +483,8 @@ func (u *UbuntuDistribution) installBuildDependencies(ctx context.Context, manua
 			buildDeps["clang"] = true
 			buildDeps["libseat-dev"] = true
 			buildDeps["libgbm-dev"] = true
+			buildDeps["alacritty"] = true
+			buildDeps["fuzzel"] = true
 		case "quickshell":
 			buildDeps["qt6-base-dev"] = true
 			buildDeps["qt6-declarative-dev"] = true

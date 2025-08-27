@@ -335,24 +335,8 @@ func (m *ManualPackageInstaller) installNiri(ctx context.Context, sudoPassword s
 		return fmt.Errorf("failed to clone niri: %w", err)
 	}
 
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhaseSystemPackages,
-		Progress:    0.3,
-		Step:        "Compiling niri (this may take a while)...",
-		IsComplete:  false,
-		CommandInfo: "cargo build --release",
-	}
-
 	// Install cargo-deb first if not present
 	if !m.commandExists("cargo-deb") {
-		progressChan <- installer.InstallProgressMsg{
-			Phase:       installer.PhaseSystemPackages,
-			Progress:    0.3,
-			Step:        "Installing cargo-deb...",
-			IsComplete:  false,
-			CommandInfo: "cargo install cargo-deb",
-		}
-
 		cargoDebInstallCmd := exec.CommandContext(ctx, "cargo", "install", "cargo-deb")
 		if err := m.runWithProgressStep(cargoDebInstallCmd, progressChan, installer.PhaseSystemPackages, 0.3, 0.4, "Installing cargo-deb..."); err != nil {
 			return fmt.Errorf("failed to install cargo-deb: %w", err)
@@ -378,9 +362,14 @@ func (m *ManualPackageInstaller) installNiri(ctx context.Context, sudoPassword s
 	// Install the deb package
 	installDebCmd := exec.CommandContext(ctx, "bash", "-c",
 		fmt.Sprintf("echo '%s' | sudo -S dpkg -i %s/target/debian/niri_*.deb", sudoPassword, tmpDir))
-	if err := installDebCmd.Run(); err != nil {
-		return fmt.Errorf("failed to install niri deb package: %w", err)
+	
+	output, err := installDebCmd.CombinedOutput()
+	if err != nil {
+		m.log(fmt.Sprintf("dpkg install failed. Output:\n%s", string(output)))
+		return fmt.Errorf("failed to install niri deb package: %w\nOutput:\n%s", err, string(output))
 	}
+	
+	m.log(fmt.Sprintf("dpkg install successful. Output:\n%s", string(output)))
 
 	m.log("niri installed successfully from source")
 	return nil
