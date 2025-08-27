@@ -120,18 +120,16 @@ func (u *UbuntuDistribution) GetPackageMapping(wm deps.WindowManager) map[string
 		"xdg-desktop-portal-gtk": {Name: "xdg-desktop-portal-gtk", Repository: RepoTypeSystem},
 		"mate-polkit":            {Name: "mate-polkit", Repository: RepoTypeSystem},
 		"font-firacode":          {Name: "fonts-firacode", Repository: RepoTypeSystem},
-
-		// PPA packages
-		"font-inter": {Name: "fonts-inter", Repository: RepoTypePPA, RepoURL: "ppa:sigil/sigil-ppa"},
+		"font-inter":             {Name: "fonts-inter-variable", Repository: RepoTypeSystem},
 
 		// Manual builds (niri and quickshell likely not available in Ubuntu repos or PPAs)
-		"niri":                   {Name: "niri", Repository: RepoTypeManual, BuildFunc: "installNiri"},
-		"quickshell":             {Name: "quickshell", Repository: RepoTypeManual, BuildFunc: "installQuickshell"},
-		"ghostty":                {Name: "ghostty", Repository: RepoTypeManual, BuildFunc: "installGhostty"},
-		"matugen":                {Name: "matugen", Repository: RepoTypeManual, BuildFunc: "installMatugen"},
-		"dgop":                   {Name: "dgop", Repository: RepoTypeManual, BuildFunc: "installDgop"},
-		"cliphist":               {Name: "cliphist", Repository: RepoTypeManual, BuildFunc: "installCliphist"},
-		"font-material-symbols":  {Name: "font-material-symbols", Repository: RepoTypeManual, BuildFunc: "installMaterialSymbolsFont"},
+		"niri":                  {Name: "niri", Repository: RepoTypeManual, BuildFunc: "installNiri"},
+		"quickshell":            {Name: "quickshell", Repository: RepoTypeManual, BuildFunc: "installQuickshell"},
+		"ghostty":               {Name: "ghostty", Repository: RepoTypeManual, BuildFunc: "installGhostty"},
+		"matugen":               {Name: "matugen", Repository: RepoTypeManual, BuildFunc: "installMatugen"},
+		"dgop":                  {Name: "dgop", Repository: RepoTypeManual, BuildFunc: "installDgop"},
+		"cliphist":              {Name: "cliphist", Repository: RepoTypeManual, BuildFunc: "installCliphist"},
+		"font-material-symbols": {Name: "font-material-symbols", Repository: RepoTypeManual, BuildFunc: "installMaterialSymbolsFont"},
 	}
 
 	// Add window manager specific packages
@@ -198,7 +196,7 @@ func (u *UbuntuDistribution) InstallPrerequisites(ctx context.Context, sudoPassw
 		LogOutput:   "Installing additional development tools",
 	}
 
-	devToolsCmd := exec.CommandContext(ctx, "bash", "-c", 
+	devToolsCmd := exec.CommandContext(ctx, "bash", "-c",
 		fmt.Sprintf("echo '%s' | sudo -S apt install -y curl wget git cmake ninja-build pkg-config", sudoPassword))
 	if err := u.runWithProgress(devToolsCmd, progressChan, installer.PhasePrerequisites, 0.10, 0.12); err != nil {
 		return fmt.Errorf("failed to install development tools: %w", err)
@@ -369,7 +367,7 @@ func (u *UbuntuDistribution) enablePPARepos(ctx context.Context, ppaPkgs []Packa
 	enabledRepos := make(map[string]bool)
 
 	// Install software-properties-common first if needed
-	installPPACmd := exec.CommandContext(ctx, "bash", "-c", 
+	installPPACmd := exec.CommandContext(ctx, "bash", "-c",
 		fmt.Sprintf("echo '%s' | sudo -S apt install -y software-properties-common", sudoPassword))
 	if err := u.runWithProgress(installPPACmd, progressChan, installer.PhaseSystemPackages, 0.15, 0.17); err != nil {
 		return fmt.Errorf("failed to install software-properties-common: %w", err)
@@ -468,7 +466,7 @@ func (u *UbuntuDistribution) installPPAPackages(ctx context.Context, packages []
 
 func (u *UbuntuDistribution) installBuildDependencies(ctx context.Context, manualPkgs []string, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
 	buildDeps := make(map[string]bool)
-	
+
 	for _, pkg := range manualPkgs {
 		switch pkg {
 		case "niri":
@@ -557,13 +555,13 @@ func (u *UbuntuDistribution) installZig(ctx context.Context, sudoPassword string
 
 	zigUrl := "https://ziglang.org/download/0.11.0/zig-linux-x86_64-0.11.0.tar.xz"
 	zigTmp := "/tmp/zig.tar.xz"
-	
+
 	downloadCmd := exec.CommandContext(ctx, "curl", "-L", zigUrl, "-o", zigTmp)
 	if err := u.runWithProgress(downloadCmd, progressChan, installer.PhaseSystemPackages, 0.84, 0.85); err != nil {
 		return fmt.Errorf("failed to download Zig: %w", err)
 	}
 
-	extractCmd := exec.CommandContext(ctx, "bash", "-c", 
+	extractCmd := exec.CommandContext(ctx, "bash", "-c",
 		fmt.Sprintf("echo '%s' | sudo -S tar -xf %s -C /opt/", sudoPassword, zigTmp))
 	if err := u.runWithProgress(extractCmd, progressChan, installer.PhaseSystemPackages, 0.85, 0.86); err != nil {
 		return fmt.Errorf("failed to extract Zig: %w", err)
@@ -587,9 +585,9 @@ func (u *UbuntuDistribution) installGhosttyUbuntu(ctx context.Context, sudoPassw
 		LogOutput:   "Installing Ghostty using pre-built Ubuntu package",
 	}
 
-	installCmd := exec.CommandContext(ctx, "bash", "-c", 
+	installCmd := exec.CommandContext(ctx, "bash", "-c",
 		fmt.Sprintf("echo '%s' | sudo -S /bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/mkasberg/ghostty-ubuntu/HEAD/install.sh)\"", sudoPassword))
-	
+
 	if err := u.runWithProgress(installCmd, progressChan, installer.PhaseSystemPackages, 0.1, 0.9); err != nil {
 		return fmt.Errorf("failed to install Ghostty: %w", err)
 	}
