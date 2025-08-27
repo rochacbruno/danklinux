@@ -2,10 +2,8 @@ package installer
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/AvengeMedia/dankinstall/internal/deps"
-	"github.com/AvengeMedia/dankinstall/internal/osinfo"
 )
 
 type InstallPhase int
@@ -33,20 +31,4 @@ type InstallProgressMsg struct {
 
 type PackageInstaller interface {
 	InstallPackages(ctx context.Context, deps []deps.Dependency, wm deps.WindowManager, sudoPassword string, reinstallFlags map[string]bool, progressChan chan<- InstallProgressMsg) error
-}
-
-func NewPackageInstaller(distribution string, logChan chan<- string) (PackageInstaller, error) {
-	distroInfo, err := osinfo.GetDistroInfo(distribution)
-	if err != nil {
-		return nil, err
-	}
-
-	switch distroInfo.InstallerType {
-	case "arch":
-		return NewArchInstaller(logChan), nil
-	case "fedora":
-		return NewFedoraInstaller(logChan), nil
-	default:
-		return nil, fmt.Errorf("unsupported installer type: %s", distroInfo.InstallerType)
-	}
 }

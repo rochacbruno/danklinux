@@ -1,243 +1,211 @@
 # Adding New Linux Distributions
 
-This guide explains how to add support for new Linux distributions to the dankdots installer.
+This guide explains how to add support for new Linux distributions to the dankdots installer using the new consolidated architecture.
 
 ## Architecture Overview
 
-The codebase uses a centralized registry system with detector/installer implementations:
+The codebase uses a simple, consolidated approach where each distribution is completely self-contained:
 
-- **Registry** (`internal/osinfo/detector.go`) - Central distro configuration
-- **Detectors** (`internal/deps/`) - Check what packages are installed/missing  
-- **Installers** (`internal/installer/`) - Handle package installation
+- **All-in-One** (`internal/distros/{distro}.go`) - Complete distribution implementation
+- **Auto-Registration** - Distributions register themselves via `init()` functions
+- **Shared Base** - Common functionality inherited from `BaseDistribution`
 
 ## Adding Support
 
 ### Method 1: Use Existing Implementation (Derivatives)
 
-For distros that use the same package manager as an existing distro, just add one line to the registry.
+For distros that are derivatives (like CachyOS being Arch-based), you can register them to use an existing implementation.
 
 **Example: Adding CachyOS (Arch-based)**
 
 ```go
-// internal/osinfo/detector.go
-var AllSupportedDistros = []DistroInfo{
-    {ID: "arch", HexColorCode: "#1793D1", DetectorType: "arch", InstallerType: "arch"},
-    {ID: "cachyos", HexColorCode: "#1793D1", DetectorType: "arch", InstallerType: "arch"},
+// internal/distros/arch.go - add to the init function
+func init() {
+    Register("arch", "#1793D1", func(config DistroConfig, logChan chan<- string) Distribution {
+        return NewArchDistribution(config, logChan)
+    })
+    Register("cachyos", "#318CE7", func(config DistroConfig, logChan chan<- string) Distribution {
+        return NewArchDistribution(config, logChan) // CachyOS uses Arch implementation but different color
+    })
 }
 ```
 
 That's it! CachyOS now uses Arch's detection and installation logic.
 
+**Example: Adding Ubuntu derivatives**
+
+```go
+// internal/distros/ubuntu.go (after you create it)
+func init() {
+    Register("ubuntu", "#E95420", func(config DistroConfig, logChan chan<- string) Distribution {
+        return NewUbuntuDistribution(config, logChan)
+    })
+    Register("kubuntu", "#0079C1", func(config DistroConfig, logChan chan<- string) Distribution {
+        return NewUbuntuDistribution(config, logChan) // Kubuntu uses Ubuntu implementation but different color
+    })
+    Register("xubuntu", "#2F5BEA", func(config DistroConfig, logChan chan<- string) Distribution {
+        return NewUbuntuDistribution(config, logChan) // Xubuntu uses Ubuntu implementation but different color
+    })
+    Register("pop", "#48B9C7", func(config DistroConfig, logChan chan<- string) Distribution {
+        return NewUbuntuDistribution(config, logChan) // Pop!_OS uses Ubuntu implementation but different color
+    })
+}
+```
+
 ### Method 2: Create New Implementation
 
-For distros with different package management, create new implementations:
+For entirely new distribution families, create a complete implementation:
 
-1. Create detector/installer files
-2. Add to the registry
-3. Update factory functions
+**Example: Adding openSUSE**
 
-#### Required Files
-
-For a new distro called `mydistro`, create:
-
-1. `internal/deps/mydistro.go` - Package detection logic
-2. `internal/installer/mydistro.go` - Package installation logic
-
-## New Detector Implementation
-
-### Structure
+Create `internal/distros/opensuse.go`:
 
 ```go
-package deps
+package distros
 
-type MydistroDetector struct {
-    *BaseDetector
+import (
+    "context"
+    "os/exec"
+    "strings"
+
+    "github.com/AvengeMedia/dankinstall/internal/deps"
+    "github.com/AvengeMedia/dankinstall/internal/installer"
+)
+
+func init() {
+    Register("opensuse-leap", "#73BA25", func(config DistroConfig, logChan chan<- string) Distribution {
+        return NewOpenSUSEDistribution(config, logChan)
+    })
+    Register("opensuse-tumbleweed", "#73BA25", func(config DistroConfig, logChan chan<- string) Distribution {
+        return NewOpenSUSEDistribution(config, logChan)
+    })
 }
 
-func NewMydistroDetector(logChan chan<- string) *MydistroDetector {
-    return &MydistroDetector{
-        BaseDetector: NewBaseDetector(logChan),
+type OpenSUSEDistribution struct {
+    *BaseDistribution
+    *ManualPackageInstaller
+    config DistroConfig
+}
+
+func NewOpenSUSEDistribution(config DistroConfig, logChan chan<- string) *OpenSUSEDistribution {
+    base := NewBaseDistribution(logChan)
+    return &OpenSUSEDistribution{
+        BaseDistribution:       base,
+        ManualPackageInstaller: &ManualPackageInstaller{BaseDistribution: base},
+        config:                 config,
     }
 }
-```
 
-### Required Methods
-
-```go
-// Main detection entry point
-func (d *MydistroDetector) DetectDependencies(ctx context.Context, wm WindowManager) ([]Dependency, error)
-
-// Detection with terminal choice
-func (d *MydistroDetector) DetectDependenciesWithTerminal(ctx context.Context, wm WindowManager, terminal Terminal) ([]Dependency, error)
-
-// Package-specific detection methods
-func (d *MydistroDetector) detectGit() Dependency
-func (d *MydistroDetector) detectWindowManager(wm WindowManager) Dependency
-func (d *MydistroDetector) detectQuickshell() Dependency
-func (d *MydistroDetector) detectXDGPortal() Dependency
-func (d *MydistroDetector) detectPolkitAgent() Dependency
-
-// Distro-specific package check
-func (d *MydistroDetector) packageInstalled(pkg string) bool
-```
-
-### Detection Pattern
-
-Follow this order in `DetectDependenciesWithTerminal`:
-
-1. DMS (shell) - `f.detectDMS()`
-2. Terminal - `f.detectSpecificTerminal(terminal)`
-3. Distro-specific packages (git, WM, quickshell, etc.)
-4. Common packages - `f.detectMatugen()`, `f.detectDgop()`, fonts, clipboard tools
-
-### Package Detection
-
-Use distro-appropriate commands in `packageInstalled()`:
-
-- **Arch**: `pacman -Q package`
-- **Fedora**: `rpm -q package` 
-- **Debian/Ubuntu**: `dpkg -s package`
-- **openSUSE**: `rpm -q package`
-
-## Installer Implementation
-
-### Structure
-
-```go
-package installer
-
-type MydistroInstaller struct {
-    logChan chan<- string
+func (o *OpenSUSEDistribution) GetID() string {
+    return o.config.ID
 }
 
-func NewMydistroInstaller(logChan chan<- string) *MydistroInstaller {
-    return &MydistroInstaller{logChan: logChan}
+func (o *OpenSUSEDistribution) GetColorHex() string {
+    return o.config.ColorHex
 }
-```
 
-### Required Methods
+func (o *OpenSUSEDistribution) GetPackageManager() PackageManagerType {
+    return PackageManagerZypper
+}
 
-```go
-// Main installation method
-func (i *MydistroInstaller) InstallPackages(ctx context.Context, dependencies []deps.Dependency, wm deps.WindowManager, sudoPassword string, reinstallFlags map[string]bool, progressChan chan<- InstallProgressMsg) error
-
-// Package categorization
-func (i *MydistroInstaller) categorizePackages(dependencies []deps.Dependency, wm deps.WindowManager, reinstallFlags map[string]bool) ([]string, []string)
-
-// Package mapping
-func (i *MydistroInstaller) getPackageMap(wm deps.WindowManager) map[string]PackageInfo
-
-// Post-install configuration
-func (i *MydistroInstaller) postInstallConfig(ctx context.Context, wm deps.WindowManager, sudoPassword string, progressChan chan<- InstallProgressMsg) error
-```
-
-### Installation Phases
-
-Follow this phase pattern:
-
-1. **Prerequisites** (0.05-0.12) - Install build tools, enable repos
-2. **System Packages** (0.35-0.60) - Standard repo packages
-3. **Special Packages** (0.65-0.85) - AUR/COPR/PPA packages
-4. **Configuration** (0.90-0.95) - Clone DMS config
-5. **Complete** (1.0) - Finished
-
-### Package Mapping
-
-Create a map of dependency names to distro packages:
-
-```go
-func (i *MydistroInstaller) getPackageMap(wm deps.WindowManager) map[string]PackageInfo {
-    packageMap := map[string]PackageInfo{
-        "git":                     {"git", false},
-        "quickshell":              {"quickshell-git", true}, // true = special repo
-        "ghostty":                 {"ghostty", false},
-        // ... more packages
+func (o *OpenSUSEDistribution) GetPackageMapping(wm deps.WindowManager) map[string]PackageMapping {
+    return map[string]PackageMapping{
+        "git":      {Name: "git", Repository: RepoTypeSystem},
+        "ghostty":  {Name: "ghostty", Repository: RepoTypeManual}, // Build from source
+        "kitty":    {Name: "kitty", Repository: RepoTypeSystem},
+        // ... map all required packages to openSUSE equivalents
     }
+}
+
+func (o *OpenSUSEDistribution) DetectDependencies(ctx context.Context, wm deps.WindowManager) ([]deps.Dependency, error) {
+    return o.DetectDependenciesWithTerminal(ctx, wm, deps.TerminalGhostty)
+}
+
+func (o *OpenSUSEDistribution) DetectDependenciesWithTerminal(ctx context.Context, wm deps.WindowManager, terminal deps.Terminal) ([]deps.Dependency, error) {
+    var dependencies []deps.Dependency
     
-    // Add WM-specific packages
-    switch wm {
-    case deps.WindowManagerHyprland:
-        packageMap["hyprland"] = PackageInfo{"hyprland", false}
-    case deps.WindowManagerNiri:
-        packageMap["niri"] = PackageInfo{"niri-git", true}
-    }
+    // Use base methods for common functionality
+    dependencies = append(dependencies, o.detectDMS())
+    dependencies = append(dependencies, o.detectSpecificTerminal(terminal))
+    dependencies = append(dependencies, o.detectGit())
+    // ... add openSUSE-specific detection
     
-    return packageMap
+    return dependencies, nil
+}
+
+func (o *OpenSUSEDistribution) InstallPackages(ctx context.Context, dependencies []deps.Dependency, wm deps.WindowManager, sudoPassword string, reinstallFlags map[string]bool, progressChan chan<- installer.InstallProgressMsg) error {
+    // Implement installation logic using zypper
+    // Use o.InstallManualPackages() for source builds
+    return nil
+}
+
+func (o *OpenSUSEDistribution) InstallPrerequisites(ctx context.Context, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
+    // Install build tools, enable repositories, etc.
+    return nil
+}
+
+func (o *OpenSUSEDistribution) packageInstalled(pkg string) bool {
+    cmd := exec.Command("rpm", "-q", pkg)
+    err := cmd.Run()
+    return err == nil
 }
 ```
 
-### Registry Integration
+## Repository Types
 
-After creating implementations, add them to the system:
+The system supports these repository types:
 
-#### 1. Add to Registry
+- `RepoTypeSystem` - Main system repository (zypper, apt, dnf, pacman)
+- `RepoTypeAUR` - Arch User Repository  
+- `RepoTypeCOPR` - Fedora COPR
+- `RepoTypePPA` - Ubuntu PPA
+- `RepoTypeManual` - Build from source
 
-```go
-// internal/osinfo/detector.go
-var AllSupportedDistros = []DistroInfo{
-    {ID: "arch", HexColorCode: "#1793D1", DetectorType: "arch", InstallerType: "arch"},
-    {ID: "fedora", HexColorCode: "#0B57A4", DetectorType: "fedora", InstallerType: "fedora"},
-    {ID: "mydistro", HexColorCode: "#FF0000", DetectorType: "mydistro", InstallerType: "mydistro"},
-}
-```
+## Package Manager Support
 
-#### 2. Update Factory Functions
+To add a new package manager, add it to `internal/distros/interface.go`:
 
 ```go
-// internal/deps/detector.go - Add to switch statement
-switch distroInfo.DetectorType {
-case "arch":
-    return NewArchDetector(logChan), nil
-case "fedora": 
-    return NewFedoraDetector(logChan), nil
-case "mydistro":
-    return NewMydistroDetector(logChan), nil
+const (
+    PackageManagerPacman PackageManagerType = "pacman"
+    PackageManagerDNF    PackageManagerType = "dnf"
+    PackageManagerAPT    PackageManagerType = "apt"
+    PackageManagerZypper PackageManagerType = "zypper"
+    PackageManagerPortage PackageManagerType = "portage" // Add new ones here
+)
 ```
 
-```go
-// internal/installer/interface.go - Add to switch statement  
-switch distroInfo.InstallerType {
-case "arch":
-    return NewArchInstaller(logChan), nil
-case "fedora":
-    return NewFedoraInstaller(logChan), nil  
-case "mydistro":
-    return NewMydistroInstaller(logChan), nil
-```
+## Testing Your Implementation
 
-## Common Derivative Examples
+1. Build: `go build -o dankdots ./cmd/main.go`
+2. Test on target distribution
+3. Verify all packages detect and install correctly
+4. Test both window managers (Hyprland, Niri)
+5. Test both terminals (Ghostty, Kitty)
 
-### Arch-based Distros
-```go
-{ID: "cachyos", HexColorCode: "#1793D1", DetectorType: "arch", InstallerType: "arch"},
-{ID: "endeavouros", HexColorCode: "#7F3FBF", DetectorType: "arch", InstallerType: "arch"},
-{ID: "manjaro", HexColorCode: "#35BF5C", DetectorType: "arch", InstallerType: "arch"},
-```
+## Detection Process
 
-### Fedora-based Distros
-```go
-{ID: "nobara", HexColorCode: "#0B57A4", DetectorType: "fedora", InstallerType: "fedora"},
-```
+The system automatically detects supported distributions by:
 
-### Debian-based Distros  
-```go
-{ID: "ubuntu", HexColorCode: "#E95420", DetectorType: "debian", InstallerType: "debian"},
-{ID: "mint", HexColorCode: "#87CF3E", DetectorType: "debian", InstallerType: "debian"},
-```
+1. Reading `/etc/os-release` for the `ID` field
+2. Looking up the ID in the distribution registry
+3. Creating an instance using the registered constructor function
 
-## Testing
+No hardcoded lists to maintain - everything is driven by the registry!
 
-Test your implementation:
+## Benefits of New Architecture
 
-1. Package detection works correctly
-2. Installation phases progress properly
-3. Error handling for missing packages
-4. Derivative distro inheritance works
+- ✅ **Single file per distro** - All logic in one place
+- ✅ **Auto-registration** - No factory methods to update
+- ✅ **Shared functionality** - Inherit common features
+- ✅ **No duplication** - Manual builds and fonts are shared
+- ✅ **Easy derivatives** - One line to support a new derivative
 
-## Examples
+## Contributing
 
-- **Arch**: Standard packages via pacman, AUR via manual build
-- **Fedora**: Standard packages via dnf, COPR repos for extras
-- **Debian**: Standard packages via apt, PPAs for extras
+1. Fork the repository
+2. Create your distribution file in `internal/distros/`  
+3. Test thoroughly on your target distribution
+4. Submit a pull request with example output
 
-Look at existing implementations in `internal/deps/arch.go` and `internal/installer/fedora.go` for reference patterns.
+The maintainers will review and provide feedback. Thank you for expanding dankdots support!

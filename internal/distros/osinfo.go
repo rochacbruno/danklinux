@@ -1,29 +1,22 @@
-package osinfo
+package distros
 
 import (
 	"bufio"
 	"fmt"
 	"os"
 	"runtime"
-	"slices"
 	"strings"
 
 	"github.com/AvengeMedia/dankinstall/internal/errdefs"
 )
 
-var AllSupportedDistros = []DistroInfo{
-	{ID: "arch", HexColorCode: "#1793D1", DetectorType: "arch", InstallerType: "arch"},
-	{ID: "fedora", HexColorCode: "#0B57A4", DetectorType: "fedora", InstallerType: "fedora"},
-	{ID: "cachyos", HexColorCode: "#1793D1", DetectorType: "arch", InstallerType: "arch"}, // Uses Arch implementations
-}
-
+// DistroInfo contains basic information about a distribution
 type DistroInfo struct {
-	ID            string
-	HexColorCode  string
-	DetectorType  string // Which detector implementation to use
-	InstallerType string // Which installer implementation to use
+	ID           string
+	HexColorCode string
 }
 
+// OSInfo contains complete OS information
 type OSInfo struct {
 	Distribution DistroInfo
 	Version      string
@@ -32,28 +25,30 @@ type OSInfo struct {
 	Architecture string
 }
 
-var getOsFunc = getGoos
-var getArchFunc = getGoarch
-
-func getGoos() string {
-	return runtime.GOOS
+// GetSupportedDistros returns all supported distributions by querying the registry
+func GetSupportedDistros() []DistroInfo {
+	var distros []DistroInfo
+	for id, config := range Registry {
+		distros = append(distros, DistroInfo{
+			ID:           id,
+			HexColorCode: config.ColorHex,
+		})
+	}
+	return distros
 }
 
-func getGoarch() string {
-	return runtime.GOARCH
-}
-
+// GetOSInfo detects the current OS and returns information about it
 func GetOSInfo() (*OSInfo, error) {
-	if getOsFunc() != "linux" {
+	if runtime.GOOS != "linux" {
 		return nil, errdefs.NewCustomError(errdefs.ErrTypeNotLinux, fmt.Sprintf("Only linux is supported, but I found %s", runtime.GOOS))
 	}
 
-	if getGoarch() != "amd64" && getGoarch() != "arm64" {
+	if runtime.GOARCH != "amd64" && runtime.GOARCH != "arm64" {
 		return nil, errdefs.NewCustomError(errdefs.ErrTypeInvalidArchitecture, fmt.Sprintf("Only amd64 and arm64 are supported, but I found %s", runtime.GOARCH))
 	}
 
 	info := &OSInfo{
-		Architecture: getArchFunc(),
+		Architecture: runtime.GOARCH,
 	}
 
 	file, err := os.Open("/etc/os-release")
@@ -75,16 +70,16 @@ func GetOSInfo() (*OSInfo, error) {
 
 		switch key {
 		case "ID":
-			if !slices.ContainsFunc(AllSupportedDistros, func(d DistroInfo) bool {
-				return d.ID == value
-			}) {
+			// Check if we support this distribution
+			config, exists := Registry[value]
+			if !exists {
 				return nil, errdefs.NewCustomError(errdefs.ErrTypeUnsupportedDistribution, fmt.Sprintf("Unsupported distribution: %s", value))
 			}
-			for _, d := range AllSupportedDistros {
-				if d.ID == value {
-					info.Distribution = d
-					break
-				}
+			
+			// Get distribution info from the registry
+			info.Distribution = DistroInfo{
+				ID:           value, // Use the actual ID from os-release
+				HexColorCode: config.ColorHex,
 			}
 		case "VERSION_ID", "BUILD_ID":
 			info.VersionID = value
@@ -100,10 +95,13 @@ func GetOSInfo() (*OSInfo, error) {
 
 // GetDistroInfo returns the DistroInfo for a given distribution ID
 func GetDistroInfo(distroID string) (*DistroInfo, error) {
-	for _, d := range AllSupportedDistros {
-		if d.ID == distroID {
-			return &d, nil
-		}
+	config, exists := Registry[distroID]
+	if !exists {
+		return nil, fmt.Errorf("unsupported distribution: %s", distroID)
 	}
-	return nil, fmt.Errorf("unsupported distribution: %s", distroID)
+	
+	return &DistroInfo{
+		ID:           distroID,
+		HexColorCode: config.ColorHex,
+	}, nil
 }

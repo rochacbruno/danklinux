@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/AvengeMedia/dankinstall/internal/deps"
+	"github.com/AvengeMedia/dankinstall/internal/distros"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -152,7 +153,7 @@ func (m Model) detectDependencies() tea.Cmd {
 			return depsDetectedMsg{deps: nil, err: fmt.Errorf("OS info not available")}
 		}
 
-		detector, err := deps.NewDependencyDetector(m.osInfo.Distribution.ID, m.logChan)
+		detector, err := distros.NewDependencyDetector(m.osInfo.Distribution.ID, m.logChan)
 		if err != nil {
 			return depsDetectedMsg{deps: nil, err: err}
 		}

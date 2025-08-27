@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/AvengeMedia/dankinstall/internal/deps"
+	"github.com/AvengeMedia/dankinstall/internal/distros"
 	installerPkg "github.com/AvengeMedia/dankinstall/internal/installer"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -142,7 +143,7 @@ func (m Model) installPackages() tea.Cmd {
 		}
 
 		// Create installer
-		installer, err := installerPkg.NewPackageInstaller(m.osInfo.Distribution.ID, m.logChan)
+		installer, err := distros.NewPackageInstaller(m.osInfo.Distribution.ID, m.logChan)
 		if err != nil {
 			return packageInstallProgressMsg{
 				progress:   0.0,
@@ -158,7 +159,6 @@ func (m Model) installPackages() tea.Cmd {
 		} else {
 			wm = deps.WindowManagerHyprland
 		}
-		
 
 		// Create progress channel
 		installerProgressChan := make(chan installerPkg.InstallProgressMsg, 100)

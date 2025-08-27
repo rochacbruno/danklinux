@@ -2,7 +2,7 @@ package tui
 
 import (
 	"github.com/AvengeMedia/dankinstall/internal/deps"
-	"github.com/AvengeMedia/dankinstall/internal/osinfo"
+	"github.com/AvengeMedia/dankinstall/internal/distros"
 )
 
 type logMsg struct {
@@ -10,7 +10,7 @@ type logMsg struct {
 }
 
 type osInfoCompleteMsg struct {
-	info *osinfo.OSInfo
+	info *distros.OSInfo
 	err  error
 }
 

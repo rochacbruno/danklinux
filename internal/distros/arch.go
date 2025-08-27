@@ -1,0 +1,546 @@
+package distros
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"regexp"
+	"strings"
+
+	"github.com/AvengeMedia/dankinstall/internal/deps"
+	"github.com/AvengeMedia/dankinstall/internal/installer"
+)
+
+func init() {
+	Register("arch", "#1793D1", func(config DistroConfig, logChan chan<- string) Distribution {
+		return NewArchDistribution(config, logChan)
+	})
+	Register("cachyos", "#08A283", func(config DistroConfig, logChan chan<- string) Distribution {
+		return NewArchDistribution(config, logChan)
+	})
+}
+
+type ArchDistribution struct {
+	*BaseDistribution
+	*ManualPackageInstaller
+	config DistroConfig
+}
+
+func NewArchDistribution(config DistroConfig, logChan chan<- string) *ArchDistribution {
+	base := NewBaseDistribution(logChan)
+	return &ArchDistribution{
+		BaseDistribution:       base,
+		ManualPackageInstaller: &ManualPackageInstaller{BaseDistribution: base},
+		config:                 config,
+	}
+}
+
+func (a *ArchDistribution) GetID() string {
+	return a.config.ID
+}
+
+func (a *ArchDistribution) GetColorHex() string {
+	return a.config.ColorHex
+}
+
+func (a *ArchDistribution) GetPackageManager() PackageManagerType {
+	return PackageManagerPacman
+}
+
+func (a *ArchDistribution) DetectDependencies(ctx context.Context, wm deps.WindowManager) ([]deps.Dependency, error) {
+	return a.DetectDependenciesWithTerminal(ctx, wm, deps.TerminalGhostty)
+}
+
+func (a *ArchDistribution) DetectDependenciesWithTerminal(ctx context.Context, wm deps.WindowManager, terminal deps.Terminal) ([]deps.Dependency, error) {
+	var dependencies []deps.Dependency
+
+	// DMS at the top (shell is prominent)
+	dependencies = append(dependencies, a.detectDMS())
+
+	// Terminal with choice support
+	dependencies = append(dependencies, a.detectSpecificTerminal(terminal))
+
+	// Arch-specific detections
+	dependencies = append(dependencies, a.detectGit())
+	dependencies = append(dependencies, a.detectWindowManager(wm))
+	dependencies = append(dependencies, a.detectQuickshell())
+	dependencies = append(dependencies, a.detectXDGPortal())
+	dependencies = append(dependencies, a.detectPolkitAgent())
+
+	// Hyprland-specific tools
+	if wm == deps.WindowManagerHyprland {
+		dependencies = append(dependencies, a.detectHyprlandTools()...)
+	}
+
+	// Base detections (common across distros)
+	dependencies = append(dependencies, a.detectMatugen())
+	dependencies = append(dependencies, a.detectDgop())
+	dependencies = append(dependencies, a.detectFonts()...)
+	dependencies = append(dependencies, a.detectClipboardTools()...)
+
+	return dependencies, nil
+}
+
+func (a *ArchDistribution) detectWindowManager(wm deps.WindowManager) deps.Dependency {
+	switch wm {
+	case deps.WindowManagerHyprland:
+		status := deps.StatusMissing
+		if a.commandExists("hyprland") || a.commandExists("Hyprland") {
+			status = deps.StatusInstalled
+		}
+		return deps.Dependency{
+			Name:        "hyprland",
+			Status:      status,
+			Description: "Dynamic tiling Wayland compositor",
+			Required:    true,
+		}
+	case deps.WindowManagerNiri:
+		status := deps.StatusMissing
+		if a.commandExists("niri") {
+			status = deps.StatusInstalled
+		}
+		return deps.Dependency{
+			Name:        "niri",
+			Status:      status,
+			Description: "Scrollable-tiling Wayland compositor",
+			Required:    true,
+		}
+	default:
+		return deps.Dependency{
+			Name:        "unknown-wm",
+			Status:      deps.StatusMissing,
+			Description: "Unknown window manager",
+			Required:    true,
+		}
+	}
+}
+
+func (a *ArchDistribution) detectQuickshell() deps.Dependency {
+	if !a.commandExists("qs") {
+		return deps.Dependency{
+			Name:        "quickshell",
+			Status:      deps.StatusMissing,
+			Description: "QtQuick based desktop shell toolkit",
+			Required:    true,
+		}
+	}
+
+	cmd := exec.Command("qs", "--version")
+	output, err := cmd.Output()
+	if err != nil {
+		return deps.Dependency{
+			Name:        "quickshell",
+			Status:      deps.StatusNeedsReinstall,
+			Description: "QtQuick based desktop shell toolkit (version check failed)",
+			Required:    true,
+		}
+	}
+
+	versionStr := string(output)
+	versionRegex := regexp.MustCompile(`quickshell (\d+\.\d+\.\d+)`)
+	matches := versionRegex.FindStringSubmatch(versionStr)
+
+	if len(matches) < 2 {
+		return deps.Dependency{
+			Name:        "quickshell",
+			Status:      deps.StatusNeedsReinstall,
+			Description: "QtQuick based desktop shell toolkit (unknown version)",
+			Required:    true,
+		}
+	}
+
+	version := matches[1]
+	if a.versionCompare(version, "0.2.0") >= 0 {
+		return deps.Dependency{
+			Name:        "quickshell",
+			Status:      deps.StatusInstalled,
+			Version:     version,
+			Description: "QtQuick based desktop shell toolkit",
+			Required:    true,
+		}
+	}
+
+	return deps.Dependency{
+		Name:        "quickshell",
+		Status:      deps.StatusNeedsUpdate,
+		Version:     version,
+		Description: "QtQuick based desktop shell toolkit (needs 0.2.0+)",
+		Required:    true,
+	}
+}
+
+func (a *ArchDistribution) detectXDGPortal() deps.Dependency {
+	status := deps.StatusMissing
+	if a.packageInstalled("xdg-desktop-portal-gtk") {
+		status = deps.StatusInstalled
+	}
+
+	return deps.Dependency{
+		Name:        "xdg-desktop-portal-gtk",
+		Status:      status,
+		Description: "Desktop integration portal for GTK",
+		Required:    true,
+	}
+}
+
+func (a *ArchDistribution) detectPolkitAgent() deps.Dependency {
+	polkitPaths := []string{
+		"/usr/lib/mate-polkit/polkit-mate-authentication-agent-1",
+		"/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1",
+		"/usr/lib/polkit-kde-authentication-agent-1",
+	}
+
+	for _, path := range polkitPaths {
+		if _, err := os.Stat(path); err == nil {
+			return deps.Dependency{
+				Name:        "polkit-agent",
+				Status:      deps.StatusInstalled,
+				Description: "PolicyKit authentication agent",
+				Required:    true,
+			}
+		}
+	}
+
+	return deps.Dependency{
+		Name:        "mate-polkit",
+		Status:      deps.StatusMissing,
+		Description: "PolicyKit authentication agent",
+		Required:    true,
+	}
+}
+
+func (a *ArchDistribution) packageInstalled(pkg string) bool {
+	cmd := exec.Command("pacman", "-Q", pkg)
+	err := cmd.Run()
+	return err == nil
+}
+
+func (a *ArchDistribution) GetPackageMapping(wm deps.WindowManager) map[string]PackageMapping {
+	packages := map[string]PackageMapping{
+		"git":                    {Name: "git", Repository: RepoTypeSystem},
+		"quickshell":             {Name: "quickshell-git", Repository: RepoTypeAUR},
+		"matugen":                {Name: "matugen-bin", Repository: RepoTypeAUR},
+		"dgop":                   {Name: "dgop", Repository: RepoTypeAUR},
+		"ghostty":                {Name: "ghostty", Repository: RepoTypeSystem},
+		"cliphist":               {Name: "cliphist", Repository: RepoTypeSystem},
+		"wl-clipboard":           {Name: "wl-clipboard", Repository: RepoTypeSystem},
+		"xdg-desktop-portal-gtk": {Name: "xdg-desktop-portal-gtk", Repository: RepoTypeSystem},
+		"mate-polkit":            {Name: "mate-polkit", Repository: RepoTypeSystem},
+		"font-material-symbols":  {Name: "ttf-material-symbols-variable-git", Repository: RepoTypeAUR},
+		"font-firacode":          {Name: "ttf-fira-code", Repository: RepoTypeSystem},
+	}
+
+	// Add window manager specific packages
+	switch wm {
+	case deps.WindowManagerHyprland:
+		packages["hyprland"] = PackageMapping{Name: "hyprland", Repository: RepoTypeSystem}
+		packages["grim"] = PackageMapping{Name: "grim", Repository: RepoTypeSystem}
+		packages["slurp"] = PackageMapping{Name: "slurp", Repository: RepoTypeSystem}
+		packages["hyprctl"] = PackageMapping{Name: "hyprland", Repository: RepoTypeSystem}
+		packages["hyprpicker"] = PackageMapping{Name: "hyprpicker", Repository: RepoTypeSystem}
+		packages["jq"] = PackageMapping{Name: "jq", Repository: RepoTypeSystem}
+	case deps.WindowManagerNiri:
+		packages["niri"] = PackageMapping{Name: "niri-git", Repository: RepoTypeAUR}
+	}
+
+	return packages
+}
+
+func (a *ArchDistribution) InstallPrerequisites(ctx context.Context, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
+	progressChan <- installer.InstallProgressMsg{
+		Phase:      installer.PhasePrerequisites,
+		Progress:   0.06,
+		Step:       "Checking base-devel...",
+		IsComplete: false,
+		LogOutput:  "Checking if base-devel is installed",
+	}
+
+	checkCmd := exec.CommandContext(ctx, "pacman", "-Qq", "base-devel")
+	if err := checkCmd.Run(); err == nil {
+		a.log("base-devel already installed")
+		progressChan <- installer.InstallProgressMsg{
+			Phase:      installer.PhasePrerequisites,
+			Progress:   0.10,
+			Step:       "base-devel already installed",
+			IsComplete: false,
+			LogOutput:  "base-devel is already installed on the system",
+		}
+		return nil
+	}
+
+	a.log("Installing base-devel...")
+	progressChan <- installer.InstallProgressMsg{
+		Phase:       installer.PhasePrerequisites,
+		Progress:    0.08,
+		Step:        "Installing base-devel...",
+		IsComplete:  false,
+		NeedsSudo:   true,
+		CommandInfo: "sudo pacman -S --needed --noconfirm base-devel",
+		LogOutput:   "Installing base-devel development tools",
+	}
+
+	cmd := exec.CommandContext(ctx, "bash", "-c", fmt.Sprintf("echo '%s' | sudo -S pacman -S --needed --noconfirm base-devel", sudoPassword))
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to install base-devel: %w", err)
+	}
+
+	progressChan <- installer.InstallProgressMsg{
+		Phase:      installer.PhasePrerequisites,
+		Progress:   0.12,
+		Step:       "base-devel installation complete",
+		IsComplete: false,
+		LogOutput:  "base-devel successfully installed",
+	}
+
+	return nil
+}
+
+func (a *ArchDistribution) InstallPackages(ctx context.Context, dependencies []deps.Dependency, wm deps.WindowManager, sudoPassword string, reinstallFlags map[string]bool, progressChan chan<- installer.InstallProgressMsg) error {
+	// Phase 1: Check Prerequisites
+	progressChan <- installer.InstallProgressMsg{
+		Phase:      installer.PhasePrerequisites,
+		Progress:   0.05,
+		Step:       "Checking system prerequisites...",
+		IsComplete: false,
+		LogOutput:  "Starting prerequisite check...",
+	}
+
+	if err := a.InstallPrerequisites(ctx, sudoPassword, progressChan); err != nil {
+		return fmt.Errorf("failed to install prerequisites: %w", err)
+	}
+
+	systemPkgs, aurPkgs, manualPkgs := a.categorizePackages(dependencies, wm, reinstallFlags)
+
+	// Phase 3: System Packages
+	if len(systemPkgs) > 0 {
+		progressChan <- installer.InstallProgressMsg{
+			Phase:      installer.PhaseSystemPackages,
+			Progress:   0.35,
+			Step:       fmt.Sprintf("Installing %d system packages...", len(systemPkgs)),
+			IsComplete: false,
+			NeedsSudo:  true,
+			LogOutput:  fmt.Sprintf("Installing system packages: %s", strings.Join(systemPkgs, ", ")),
+		}
+		if err := a.installSystemPackages(ctx, systemPkgs, sudoPassword, progressChan); err != nil {
+			return fmt.Errorf("failed to install system packages: %w", err)
+		}
+	}
+
+	// Phase 4: AUR Packages
+	if len(aurPkgs) > 0 {
+		progressChan <- installer.InstallProgressMsg{
+			Phase:      installer.PhaseAURPackages,
+			Progress:   0.65,
+			Step:       fmt.Sprintf("Installing %d AUR packages...", len(aurPkgs)),
+			IsComplete: false,
+			LogOutput:  fmt.Sprintf("Installing AUR packages: %s", strings.Join(aurPkgs, ", ")),
+		}
+		if err := a.installAURPackages(ctx, aurPkgs, sudoPassword, progressChan); err != nil {
+			return fmt.Errorf("failed to install AUR packages: %w", err)
+		}
+	}
+
+	// Phase 5: Manual Builds
+	if len(manualPkgs) > 0 {
+		progressChan <- installer.InstallProgressMsg{
+			Phase:      installer.PhaseSystemPackages,
+			Progress:   0.85,
+			Step:       fmt.Sprintf("Building %d packages from source...", len(manualPkgs)),
+			IsComplete: false,
+			LogOutput:  fmt.Sprintf("Building from source: %s", strings.Join(manualPkgs, ", ")),
+		}
+		if err := a.InstallManualPackages(ctx, manualPkgs, sudoPassword, progressChan); err != nil {
+			return fmt.Errorf("failed to install manual packages: %w", err)
+		}
+	}
+
+	// Phase 6: Configuration
+	progressChan <- installer.InstallProgressMsg{
+		Phase:      installer.PhaseConfiguration,
+		Progress:   0.90,
+		Step:       "Configuring system...",
+		IsComplete: false,
+		LogOutput:  "Starting post-installation configuration...",
+	}
+	if err := a.postInstallConfig(ctx, wm, sudoPassword, progressChan); err != nil {
+		return fmt.Errorf("failed to configure system: %w", err)
+	}
+
+	// Phase 7: Complete
+	progressChan <- installer.InstallProgressMsg{
+		Phase:      installer.PhaseComplete,
+		Progress:   1.0,
+		Step:       "Installation complete!",
+		IsComplete: true,
+		LogOutput:  "All packages installed and configured successfully",
+	}
+
+	return nil
+}
+
+func (a *ArchDistribution) categorizePackages(dependencies []deps.Dependency, wm deps.WindowManager, reinstallFlags map[string]bool) ([]string, []string, []string) {
+	systemPkgs := []string{}
+	aurPkgs := []string{}
+	manualPkgs := []string{}
+
+	packageMap := a.GetPackageMapping(wm)
+
+	for _, dep := range dependencies {
+		// Skip installed packages unless marked for reinstall
+		if dep.Status == deps.StatusInstalled && !reinstallFlags[dep.Name] {
+			continue
+		}
+
+		pkgInfo, exists := packageMap[dep.Name]
+		if !exists {
+			// If no mapping exists, treat as manual build
+			manualPkgs = append(manualPkgs, dep.Name)
+			continue
+		}
+
+		switch pkgInfo.Repository {
+		case RepoTypeAUR:
+			aurPkgs = append(aurPkgs, pkgInfo.Name)
+		case RepoTypeSystem:
+			systemPkgs = append(systemPkgs, pkgInfo.Name)
+		case RepoTypeManual:
+			manualPkgs = append(manualPkgs, dep.Name)
+		}
+	}
+
+	return systemPkgs, aurPkgs, manualPkgs
+}
+
+func (a *ArchDistribution) installSystemPackages(ctx context.Context, packages []string, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
+	if len(packages) == 0 {
+		return nil
+	}
+
+	a.log(fmt.Sprintf("Installing system packages: %s", strings.Join(packages, ", ")))
+
+	args := []string{"pacman", "-S", "--needed", "--noconfirm"}
+	args = append(args, packages...)
+
+	progressChan <- installer.InstallProgressMsg{
+		Phase:       installer.PhaseSystemPackages,
+		Progress:    0.40,
+		Step:        "Installing system packages...",
+		IsComplete:  false,
+		NeedsSudo:   true,
+		CommandInfo: fmt.Sprintf("sudo %s", strings.Join(args, " ")),
+	}
+
+	cmdStr := fmt.Sprintf("echo '%s' | sudo -S %s", sudoPassword, strings.Join(args, " "))
+	cmd := exec.CommandContext(ctx, "bash", "-c", cmdStr)
+	return a.runWithProgress(cmd, progressChan, installer.PhaseSystemPackages, 0.40, 0.60)
+}
+
+func (a *ArchDistribution) installAURPackages(ctx context.Context, packages []string, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
+	if len(packages) == 0 {
+		return nil
+	}
+
+	a.log(fmt.Sprintf("Installing AUR packages manually: %s", strings.Join(packages, ", ")))
+
+	baseProgress := 0.65
+	progressStep := 0.15 / float64(len(packages))
+
+	for i, pkg := range packages {
+		currentProgress := baseProgress + (float64(i) * progressStep)
+
+		progressChan <- installer.InstallProgressMsg{
+			Phase:       installer.PhaseAURPackages,
+			Progress:    currentProgress,
+			Step:        fmt.Sprintf("Installing AUR package %s (%d/%d)...", pkg, i+1, len(packages)),
+			IsComplete:  false,
+			CommandInfo: fmt.Sprintf("Building and installing %s", pkg),
+		}
+
+		if err := a.installSingleAURPackage(ctx, pkg, sudoPassword, progressChan, currentProgress, currentProgress+progressStep); err != nil {
+			return fmt.Errorf("failed to install AUR package %s: %w", pkg, err)
+		}
+	}
+
+	progressChan <- installer.InstallProgressMsg{
+		Phase:      installer.PhaseAURPackages,
+		Progress:   0.80,
+		Step:       "All AUR packages installed successfully",
+		IsComplete: false,
+		LogOutput:  fmt.Sprintf("Successfully installed AUR packages: %s", strings.Join(packages, ", ")),
+	}
+
+	return nil
+}
+
+func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sudoPassword string, progressChan chan<- installer.InstallProgressMsg, startProgress, endProgress float64) error {
+	// Create temporary directory for this package
+	tmpDir := fmt.Sprintf("/tmp/aur-build-%s", pkg)
+	if err := os.MkdirAll(tmpDir, 0755); err != nil {
+		return fmt.Errorf("failed to create temp directory: %w", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Clone the AUR package
+	progressChan <- installer.InstallProgressMsg{
+		Phase:       installer.PhaseAURPackages,
+		Progress:    startProgress + 0.1*(endProgress-startProgress),
+		Step:        fmt.Sprintf("Cloning %s from AUR...", pkg),
+		IsComplete:  false,
+		CommandInfo: fmt.Sprintf("git clone https://aur.archlinux.org/%s.git", pkg),
+	}
+
+	cloneCmd := exec.CommandContext(ctx, "git", "clone", fmt.Sprintf("https://aur.archlinux.org/%s.git", pkg), filepath.Join(tmpDir, pkg))
+	if err := cloneCmd.Run(); err != nil {
+		return fmt.Errorf("failed to clone %s: %w", pkg, err)
+	}
+
+	packageDir := filepath.Join(tmpDir, pkg)
+
+	// Build the package
+	progressChan <- installer.InstallProgressMsg{
+		Phase:       installer.PhaseAURPackages,
+		Progress:    startProgress + 0.4*(endProgress-startProgress),
+		Step:        fmt.Sprintf("Building %s...", pkg),
+		IsComplete:  false,
+		CommandInfo: "makepkg -s --noconfirm",
+	}
+
+	buildCmd := exec.CommandContext(ctx, "makepkg", "-s", "--noconfirm")
+	buildCmd.Dir = packageDir
+	buildCmd.Env = append(os.Environ(), "PKGEXT=.pkg.tar") // Disable compression for speed
+
+	if err := buildCmd.Run(); err != nil {
+		return fmt.Errorf("failed to build %s: %w", pkg, err)
+	}
+
+	// Find built package file
+	progressChan <- installer.InstallProgressMsg{
+		Phase:       installer.PhaseAURPackages,
+		Progress:    startProgress + 0.7*(endProgress-startProgress),
+		Step:        fmt.Sprintf("Installing %s...", pkg),
+		IsComplete:  false,
+		CommandInfo: "sudo pacman -U built-package",
+	}
+
+	// Find .pkg.tar* files
+	files, err := filepath.Glob(filepath.Join(packageDir, "*.pkg.tar*"))
+	if err != nil || len(files) == 0 {
+		return fmt.Errorf("no package files found after building %s", pkg)
+	}
+
+	// Install the built package
+	installArgs := []string{"pacman", "-U", "--noconfirm"}
+	installArgs = append(installArgs, files...)
+
+	cmdStr := fmt.Sprintf("echo '%s' | sudo -S %s", sudoPassword, strings.Join(installArgs, " "))
+	installCmd := exec.CommandContext(ctx, "bash", "-c", cmdStr)
+
+	if err := installCmd.Run(); err != nil {
+		return fmt.Errorf("failed to install built package %s: %w", pkg, err)
+	}
+
+	a.log(fmt.Sprintf("Successfully installed AUR package: %s", pkg))
+	return nil
+}

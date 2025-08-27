@@ -2,7 +2,7 @@ package tui
 
 import (
 	"github.com/AvengeMedia/dankinstall/internal/deps"
-	"github.com/AvengeMedia/dankinstall/internal/osinfo"
+	"github.com/AvengeMedia/dankinstall/internal/distros"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -12,7 +12,7 @@ type Model struct {
 	version string
 	state   ApplicationState
 
-	osInfo       *osinfo.OSInfo
+	osInfo       *distros.OSInfo
 	dependencies []deps.Dependency
 	err          error
 
@@ -184,8 +184,8 @@ func (m Model) listenForLogs() tea.Cmd {
 
 func (m Model) detectOS() tea.Cmd {
 	return func() tea.Msg {
-		info, err := osinfo.GetOSInfo()
-		osInfoMsg := &osinfo.OSInfo{}
+		info, err := distros.GetOSInfo()
+		osInfoMsg := &distros.OSInfo{}
 		if info != nil {
 			osInfoMsg.Distribution = info.Distribution
 			osInfoMsg.Version = info.Version
