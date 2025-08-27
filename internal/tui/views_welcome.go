@@ -6,7 +6,9 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/AvengeMedia/dankinstall/internal/distros"
 )
+
 
 func (m Model) viewWelcome() string {
 	var b strings.Builder
@@ -51,25 +53,52 @@ func (m Model) viewWelcome() string {
 	b.WriteString("\n\n")
 
 	if m.osInfo != nil {
-		// System info box
-		sysBox := lipgloss.NewStyle().
-			Border(lipgloss.NormalBorder()).
-			BorderForeground(lipgloss.Color(theme.Subtle)).
-			Padding(0, 1).
-			MarginBottom(1)
+		// Check for unsupported distros
+		if distros.IsUnsupportedDistro(m.osInfo.Distribution.ID, m.osInfo.VersionID) {
+			errorBox := lipgloss.NewStyle().
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(lipgloss.Color("#FF6B6B")).
+				Padding(1, 2).
+				MarginBottom(1)
 
-		// Style the distro name with its color
-		distroStyle := lipgloss.NewStyle().
-			Foreground(lipgloss.Color(m.osInfo.Distribution.HexColorCode)).
-			Bold(true)
-		distroName := distroStyle.Render(m.osInfo.PrettyName)
+			errorTitle := lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#FF6B6B")).
+				Bold(true).
+				Render("⚠ UNSUPPORTED DISTRIBUTION")
 
-		archStyle := lipgloss.NewStyle().
-			Foreground(lipgloss.Color(theme.Accent))
+			var errorMsg string
+			if m.osInfo.Distribution.ID == "ubuntu" {
+				errorMsg = fmt.Sprintf("Ubuntu %s is not supported.\n\nOnly Ubuntu 25.04+ is supported.\n\nPlease upgrade to Ubuntu 25.04 or later.", m.osInfo.VersionID)
+			} else {
+				errorMsg = fmt.Sprintf("%s is not supported.\n\nSupported distributions:\n• Arch Linux\n• CachyOS\n• Fedora\n• Ubuntu 25.04+", m.osInfo.PrettyName)
+			}
 
-		sysInfo := fmt.Sprintf("System: %s / %s", distroName, archStyle.Render(m.osInfo.Architecture))
-		b.WriteString(sysBox.Render(sysInfo))
-		b.WriteString("\n")
+			errorMsgStyled := lipgloss.NewStyle().
+				Foreground(lipgloss.Color(theme.Text)).
+				Render(errorMsg)
+
+			b.WriteString(errorBox.Render(errorTitle + "\n\n" + errorMsgStyled))
+			b.WriteString("\n\n")
+		} else {
+			// System info box
+			sysBox := lipgloss.NewStyle().
+				Border(lipgloss.NormalBorder()).
+				BorderForeground(lipgloss.Color(theme.Subtle)).
+				Padding(0, 1).
+				MarginBottom(1)
+
+			// Style the distro name with its color
+			distroStyle := lipgloss.NewStyle().
+				Foreground(lipgloss.Color(m.osInfo.Distribution.HexColorCode)).
+				Bold(true)
+			distroName := distroStyle.Render(m.osInfo.PrettyName)
+
+			archStyle := lipgloss.NewStyle().
+				Foreground(lipgloss.Color(theme.Accent))
+
+			sysInfo := fmt.Sprintf("System: %s / %s", distroName, archStyle.Render(m.osInfo.Architecture))
+			b.WriteString(sysBox.Render(sysInfo))
+			b.WriteString("\n")
 
 		// Feature list with better styling
 		featTitle := lipgloss.NewStyle().
@@ -110,12 +139,13 @@ func (m Model) viewWelcome() string {
 
 		b.WriteString("\n")
 
-		noteStyle := lipgloss.NewStyle().
-			Foreground(lipgloss.Color(theme.Subtle)).
-			Italic(true)
-		note := noteStyle.Render("* In case of conflicts, existing configs will be backed up.")
-		b.WriteString(note)
-		b.WriteString("\n\n")
+			noteStyle := lipgloss.NewStyle().
+				Foreground(lipgloss.Color(theme.Subtle)).
+				Italic(true)
+			note := noteStyle.Render("* In case of conflicts, existing configs will be backed up.")
+			b.WriteString(note)
+			b.WriteString("\n\n")
+		}
 
 	} else if m.isLoading {
 		spinner := m.spinner.View()
@@ -133,17 +163,21 @@ func (m Model) viewWelcome() string {
 	b.WriteString(footerDivider + "\n")
 
 	if m.osInfo != nil {
-		enterKey := lipgloss.NewStyle().
-			Foreground(lipgloss.Color(theme.Primary)).
-			Bold(true).
-			Render("Enter")
-
 		ctrlKey := lipgloss.NewStyle().
 			Foreground(lipgloss.Color(theme.Primary)).
 			Bold(true).
 			Render("Ctrl+C")
 
-		b.WriteString(m.styles.Subtle.Render("Press ") + enterKey + m.styles.Subtle.Render(" to choose window manager, ") + ctrlKey + m.styles.Subtle.Render(" to quit"))
+		if distros.IsUnsupportedDistro(m.osInfo.Distribution.ID, m.osInfo.VersionID) {
+			b.WriteString(m.styles.Subtle.Render("Press ") + ctrlKey + m.styles.Subtle.Render(" to quit"))
+		} else {
+			enterKey := lipgloss.NewStyle().
+				Foreground(lipgloss.Color(theme.Primary)).
+				Bold(true).
+				Render("Enter")
+
+			b.WriteString(m.styles.Subtle.Render("Press ") + enterKey + m.styles.Subtle.Render(" to choose window manager, ") + ctrlKey + m.styles.Subtle.Render(" to quit"))
+		}
 	} else {
 		help := m.styles.Subtle.Render("Press Enter to continue, Ctrl+C to quit")
 		b.WriteString(help)
@@ -167,7 +201,7 @@ func (m Model) updateWelcomeState(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if keyMsg, ok := msg.(tea.KeyMsg); ok {
 		switch keyMsg.String() {
 		case "enter":
-			if m.osInfo != nil {
+			if m.osInfo != nil && !distros.IsUnsupportedDistro(m.osInfo.Distribution.ID, m.osInfo.VersionID) {
 				m.state = StateSelectWindowManager
 				return m, m.listenForLogs()
 			}

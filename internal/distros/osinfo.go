@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"strconv"
 	"strings"
 
 	"github.com/AvengeMedia/dankinstall/internal/errdefs"
@@ -104,4 +105,27 @@ func GetDistroInfo(distroID string) (*DistroInfo, error) {
 		ID:           distroID,
 		HexColorCode: config.ColorHex,
 	}, nil
+}
+
+// IsUnsupportedDistro checks if a distribution/version combination is supported
+func IsUnsupportedDistro(distroID, versionID string) bool {
+	switch distroID {
+	case "arch", "cachyos", "fedora":
+		return false // These are supported
+	case "ubuntu":
+		// Parse version (format: "24.04")
+		parts := strings.Split(versionID, ".")
+		if len(parts) >= 2 {
+			major, err1 := strconv.Atoi(parts[0])
+			minor, err2 := strconv.Atoi(parts[1])
+			
+			if err1 == nil && err2 == nil {
+				// Check if version is less than 25.04
+				return major < 25 || (major == 25 && minor < 4)
+			}
+		}
+		return true // Unknown Ubuntu version format
+	default:
+		return true // Unsupported distro
+	}
 }
