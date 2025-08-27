@@ -14,41 +14,107 @@ func (m Model) viewWelcome() string {
 	b.WriteString(m.renderBanner())
 	b.WriteString("\n")
 
-	// Create title - it IS left-aligned, just appears centered due to banner width
+	// Create title with some visual pop
 	theme := TerminalTheme()
+
+	// Add some decorative elements
+	decorator := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(theme.Accent)).
+		Render("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+
+	titleBox := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color(theme.Primary)).
+		Padding(0, 2).
+		MarginBottom(1)
+
 	titleText := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(theme.Primary)).
 		Bold(true).
-		Render("Dank Linux Suite Installer")
+		Render("dankinstall")
+
+	versionTag := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(theme.Accent)).
+		Italic(true).
+		Render(" // Dank Desktop \"dotfiles\" installer")
+
 	subtitle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(theme.Text)).
-		Render("Installs the complete dank desktop suite.")
-	b.WriteString(titleText)
+		Foreground(lipgloss.Color(theme.Subtle)).
+		Italic(true).
+		Render("Quickstart for a Dank™ Tiling Desktop")
+
+	b.WriteString(decorator)
+	b.WriteString("\n")
+	b.WriteString(titleBox.Render(titleText + versionTag))
 	b.WriteString("\n")
 	b.WriteString(subtitle)
 	b.WriteString("\n\n")
 
 	if m.osInfo != nil {
+		// System info box
+		sysBox := lipgloss.NewStyle().
+			Border(lipgloss.NormalBorder()).
+			BorderForeground(lipgloss.Color(theme.Subtle)).
+			Padding(0, 1).
+			MarginBottom(1)
+
 		// Style the distro name with its color
 		distroStyle := lipgloss.NewStyle().
 			Foreground(lipgloss.Color(m.osInfo.Distribution.HexColorCode)).
 			Bold(true)
 		distroName := distroStyle.Render(m.osInfo.PrettyName)
 
-		info := fmt.Sprintf("System: %s (%s)\n", distroName, m.osInfo.Architecture)
-		b.WriteString(info)
+		archStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color(theme.Accent))
+
+		sysInfo := fmt.Sprintf("System: %s / %s", distroName, archStyle.Render(m.osInfo.Architecture))
+		b.WriteString(sysBox.Render(sysInfo))
 		b.WriteString("\n")
 
-		overview := m.styles.Bold.Render("What you get:") + "\n"
-		bullet := m.styles.Key.Render("•")
-		overview += fmt.Sprintf("  %s %s\n", bullet, m.styles.Normal.Render("The dms (DankMaterialShell)"))
-		overview += fmt.Sprintf("  %s %s\n", bullet, m.styles.Normal.Render("niri or Hyprland"))
-		overview += fmt.Sprintf("  %s %s\n", bullet, m.styles.Normal.Render("Ghostty or kitty - terminal"))
-		overview += fmt.Sprintf("  %s %s\n", bullet, m.styles.Normal.Render("Automatic theming"))
-		overview += fmt.Sprintf("  %s %s\n", bullet, m.styles.Normal.Render("Sane default configuration"))
-		overview += fmt.Sprintf("  %s %s\n\n", bullet, m.styles.Normal.Render("A lot more for a pretty, highly functional desktop"))
-		overview += m.styles.Normal.Render("Already have niri/Hyprland? Your existing config will be backed up.")
-		b.WriteString(overview)
+		// Feature list with better styling
+		featTitle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color(theme.Primary)).
+			Bold(true).
+			Underline(true).
+			Render("WHAT YOU GET")
+		b.WriteString(featTitle + "\n\n")
+
+		// Create feature items with alternating styles
+		features := []string{
+			"[shell]   dms (DankMaterialShell)",
+			"[wm]      niri or Hyprland",
+			"[term]    Ghostty or kitty",
+			"[style]   All the themes, automatically.",
+			"[config]  DANK defaults - keybindings, rules, animations, etc.",
+		}
+
+		for i, feat := range features {
+			prefix := feat[:9]
+			content := feat[10:]
+
+			prefixStyle := lipgloss.NewStyle().
+				Foreground(lipgloss.Color(theme.Accent)).
+				Bold(true)
+
+			contentStyle := lipgloss.NewStyle().
+				Foreground(lipgloss.Color(theme.Text))
+
+			if i == len(features)-1 {
+				contentStyle = contentStyle.Bold(true)
+			}
+
+			b.WriteString(fmt.Sprintf("  %s %s\n",
+				prefixStyle.Render(prefix),
+				contentStyle.Render(content)))
+		}
+
+		b.WriteString("\n")
+
+		noteStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color(theme.Subtle)).
+			Italic(true)
+		note := noteStyle.Render("* In case of conflicts, existing configs will be backed up.")
+		b.WriteString(note)
 		b.WriteString("\n\n")
 
 	} else if m.isLoading {
@@ -60,9 +126,24 @@ func (m Model) viewWelcome() string {
 		// ! TODO - error state?
 	}
 
+	// Footer with better visual separation
+	footerDivider := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(theme.Subtle)).
+		Render("───────────────────────────────────────────────────────────")
+	b.WriteString(footerDivider + "\n")
+
 	if m.osInfo != nil {
-		help := m.styles.Subtle.Render("Press Enter to choose window manager, Ctrl+C to quit")
-		b.WriteString(help)
+		enterKey := lipgloss.NewStyle().
+			Foreground(lipgloss.Color(theme.Primary)).
+			Bold(true).
+			Render("Enter")
+
+		ctrlKey := lipgloss.NewStyle().
+			Foreground(lipgloss.Color(theme.Primary)).
+			Bold(true).
+			Render("Ctrl+C")
+
+		b.WriteString(m.styles.Subtle.Render("Press ") + enterKey + m.styles.Subtle.Render(" to choose window manager, ") + ctrlKey + m.styles.Subtle.Render(" to quit"))
 	} else {
 		help := m.styles.Subtle.Render("Press Enter to continue, Ctrl+C to quit")
 		b.WriteString(help)
