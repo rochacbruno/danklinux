@@ -413,9 +413,14 @@ func (m *ManualPackageInstaller) installQuickshell(ctx context.Context, sudoPass
 
 	configureCmd := exec.CommandContext(ctx, "cmake", "-B", "build", "-S", ".", "-G", "Ninja")
 	configureCmd.Dir = tmpDir
-	if err := configureCmd.Run(); err != nil {
-		return fmt.Errorf("failed to configure quickshell: %w", err)
+	
+	output, err := configureCmd.CombinedOutput()
+	if err != nil {
+		m.log(fmt.Sprintf("cmake configure failed. Output:\n%s", string(output)))
+		return fmt.Errorf("failed to configure quickshell: %w\nCMake output:\n%s", err, string(output))
 	}
+	
+	m.log(fmt.Sprintf("cmake configure successful. Output:\n%s", string(output)))
 
 	progressChan <- installer.InstallProgressMsg{
 		Phase:       installer.PhaseSystemPackages,
