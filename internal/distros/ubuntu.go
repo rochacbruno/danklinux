@@ -490,6 +490,17 @@ func (u *UbuntuDistribution) installBuildDependencies(ctx context.Context, manua
 			buildDeps["qt6-declarative-dev"] = true
 			buildDeps["qt6-wayland-dev"] = true
 			buildDeps["libqt6svg6-dev"] = true
+			buildDeps["qt6-shadertools-dev"] = true
+			buildDeps["spirv-tools"] = true
+			buildDeps["libcli11-dev"] = true
+			buildDeps["libjemalloc-dev"] = true
+			buildDeps["libwayland-dev"] = true
+			buildDeps["wayland-protocols"] = true
+			buildDeps["libdrm-dev"] = true
+			buildDeps["libgbm-dev"] = true
+			buildDeps["libxcb-dev"] = true
+			buildDeps["libpipewire-0.3-dev"] = true
+			buildDeps["libpam0g-dev"] = true
 		case "hyprland":
 			buildDeps["meson"] = true
 			buildDeps["libwayland-dev"] = true
