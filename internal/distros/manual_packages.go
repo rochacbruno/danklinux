@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/AvengeMedia/dankinstall/internal/installer"
@@ -629,7 +630,7 @@ func (m *ManualPackageInstaller) installMatugen(ctx context.Context, _ string, p
 	return nil
 }
 
-func (m *ManualPackageInstaller) installCliphist(ctx context.Context, _ string, progressChan chan<- installer.InstallProgressMsg) error {
+func (m *ManualPackageInstaller) installCliphist(ctx context.Context, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
 	m.log("Installing cliphist from source...")
 
 	progressChan <- installer.InstallProgressMsg{
@@ -641,8 +642,35 @@ func (m *ManualPackageInstaller) installCliphist(ctx context.Context, _ string, 
 	}
 
 	installCmd := exec.CommandContext(ctx, "go", "install", "go.senan.xyz/cliphist@latest")
-	if err := installCmd.Run(); err != nil {
+	if err := m.runWithProgressStep(installCmd, progressChan, installer.PhaseSystemPackages, 0.1, 0.7, "Building cliphist..."); err != nil {
 		return fmt.Errorf("failed to install cliphist: %w", err)
+	}
+
+	// Copy binary from ~/go/bin to /usr/local/bin
+	homeDir := os.Getenv("HOME")
+	sourcePath := filepath.Join(homeDir, "go", "bin", "cliphist")
+	targetPath := "/usr/local/bin/cliphist"
+
+	progressChan <- installer.InstallProgressMsg{
+		Phase:       installer.PhaseSystemPackages,
+		Progress:    0.7,
+		Step:        "Installing cliphist binary to system...",
+		IsComplete:  false,
+		NeedsSudo:   true,
+		CommandInfo: fmt.Sprintf("sudo cp %s %s", sourcePath, targetPath),
+	}
+
+	copyCmd := exec.CommandContext(ctx, "sudo", "-S", "cp", sourcePath, targetPath)
+	copyCmd.Stdin = strings.NewReader(sudoPassword + "\n")
+	if err := copyCmd.Run(); err != nil {
+		return fmt.Errorf("failed to copy cliphist to /usr/local/bin: %w", err)
+	}
+
+	// Make it executable
+	chmodCmd := exec.CommandContext(ctx, "sudo", "-S", "chmod", "+x", targetPath)
+	chmodCmd.Stdin = strings.NewReader(sudoPassword + "\n")
+	if err := chmodCmd.Run(); err != nil {
+		return fmt.Errorf("failed to make cliphist executable: %w", err)
 	}
 
 	m.log("cliphist installed successfully from source")
