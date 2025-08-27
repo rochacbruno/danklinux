@@ -223,6 +223,8 @@ func (m Model) updateInstallingPackagesState(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.state = StateError
 				m.isLoading = false
 			} else {
+				// Clear installation logs when transitioning to config confirmation
+				m.installationLogs = []string{}
 				m.state = StateConfigConfirmation
 				m.isLoading = true
 				return m, tea.Batch(m.spinner.Tick, m.checkExistingConfigurations())

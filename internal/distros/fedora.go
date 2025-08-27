@@ -77,7 +77,6 @@ func (f *FedoraDistribution) DetectDependenciesWithTerminal(ctx context.Context,
 	return dependencies, nil
 }
 
-
 func (f *FedoraDistribution) detectXDGPortal() deps.Dependency {
 	status := deps.StatusMissing
 	if f.packageInstalled("xdg-desktop-portal-gtk") {
@@ -131,6 +130,7 @@ func (f *FedoraDistribution) GetPackageMapping(wm deps.WindowManager) map[string
 		// Manual builds
 		"dgop":                  {Name: "dgop", Repository: RepoTypeManual, BuildFunc: "installDgop"},
 		"font-material-symbols": {Name: "font-material-symbols", Repository: RepoTypeManual, BuildFunc: "installMaterialSymbolsFont"},
+		"font-inter":            {Name: "font-inter", Repository: RepoTypeManual, BuildFunc: "installInterFont"},
 	}
 
 	// Add window manager specific packages

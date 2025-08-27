@@ -163,7 +163,7 @@ func (u *UbuntuDistribution) InstallPrerequisites(ctx context.Context, sudoPassw
 
 	// Update package lists
 	updateCmd := exec.CommandContext(ctx, "bash", "-c", fmt.Sprintf("echo '%s' | sudo -S apt update", sudoPassword))
-	if err := updateCmd.Run(); err != nil {
+	if err := u.runWithProgress(updateCmd, progressChan, installer.PhasePrerequisites, 0.06, 0.07); err != nil {
 		return fmt.Errorf("failed to update package lists: %w", err)
 	}
 
@@ -182,7 +182,7 @@ func (u *UbuntuDistribution) InstallPrerequisites(ctx context.Context, sudoPassw
 	if err := checkCmd.Run(); err != nil {
 		// Not installed, install it
 		cmd := exec.CommandContext(ctx, "bash", "-c", fmt.Sprintf("echo '%s' | sudo -S apt install -y build-essential", sudoPassword))
-		if err := cmd.Run(); err != nil {
+		if err := u.runWithProgress(cmd, progressChan, installer.PhasePrerequisites, 0.08, 0.09); err != nil {
 			return fmt.Errorf("failed to install build-essential: %w", err)
 		}
 	}
@@ -200,7 +200,7 @@ func (u *UbuntuDistribution) InstallPrerequisites(ctx context.Context, sudoPassw
 
 	devToolsCmd := exec.CommandContext(ctx, "bash", "-c", 
 		fmt.Sprintf("echo '%s' | sudo -S apt install -y curl wget git cmake ninja-build pkg-config", sudoPassword))
-	if err := devToolsCmd.Run(); err != nil {
+	if err := u.runWithProgress(devToolsCmd, progressChan, installer.PhasePrerequisites, 0.10, 0.12); err != nil {
 		return fmt.Errorf("failed to install development tools: %w", err)
 	}
 
@@ -371,7 +371,7 @@ func (u *UbuntuDistribution) enablePPARepos(ctx context.Context, ppaPkgs []Packa
 	// Install software-properties-common first if needed
 	installPPACmd := exec.CommandContext(ctx, "bash", "-c", 
 		fmt.Sprintf("echo '%s' | sudo -S apt install -y software-properties-common", sudoPassword))
-	if err := installPPACmd.Run(); err != nil {
+	if err := u.runWithProgress(installPPACmd, progressChan, installer.PhaseSystemPackages, 0.15, 0.17); err != nil {
 		return fmt.Errorf("failed to install software-properties-common: %w", err)
 	}
 
@@ -389,7 +389,7 @@ func (u *UbuntuDistribution) enablePPARepos(ctx context.Context, ppaPkgs []Packa
 
 			cmd := exec.CommandContext(ctx, "bash", "-c",
 				fmt.Sprintf("echo '%s' | sudo -S add-apt-repository -y %s", sudoPassword, pkg.RepoURL))
-			if err := cmd.Run(); err != nil {
+			if err := u.runWithProgress(cmd, progressChan, installer.PhaseSystemPackages, 0.20, 0.22); err != nil {
 				u.logError(fmt.Sprintf("failed to enable PPA repo %s", pkg.RepoURL), err)
 				return fmt.Errorf("failed to enable PPA repo %s: %w", pkg.RepoURL, err)
 			}
@@ -410,7 +410,7 @@ func (u *UbuntuDistribution) enablePPARepos(ctx context.Context, ppaPkgs []Packa
 		}
 
 		updateCmd := exec.CommandContext(ctx, "bash", "-c", fmt.Sprintf("echo '%s' | sudo -S apt update", sudoPassword))
-		if err := updateCmd.Run(); err != nil {
+		if err := u.runWithProgress(updateCmd, progressChan, installer.PhaseSystemPackages, 0.25, 0.27); err != nil {
 			return fmt.Errorf("failed to update package lists after adding PPAs: %w", err)
 		}
 	}
@@ -538,7 +538,7 @@ func (u *UbuntuDistribution) installBuildDependencies(ctx context.Context, manua
 
 	cmdStr := fmt.Sprintf("echo '%s' | sudo -S %s", sudoPassword, strings.Join(args, " "))
 	cmd := exec.CommandContext(ctx, "bash", "-c", cmdStr)
-	return cmd.Run()
+	return u.runWithProgress(cmd, progressChan, installer.PhaseSystemPackages, 0.80, 0.82)
 }
 
 func (u *UbuntuDistribution) installRust(ctx context.Context, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
@@ -547,7 +547,7 @@ func (u *UbuntuDistribution) installRust(ctx context.Context, sudoPassword strin
 	}
 
 	rustCmd := exec.CommandContext(ctx, "bash", "-c", "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y")
-	return rustCmd.Run()
+	return u.runWithProgress(rustCmd, progressChan, installer.PhaseSystemPackages, 0.82, 0.84)
 }
 
 func (u *UbuntuDistribution) installZig(ctx context.Context, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
@@ -559,17 +559,66 @@ func (u *UbuntuDistribution) installZig(ctx context.Context, sudoPassword string
 	zigTmp := "/tmp/zig.tar.xz"
 	
 	downloadCmd := exec.CommandContext(ctx, "curl", "-L", zigUrl, "-o", zigTmp)
-	if err := downloadCmd.Run(); err != nil {
+	if err := u.runWithProgress(downloadCmd, progressChan, installer.PhaseSystemPackages, 0.84, 0.85); err != nil {
 		return fmt.Errorf("failed to download Zig: %w", err)
 	}
 
 	extractCmd := exec.CommandContext(ctx, "bash", "-c", 
 		fmt.Sprintf("echo '%s' | sudo -S tar -xf %s -C /opt/", sudoPassword, zigTmp))
-	if err := extractCmd.Run(); err != nil {
+	if err := u.runWithProgress(extractCmd, progressChan, installer.PhaseSystemPackages, 0.85, 0.86); err != nil {
 		return fmt.Errorf("failed to extract Zig: %w", err)
 	}
 
 	linkCmd := exec.CommandContext(ctx, "bash", "-c",
 		fmt.Sprintf("echo '%s' | sudo -S ln -sf /opt/zig-linux-x86_64-0.11.0/zig /usr/local/bin/zig", sudoPassword))
-	return linkCmd.Run()
+	return u.runWithProgress(linkCmd, progressChan, installer.PhaseSystemPackages, 0.86, 0.87)
+}
+
+func (u *UbuntuDistribution) installGhosttyUbuntu(ctx context.Context, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
+	u.log("Installing Ghostty using Ubuntu installer script...")
+
+	progressChan <- installer.InstallProgressMsg{
+		Phase:       installer.PhaseSystemPackages,
+		Progress:    0.1,
+		Step:        "Running Ghostty Ubuntu installer...",
+		IsComplete:  false,
+		NeedsSudo:   true,
+		CommandInfo: "curl -fsSL https://raw.githubusercontent.com/mkasberg/ghostty-ubuntu/HEAD/install.sh | sudo bash",
+		LogOutput:   "Installing Ghostty using pre-built Ubuntu package",
+	}
+
+	installCmd := exec.CommandContext(ctx, "bash", "-c", 
+		fmt.Sprintf("echo '%s' | sudo -S /bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/mkasberg/ghostty-ubuntu/HEAD/install.sh)\"", sudoPassword))
+	
+	if err := u.runWithProgress(installCmd, progressChan, installer.PhaseSystemPackages, 0.1, 0.9); err != nil {
+		return fmt.Errorf("failed to install Ghostty: %w", err)
+	}
+
+	u.log("Ghostty installed successfully using Ubuntu installer")
+	return nil
+}
+
+// Override InstallManualPackages for Ubuntu to handle Ubuntu-specific installations
+func (u *UbuntuDistribution) InstallManualPackages(ctx context.Context, packages []string, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
+	if len(packages) == 0 {
+		return nil
+	}
+
+	u.log(fmt.Sprintf("Installing manual packages: %s", strings.Join(packages, ", ")))
+
+	for _, pkg := range packages {
+		switch pkg {
+		case "ghostty":
+			if err := u.installGhosttyUbuntu(ctx, sudoPassword, progressChan); err != nil {
+				return fmt.Errorf("failed to install ghostty: %w", err)
+			}
+		default:
+			// Use the base ManualPackageInstaller for other packages
+			if err := u.ManualPackageInstaller.InstallManualPackages(ctx, []string{pkg}, sudoPassword, progressChan); err != nil {
+				return fmt.Errorf("failed to install %s: %w", pkg, err)
+			}
+		}
+	}
+
+	return nil
 }

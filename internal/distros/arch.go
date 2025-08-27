@@ -195,7 +195,7 @@ func (a *ArchDistribution) InstallPrerequisites(ctx context.Context, sudoPasswor
 	}
 
 	cmd := exec.CommandContext(ctx, "bash", "-c", fmt.Sprintf("echo '%s' | sudo -S pacman -S --needed --noconfirm base-devel", sudoPassword))
-	if err := cmd.Run(); err != nil {
+	if err := a.runWithProgress(cmd, progressChan, installer.PhasePrerequisites, 0.08, 0.10); err != nil {
 		return fmt.Errorf("failed to install base-devel: %w", err)
 	}
 
@@ -430,7 +430,7 @@ func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sud
 	}
 
 	cloneCmd := exec.CommandContext(ctx, "git", "clone", fmt.Sprintf("https://aur.archlinux.org/%s.git", pkg), filepath.Join(tmpDir, pkg))
-	if err := cloneCmd.Run(); err != nil {
+	if err := a.runWithProgress(cloneCmd, progressChan, installer.PhaseAURPackages, startProgress+0.1*(endProgress-startProgress), startProgress+0.2*(endProgress-startProgress)); err != nil {
 		return fmt.Errorf("failed to clone %s: %w", pkg, err)
 	}
 
@@ -476,7 +476,7 @@ func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sud
 		fmt.Sprintf("deps=$(sed -n 's/.*depends = //p' '%s'); if [ ! -z \"$deps\" ]; then echo '%s' | sudo -S pacman -S --needed --noconfirm $deps; fi",
 			srcinfoPath, sudoPassword))
 
-	if err := depsCmd.Run(); err != nil {
+	if err := a.runWithProgress(depsCmd, progressChan, installer.PhaseAURPackages, startProgress+0.3*(endProgress-startProgress), startProgress+0.4*(endProgress-startProgress)); err != nil {
 		// Log but don't fail - some deps might be optional or already installed
 		a.log(fmt.Sprintf("Warning: Some dependencies may have failed to install: %v", err))
 	}
@@ -494,7 +494,7 @@ func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sud
 	buildCmd.Dir = packageDir
 	buildCmd.Env = append(os.Environ(), "PKGEXT=.pkg.tar") // Disable compression for speed
 
-	if err := buildCmd.Run(); err != nil {
+	if err := a.runWithProgress(buildCmd, progressChan, installer.PhaseAURPackages, startProgress+0.4*(endProgress-startProgress), startProgress+0.7*(endProgress-startProgress)); err != nil {
 		return fmt.Errorf("failed to build %s: %w", pkg, err)
 	}
 
@@ -520,7 +520,7 @@ func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sud
 	cmdStr := fmt.Sprintf("echo '%s' | sudo -S %s", sudoPassword, strings.Join(installArgs, " "))
 	installCmd := exec.CommandContext(ctx, "bash", "-c", cmdStr)
 
-	if err := installCmd.Run(); err != nil {
+	if err := a.runWithProgress(installCmd, progressChan, installer.PhaseAURPackages, startProgress+0.7*(endProgress-startProgress), endProgress); err != nil {
 		return fmt.Errorf("failed to install built package %s: %w", pkg, err)
 	}
 
