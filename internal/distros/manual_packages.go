@@ -100,18 +100,9 @@ func (m *ManualPackageInstaller) installDgop(ctx context.Context, sudoPassword s
 		return fmt.Errorf("failed to clone dgop repository: %w", err)
 	}
 
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhaseSystemPackages,
-		Progress:    0.4,
-		Step:        "Building dgop...",
-		IsComplete:  false,
-		CommandInfo: "make",
-	}
-
 	buildCmd := exec.CommandContext(ctx, "make")
 	buildCmd.Dir = tmpDir
-	if err := buildCmd.Run(); err != nil {
-		m.logError("failed to build dgop", err)
+	if err := m.runWithProgressStep(buildCmd, progressChan, installer.PhaseSystemPackages, 0.4, 0.7, "Building dgop..."); err != nil {
 		return fmt.Errorf("failed to build dgop: %w", err)
 	}
 
@@ -338,21 +329,21 @@ func (m *ManualPackageInstaller) installNiri(ctx context.Context, sudoPassword s
 	// Install cargo-deb first if not present
 	if !m.commandExists("cargo-deb") {
 		cargoDebInstallCmd := exec.CommandContext(ctx, "cargo", "install", "cargo-deb")
-		if err := m.runWithProgressStep(cargoDebInstallCmd, progressChan, installer.PhaseSystemPackages, 0.3, 0.4, "Installing cargo-deb..."); err != nil {
+		if err := m.runWithProgressStep(cargoDebInstallCmd, progressChan, installer.PhaseSystemPackages, 0.3, 0.35, "Installing cargo-deb..."); err != nil {
 			return fmt.Errorf("failed to install cargo-deb: %w", err)
 		}
 	}
 
-	// Build the deb package
+	// Build the deb package (this takes a long time)
 	buildDebCmd := exec.CommandContext(ctx, "cargo", "deb")
 	buildDebCmd.Dir = tmpDir
-	if err := m.runWithProgressStep(buildDebCmd, progressChan, installer.PhaseSystemPackages, 0.4, 0.8, "Building niri deb package..."); err != nil {
+	if err := m.runWithProgressStep(buildDebCmd, progressChan, installer.PhaseSystemPackages, 0.35, 0.95, "Building niri deb package..."); err != nil {
 		return fmt.Errorf("failed to build niri deb: %w", err)
 	}
 
 	progressChan <- installer.InstallProgressMsg{
 		Phase:       installer.PhaseSystemPackages,
-		Progress:    0.8,
+		Progress:    0.95,
 		Step:        "Installing niri deb package...",
 		IsComplete:  false,
 		NeedsSudo:   true,
@@ -483,17 +474,9 @@ func (m *ManualPackageInstaller) installHyprland(ctx context.Context, sudoPasswo
 		return fmt.Errorf("failed to clone Hyprland: %w", err)
 	}
 
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhaseSystemPackages,
-		Progress:    0.2,
-		Step:        "Building Hyprland (this may take a while)...",
-		IsComplete:  false,
-		CommandInfo: "make all",
-	}
-
 	buildCmd := exec.CommandContext(ctx, "make", "all")
 	buildCmd.Dir = tmpDir
-	if err := buildCmd.Run(); err != nil {
+	if err := m.runWithProgressStep(buildCmd, progressChan, installer.PhaseSystemPackages, 0.2, 0.8, "Building Hyprland..."); err != nil {
 		return fmt.Errorf("failed to build Hyprland: %w", err)
 	}
 
