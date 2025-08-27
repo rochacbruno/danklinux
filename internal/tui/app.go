@@ -41,7 +41,7 @@ func NewModel(version string) Model {
 	s := spinner.New()
 	s.Spinner = spinner.Dot
 
-	theme := PurpleTheme()
+	theme := TerminalTheme()
 	styles := NewStyles(theme)
 	s.Style = styles.SpinnerStyle
 

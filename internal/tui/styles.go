@@ -33,6 +33,21 @@ func PurpleTheme() AppTheme {
 	}
 }
 
+func TerminalTheme() AppTheme {
+	return AppTheme{
+		Primary:    "6",
+		Secondary:  "4",
+		Accent:     "14",
+		Text:       "7",
+		Subtle:     "8",
+		Error:      "1",
+		Warning:    "3",
+		Success:    "2",
+		Background: "0",
+		Surface:    "0",
+	}
+}
+
 func NewStyles(theme AppTheme) Styles {
 	return Styles{
 		Title: lipgloss.NewStyle().
