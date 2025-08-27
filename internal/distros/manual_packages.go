@@ -338,30 +338,48 @@ func (m *ManualPackageInstaller) installNiri(ctx context.Context, sudoPassword s
 	progressChan <- installer.InstallProgressMsg{
 		Phase:       installer.PhaseSystemPackages,
 		Progress:    0.3,
-		Step:        "Building niri (this may take a while)...",
+		Step:        "Compiling niri (this may take a while)...",
 		IsComplete:  false,
 		CommandInfo: "cargo build --release",
 	}
 
-	buildCmd := exec.CommandContext(ctx, "cargo", "build", "--release")
-	buildCmd.Dir = tmpDir
-	if err := m.runWithProgress(buildCmd, progressChan, installer.PhaseSystemPackages, 0.3, 0.8); err != nil {
-		return fmt.Errorf("failed to build niri: %w", err)
+	// Install cargo-deb first if not present
+	if !m.commandExists("cargo-deb") {
+		progressChan <- installer.InstallProgressMsg{
+			Phase:       installer.PhaseSystemPackages,
+			Progress:    0.3,
+			Step:        "Installing cargo-deb...",
+			IsComplete:  false,
+			CommandInfo: "cargo install cargo-deb",
+		}
+
+		cargoDebInstallCmd := exec.CommandContext(ctx, "cargo", "install", "cargo-deb")
+		if err := m.runWithProgressStep(cargoDebInstallCmd, progressChan, installer.PhaseSystemPackages, 0.3, 0.4, "Installing cargo-deb..."); err != nil {
+			return fmt.Errorf("failed to install cargo-deb: %w", err)
+		}
+	}
+
+	// Build the deb package
+	buildDebCmd := exec.CommandContext(ctx, "cargo", "deb")
+	buildDebCmd.Dir = tmpDir
+	if err := m.runWithProgressStep(buildDebCmd, progressChan, installer.PhaseSystemPackages, 0.4, 0.8, "Building niri deb package..."); err != nil {
+		return fmt.Errorf("failed to build niri deb: %w", err)
 	}
 
 	progressChan <- installer.InstallProgressMsg{
 		Phase:       installer.PhaseSystemPackages,
 		Progress:    0.8,
-		Step:        "Installing niri...",
+		Step:        "Installing niri deb package...",
 		IsComplete:  false,
 		NeedsSudo:   true,
-		CommandInfo: "sudo cp target/release/niri /usr/local/bin/",
+		CommandInfo: "dpkg -i niri.deb",
 	}
 
-	installCmd := exec.CommandContext(ctx, "bash", "-c",
-		fmt.Sprintf("echo '%s' | sudo -S cp %s/target/release/niri /usr/local/bin/", sudoPassword, tmpDir))
-	if err := installCmd.Run(); err != nil {
-		return fmt.Errorf("failed to install niri: %w", err)
+	// Install the deb package
+	installDebCmd := exec.CommandContext(ctx, "bash", "-c",
+		fmt.Sprintf("echo '%s' | sudo -S dpkg -i %s/target/debian/niri_*.deb", sudoPassword, tmpDir))
+	if err := installDebCmd.Run(); err != nil {
+		return fmt.Errorf("failed to install niri deb package: %w", err)
 	}
 
 	m.log("niri installed successfully from source")

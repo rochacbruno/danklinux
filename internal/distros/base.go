@@ -338,6 +338,10 @@ func (b *BaseDistribution) versionCompare(v1, v2 string) int {
 
 // Common installation helper
 func (b *BaseDistribution) runWithProgress(cmd *exec.Cmd, progressChan chan<- installer.InstallProgressMsg, phase installer.InstallPhase, startProgress, endProgress float64) error {
+	return b.runWithProgressStep(cmd, progressChan, phase, startProgress, endProgress, "Installing...")
+}
+
+func (b *BaseDistribution) runWithProgressStep(cmd *exec.Cmd, progressChan chan<- installer.InstallProgressMsg, phase installer.InstallPhase, startProgress, endProgress float64, stepMessage string) error {
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return fmt.Errorf("failed to create stdout pipe: %w", err)
@@ -418,7 +422,7 @@ func (b *BaseDistribution) runWithProgress(cmd *exec.Cmd, progressChan chan<- in
 				progressChan <- installer.InstallProgressMsg{
 					Phase:      phase,
 					Progress:   progress,
-					Step:       "Installing...",
+					Step:       stepMessage,
 					IsComplete: false,
 					LogOutput:  output,
 				}
