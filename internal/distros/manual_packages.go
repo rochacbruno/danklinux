@@ -413,11 +413,13 @@ func (m *ManualPackageInstaller) installQuickshell(ctx context.Context, sudoPass
 
 	configureCmd := exec.CommandContext(ctx, "cmake", "-B", "build", "-S", ".", "-G", "Ninja", 
 		"-DCRASH_REPORTER=OFF",
-		"-DQt6_DIR=/usr/lib/x86_64-linux-gnu/cmake/Qt6",
-		"-DCMAKE_PREFIX_PATH=/usr/lib/x86_64-linux-gnu/cmake",
-		"-DQt6Core_INCLUDE_DIRS=/usr/include/x86_64-linux-gnu/qt6/QtCore",
-		"-DQt6WaylandClient_INCLUDE_DIRS=/usr/include/x86_64-linux-gnu/qt6/QtWaylandClient")
+		"-DCMAKE_INCLUDE_PATH=/usr/include/x86_64-linux-gnu/qt6")
 	configureCmd.Dir = tmpDir
+	
+	// Set environment to help CMake find Qt headers
+	configureCmd.Env = append(os.Environ(),
+		"Qt6_DIR=/usr/lib/x86_64-linux-gnu/cmake/Qt6",
+		"PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig")
 	
 	output, err := configureCmd.CombinedOutput()
 	if err != nil {
