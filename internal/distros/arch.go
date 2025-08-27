@@ -444,6 +444,31 @@ func (a *ArchDistribution) installAURPackages(ctx context.Context, packages []st
 
 	a.log(fmt.Sprintf("Installing AUR packages manually: %s", strings.Join(packages, ", ")))
 
+	// Check if we need makepkg-git-lfs-proto for niri
+	hasNiri := false
+	for _, pkg := range packages {
+		if pkg == "niri-git" {
+			hasNiri = true
+			break
+		}
+	}
+
+	// If niri is in the list, install makepkg-git-lfs-proto first
+	if hasNiri {
+		progressChan <- installer.InstallProgressMsg{
+			Phase:       installer.PhaseAURPackages,
+			Progress:    0.63,
+			Step:        "Installing makepkg-git-lfs-proto for niri...",
+			IsComplete:  false,
+			CommandInfo: "Installing prerequisite for niri-git",
+		}
+		
+		if err := a.installSingleAURPackage(ctx, "makepkg-git-lfs-proto", sudoPassword, progressChan, 0.63, 0.65); err != nil {
+			// Log error but don't fail - it might already be installed
+			a.log(fmt.Sprintf("Warning: makepkg-git-lfs-proto installation failed: %v", err))
+		}
+	}
+
 	baseProgress := 0.65
 	progressStep := 0.15 / float64(len(packages))
 
@@ -498,16 +523,61 @@ func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sud
 
 	packageDir := filepath.Join(tmpDir, pkg)
 
-	// Build the package
+	// Special handling for niri-git: remove makepkg-git-lfs-proto references
+	if pkg == "niri-git" {
+		progressChan <- installer.InstallProgressMsg{
+			Phase:       installer.PhaseAURPackages,
+			Progress:    startProgress + 0.2*(endProgress-startProgress),
+			Step:        "Patching niri-git PKGBUILD...",
+			IsComplete:  false,
+			CommandInfo: "Removing makepkg-git-lfs-proto dependency",
+		}
+
+		// Remove from PKGBUILD
+		pkgbuildPath := filepath.Join(packageDir, "PKGBUILD")
+		sedCmd := exec.CommandContext(ctx, "sed", "-i", "s/makepkg-git-lfs-proto//g", pkgbuildPath)
+		if err := sedCmd.Run(); err != nil {
+			a.log(fmt.Sprintf("Warning: Failed to patch PKGBUILD: %v", err))
+		}
+
+		// Remove line from .SRCINFO
+		srcinfoPath := filepath.Join(packageDir, ".SRCINFO")
+		sedCmd2 := exec.CommandContext(ctx, "sed", "-i", "/makedepends = makepkg-git-lfs-proto/d", srcinfoPath)
+		if err := sedCmd2.Run(); err != nil {
+			a.log(fmt.Sprintf("Warning: Failed to patch .SRCINFO: %v", err))
+		}
+	}
+
+	// Pre-install dependencies from .SRCINFO
+	progressChan <- installer.InstallProgressMsg{
+		Phase:       installer.PhaseAURPackages,
+		Progress:    startProgress + 0.3*(endProgress-startProgress),
+		Step:        fmt.Sprintf("Installing dependencies for %s...", pkg),
+		IsComplete:  false,
+		CommandInfo: "Installing package dependencies",
+	}
+
+	// Extract and install dependencies
+	srcinfoPath := filepath.Join(packageDir, ".SRCINFO")
+	depsCmd := exec.CommandContext(ctx, "bash", "-c", 
+		fmt.Sprintf("deps=$(sed -n 's/.*depends = //p' '%s'); if [ ! -z \"$deps\" ]; then echo '%s' | sudo -S pacman -S --needed --noconfirm $deps; fi", 
+			srcinfoPath, sudoPassword))
+	
+	if err := depsCmd.Run(); err != nil {
+		// Log but don't fail - some deps might be optional or already installed
+		a.log(fmt.Sprintf("Warning: Some dependencies may have failed to install: %v", err))
+	}
+
+	// Build the package (without -s since we pre-installed deps)
 	progressChan <- installer.InstallProgressMsg{
 		Phase:       installer.PhaseAURPackages,
 		Progress:    startProgress + 0.4*(endProgress-startProgress),
 		Step:        fmt.Sprintf("Building %s...", pkg),
 		IsComplete:  false,
-		CommandInfo: "makepkg -s --noconfirm",
+		CommandInfo: "makepkg --noconfirm",
 	}
 
-	buildCmd := exec.CommandContext(ctx, "makepkg", "-s", "--noconfirm")
+	buildCmd := exec.CommandContext(ctx, "makepkg", "--noconfirm")
 	buildCmd.Dir = packageDir
 	buildCmd.Env = append(os.Environ(), "PKGEXT=.pkg.tar") // Disable compression for speed
 
