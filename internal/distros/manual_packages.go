@@ -343,10 +343,9 @@ func (m *ManualPackageInstaller) installNiri(ctx context.Context, sudoPassword s
 		CommandInfo: "cargo build --release",
 	}
 
-	// Build using cargo (assumes Rust is available in PATH)
 	buildCmd := exec.CommandContext(ctx, "cargo", "build", "--release")
 	buildCmd.Dir = tmpDir
-	if err := buildCmd.Run(); err != nil {
+	if err := m.runWithProgress(buildCmd, progressChan, installer.PhaseSystemPackages, 0.3, 0.8); err != nil {
 		return fmt.Errorf("failed to build niri: %w", err)
 	}
 
@@ -621,7 +620,7 @@ func (m *ManualPackageInstaller) installMatugen(ctx context.Context, _ string, p
 	}
 
 	installCmd := exec.CommandContext(ctx, "cargo", "install", "matugen")
-	if err := installCmd.Run(); err != nil {
+	if err := m.runWithProgress(installCmd, progressChan, installer.PhaseSystemPackages, 0.1, 0.9); err != nil {
 		return fmt.Errorf("failed to install matugen: %w", err)
 	}
 
