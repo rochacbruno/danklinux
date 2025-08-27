@@ -498,7 +498,7 @@ func (u *UbuntuDistribution) installBuildDependencies(ctx context.Context, manua
 			buildDeps["wayland-protocols"] = true
 			buildDeps["libdrm-dev"] = true
 			buildDeps["libgbm-dev"] = true
-			buildDeps["libxcb-dev"] = true
+			buildDeps["libxcb1-dev"] = true
 			buildDeps["libpipewire-0.3-dev"] = true
 			buildDeps["libpam0g-dev"] = true
 		case "hyprland":
