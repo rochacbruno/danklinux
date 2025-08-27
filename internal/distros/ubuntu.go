@@ -135,12 +135,12 @@ func (u *UbuntuDistribution) GetPackageMapping(wm deps.WindowManager) map[string
 	// Add window manager specific packages
 	switch wm {
 	case deps.WindowManagerHyprland:
-		// Hyprland likely needs to be built from source on Ubuntu
-		packages["hyprland"] = PackageMapping{Name: "hyprland", Repository: RepoTypeManual, BuildFunc: "installHyprland"}
+		// Use the cppiber PPA for Hyprland
+		packages["hyprland"] = PackageMapping{Name: "hyprland", Repository: RepoTypePPA, RepoURL: "ppa:cppiber/hyprland"}
 		packages["grim"] = PackageMapping{Name: "grim", Repository: RepoTypeSystem}
 		packages["slurp"] = PackageMapping{Name: "slurp", Repository: RepoTypeSystem}
-		packages["hyprctl"] = PackageMapping{Name: "hyprland", Repository: RepoTypeManual, BuildFunc: "installHyprland"}
-		packages["hyprpicker"] = PackageMapping{Name: "hyprpicker", Repository: RepoTypeManual, BuildFunc: "installHyprpicker"}
+		packages["hyprctl"] = PackageMapping{Name: "hyprland", Repository: RepoTypePPA, RepoURL: "ppa:cppiber/hyprland"}
+		packages["hyprpicker"] = PackageMapping{Name: "hyprpicker", Repository: RepoTypePPA, RepoURL: "ppa:cppiber/hyprland"}
 		packages["grimblast"] = PackageMapping{Name: "grimblast", Repository: RepoTypeManual, BuildFunc: "installGrimblast"}
 		packages["jq"] = PackageMapping{Name: "jq", Repository: RepoTypeSystem}
 	case deps.WindowManagerNiri:
@@ -508,20 +508,6 @@ func (u *UbuntuDistribution) installBuildDependencies(ctx context.Context, manua
 			buildDeps["libxcb1-dev"] = true
 			buildDeps["libpipewire-0.3-dev"] = true
 			buildDeps["libpam0g-dev"] = true
-		case "hyprland":
-			buildDeps["meson"] = true
-			buildDeps["libwayland-dev"] = true
-			buildDeps["libxkbcommon-dev"] = true
-			buildDeps["libegl1-mesa-dev"] = true
-			buildDeps["libgles2-mesa-dev"] = true
-			buildDeps["libdrm-dev"] = true
-			buildDeps["libxcb-dri3-dev"] = true
-			buildDeps["libxcb-present-dev"] = true
-			buildDeps["libxcb-composite0-dev"] = true
-			buildDeps["libxcb-ewmh-dev"] = true
-			buildDeps["libxcb-icccm4-dev"] = true
-			buildDeps["libxcb-res0-dev"] = true
-			buildDeps["libxcb-util0-dev"] = true
 		case "ghostty":
 			buildDeps["curl"] = true
 			buildDeps["libgtk-4-dev"] = true
