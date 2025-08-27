@@ -140,7 +140,7 @@ func (a *ArchDistribution) GetPackageMapping(wm deps.WindowManager) map[string]P
 		"wl-clipboard":           {Name: "wl-clipboard", Repository: RepoTypeSystem},
 		"xdg-desktop-portal-gtk": {Name: "xdg-desktop-portal-gtk", Repository: RepoTypeSystem},
 		"mate-polkit":            {Name: "mate-polkit", Repository: RepoTypeSystem},
-		"font-material-symbols":  {Name: "ttf-material-symbols-variable-git", Repository: RepoTypeAUR},
+		"font-material-symbols":  {Name: "font-material-symbols", Repository: RepoTypeManual, BuildFunc: "installMaterialSymbolsFont"},
 		"font-firacode":          {Name: "ttf-fira-code", Repository: RepoTypeSystem},
 		"font-inter":             {Name: "inter-font", Repository: RepoTypeSystem},
 	}
