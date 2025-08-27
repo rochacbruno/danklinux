@@ -504,7 +504,7 @@ func (u *UbuntuDistribution) installBuildDependencies(ctx context.Context, manua
 		case "matugen":
 			buildDeps["curl"] = true
 		case "cliphist":
-			buildDeps["golang-go"] = true
+			// Go will be installed separately with PPA
 		}
 	}
 
@@ -518,6 +518,10 @@ func (u *UbuntuDistribution) installBuildDependencies(ctx context.Context, manua
 		case "ghostty":
 			if err := u.installZig(ctx, sudoPassword, progressChan); err != nil {
 				return fmt.Errorf("failed to install Zig: %w", err)
+			}
+		case "cliphist", "dgop":
+			if err := u.installGo(ctx, sudoPassword, progressChan); err != nil {
+				return fmt.Errorf("failed to install Go: %w", err)
 			}
 		}
 	}
@@ -544,10 +548,42 @@ func (u *UbuntuDistribution) installRust(ctx context.Context, sudoPassword strin
 		return nil
 	}
 
-	// Install rustup from apt, then use it to install stable Rust
-	rustupCmd := exec.CommandContext(ctx, "bash", "-c", 
-		fmt.Sprintf("echo '%s' | sudo -S apt install -y rustup && rustup install stable && rustup default stable", sudoPassword))
-	return u.runWithProgress(rustupCmd, progressChan, installer.PhaseSystemPackages, 0.82, 0.84)
+	progressChan <- installer.InstallProgressMsg{
+		Phase:       installer.PhaseSystemPackages,
+		Progress:    0.82,
+		Step:        "Installing rustup...",
+		IsComplete:  false,
+		NeedsSudo:   true,
+		CommandInfo: "sudo apt install rustup",
+	}
+
+	// Install rustup from apt
+	rustupInstallCmd := exec.CommandContext(ctx, "bash", "-c", 
+		fmt.Sprintf("echo '%s' | sudo -S apt install -y rustup", sudoPassword))
+	if err := u.runWithProgress(rustupInstallCmd, progressChan, installer.PhaseSystemPackages, 0.82, 0.83); err != nil {
+		return fmt.Errorf("failed to install rustup: %w", err)
+	}
+
+	progressChan <- installer.InstallProgressMsg{
+		Phase:       installer.PhaseSystemPackages,
+		Progress:    0.83,
+		Step:        "Installing stable Rust toolchain...",
+		IsComplete:  false,
+		CommandInfo: "rustup install stable",
+	}
+
+	// Install and set stable Rust toolchain
+	rustInstallCmd := exec.CommandContext(ctx, "bash", "-c", "rustup install stable && rustup default stable")
+	if err := u.runWithProgress(rustInstallCmd, progressChan, installer.PhaseSystemPackages, 0.83, 0.84); err != nil {
+		return fmt.Errorf("failed to install Rust toolchain: %w", err)
+	}
+
+	// Verify cargo is now available
+	if !u.commandExists("cargo") {
+		u.log("Warning: cargo not found in PATH after Rust installation, trying to source environment")
+	}
+
+	return nil
 }
 
 func (u *UbuntuDistribution) installZig(ctx context.Context, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
@@ -572,6 +608,58 @@ func (u *UbuntuDistribution) installZig(ctx context.Context, sudoPassword string
 	linkCmd := exec.CommandContext(ctx, "bash", "-c",
 		fmt.Sprintf("echo '%s' | sudo -S ln -sf /opt/zig-linux-x86_64-0.11.0/zig /usr/local/bin/zig", sudoPassword))
 	return u.runWithProgress(linkCmd, progressChan, installer.PhaseSystemPackages, 0.86, 0.87)
+}
+
+func (u *UbuntuDistribution) installGo(ctx context.Context, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
+	if u.commandExists("go") {
+		return nil
+	}
+
+	progressChan <- installer.InstallProgressMsg{
+		Phase:       installer.PhaseSystemPackages,
+		Progress:    0.87,
+		Step:        "Adding Go PPA repository...",
+		IsComplete:  false,
+		NeedsSudo:   true,
+		CommandInfo: "sudo add-apt-repository ppa:longsleep/golang-backports",
+	}
+
+	// Add PPA repository
+	addPPACmd := exec.CommandContext(ctx, "bash", "-c",
+		fmt.Sprintf("echo '%s' | sudo -S add-apt-repository -y ppa:longsleep/golang-backports", sudoPassword))
+	if err := u.runWithProgress(addPPACmd, progressChan, installer.PhaseSystemPackages, 0.87, 0.88); err != nil {
+		return fmt.Errorf("failed to add Go PPA: %w", err)
+	}
+
+	progressChan <- installer.InstallProgressMsg{
+		Phase:       installer.PhaseSystemPackages,
+		Progress:    0.88,
+		Step:        "Updating package lists...",
+		IsComplete:  false,
+		NeedsSudo:   true,
+		CommandInfo: "sudo apt update",
+	}
+
+	// Update package lists
+	updateCmd := exec.CommandContext(ctx, "bash", "-c",
+		fmt.Sprintf("echo '%s' | sudo -S apt update", sudoPassword))
+	if err := u.runWithProgress(updateCmd, progressChan, installer.PhaseSystemPackages, 0.88, 0.89); err != nil {
+		return fmt.Errorf("failed to update package lists after adding Go PPA: %w", err)
+	}
+
+	progressChan <- installer.InstallProgressMsg{
+		Phase:       installer.PhaseSystemPackages,
+		Progress:    0.89,
+		Step:        "Installing Go...",
+		IsComplete:  false,
+		NeedsSudo:   true,
+		CommandInfo: "sudo apt install golang-go",
+	}
+
+	// Install Go
+	installCmd := exec.CommandContext(ctx, "bash", "-c",
+		fmt.Sprintf("echo '%s' | sudo -S apt install -y golang-go", sudoPassword))
+	return u.runWithProgress(installCmd, progressChan, installer.PhaseSystemPackages, 0.89, 0.90)
 }
 
 func (u *UbuntuDistribution) installGhosttyUbuntu(ctx context.Context, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
