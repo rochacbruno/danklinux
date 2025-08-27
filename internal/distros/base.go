@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -222,6 +223,94 @@ func (b *BaseDistribution) detectHyprlandTools() []deps.Dependency {
 	return dependencies
 }
 
+func (b *BaseDistribution) detectQuickshell() deps.Dependency {
+	if !b.commandExists("qs") {
+		return deps.Dependency{
+			Name:        "quickshell",
+			Status:      deps.StatusMissing,
+			Description: "QtQuick based desktop shell toolkit",
+			Required:    true,
+		}
+	}
+
+	cmd := exec.Command("qs", "--version")
+	output, err := cmd.Output()
+	if err != nil {
+		return deps.Dependency{
+			Name:        "quickshell",
+			Status:      deps.StatusNeedsReinstall,
+			Description: "QtQuick based desktop shell toolkit (version check failed)",
+			Required:    true,
+		}
+	}
+
+	versionStr := string(output)
+	versionRegex := regexp.MustCompile(`quickshell (\d+\.\d+\.\d+)`)
+	matches := versionRegex.FindStringSubmatch(versionStr)
+
+	if len(matches) < 2 {
+		return deps.Dependency{
+			Name:        "quickshell",
+			Status:      deps.StatusNeedsReinstall,
+			Description: "QtQuick based desktop shell toolkit (unknown version)",
+			Required:    true,
+		}
+	}
+
+	version := matches[1]
+	if b.versionCompare(version, "0.2.0") >= 0 {
+		return deps.Dependency{
+			Name:        "quickshell",
+			Status:      deps.StatusInstalled,
+			Version:     version,
+			Description: "QtQuick based desktop shell toolkit",
+			Required:    true,
+		}
+	}
+
+	return deps.Dependency{
+		Name:        "quickshell",
+		Status:      deps.StatusNeedsUpdate,
+		Version:     version,
+		Description: "QtQuick based desktop shell toolkit (needs 0.2.0+)",
+		Required:    true,
+	}
+}
+
+func (b *BaseDistribution) detectWindowManager(wm deps.WindowManager) deps.Dependency {
+	switch wm {
+	case deps.WindowManagerHyprland:
+		status := deps.StatusMissing
+		if b.commandExists("hyprland") || b.commandExists("Hyprland") {
+			status = deps.StatusInstalled
+		}
+		return deps.Dependency{
+			Name:        "hyprland",
+			Status:      status,
+			Description: "Dynamic tiling Wayland compositor",
+			Required:    true,
+		}
+	case deps.WindowManagerNiri:
+		status := deps.StatusMissing
+		if b.commandExists("niri") {
+			status = deps.StatusInstalled
+		}
+		return deps.Dependency{
+			Name:        "niri",
+			Status:      status,
+			Description: "Scrollable-tiling Wayland compositor",
+			Required:    true,
+		}
+	default:
+		return deps.Dependency{
+			Name:        "unknown-wm",
+			Status:      deps.StatusMissing,
+			Description: "Unknown window manager",
+			Required:    true,
+		}
+	}
+}
+
 // Version comparison helper
 func (b *BaseDistribution) versionCompare(v1, v2 string) int {
 	parts1 := strings.Split(v1, ".")
@@ -364,7 +453,7 @@ func (b *BaseDistribution) runWithProgress(cmd *exec.Cmd, progressChan chan<- in
 }
 
 // Post-installation configuration
-func (b *BaseDistribution) postInstallConfig(ctx context.Context, wm deps.WindowManager, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
+func (b *BaseDistribution) postInstallConfig(ctx context.Context, _ deps.WindowManager, _ string, progressChan chan<- installer.InstallProgressMsg) error {
 	// Clone DMS config if needed
 	dmsPath := filepath.Join(os.Getenv("HOME"), ".config/quickshell/dms")
 	if _, err := os.Stat(dmsPath); os.IsNotExist(err) {

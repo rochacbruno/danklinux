@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
-	"regexp"
 	"strings"
 
 	"github.com/AvengeMedia/dankinstall/internal/deps"
@@ -57,7 +56,7 @@ func (f *FedoraDistribution) DetectDependenciesWithTerminal(ctx context.Context,
 	// Terminal with choice support
 	dependencies = append(dependencies, f.detectSpecificTerminal(terminal))
 
-	// Fedora-specific detections
+	// Common detections using base methods
 	dependencies = append(dependencies, f.detectGit())
 	dependencies = append(dependencies, f.detectWindowManager(wm))
 	dependencies = append(dependencies, f.detectQuickshell())
@@ -78,93 +77,6 @@ func (f *FedoraDistribution) DetectDependenciesWithTerminal(ctx context.Context,
 	return dependencies, nil
 }
 
-func (f *FedoraDistribution) detectWindowManager(wm deps.WindowManager) deps.Dependency {
-	switch wm {
-	case deps.WindowManagerHyprland:
-		status := deps.StatusMissing
-		if f.commandExists("hyprland") || f.commandExists("Hyprland") {
-			status = deps.StatusInstalled
-		}
-		return deps.Dependency{
-			Name:        "hyprland",
-			Status:      status,
-			Description: "Dynamic tiling Wayland compositor (via COPR)",
-			Required:    true,
-		}
-	case deps.WindowManagerNiri:
-		status := deps.StatusMissing
-		if f.commandExists("niri") {
-			status = deps.StatusInstalled
-		}
-		return deps.Dependency{
-			Name:        "niri",
-			Status:      status,
-			Description: "Scrollable-tiling Wayland compositor (via COPR)",
-			Required:    true,
-		}
-	default:
-		return deps.Dependency{
-			Name:        "unknown-wm",
-			Status:      deps.StatusMissing,
-			Description: "Unknown window manager",
-			Required:    true,
-		}
-	}
-}
-
-func (f *FedoraDistribution) detectQuickshell() deps.Dependency {
-	if !f.commandExists("qs") {
-		return deps.Dependency{
-			Name:        "quickshell",
-			Status:      deps.StatusMissing,
-			Description: "QtQuick based desktop shell toolkit (via COPR)",
-			Required:    true,
-		}
-	}
-
-	cmd := exec.Command("qs", "--version")
-	output, err := cmd.Output()
-	if err != nil {
-		return deps.Dependency{
-			Name:        "quickshell",
-			Status:      deps.StatusNeedsReinstall,
-			Description: "QtQuick based desktop shell toolkit (version check failed)",
-			Required:    true,
-		}
-	}
-
-	versionStr := string(output)
-	versionRegex := regexp.MustCompile(`quickshell (\d+\.\d+\.\d+)`)
-	matches := versionRegex.FindStringSubmatch(versionStr)
-
-	if len(matches) < 2 {
-		return deps.Dependency{
-			Name:        "quickshell",
-			Status:      deps.StatusNeedsReinstall,
-			Description: "QtQuick based desktop shell toolkit (unknown version)",
-			Required:    true,
-		}
-	}
-
-	version := matches[1]
-	if f.versionCompare(version, "0.2.0") >= 0 {
-		return deps.Dependency{
-			Name:        "quickshell",
-			Status:      deps.StatusInstalled,
-			Version:     version,
-			Description: "QtQuick based desktop shell toolkit (via COPR)",
-			Required:    true,
-		}
-	}
-
-	return deps.Dependency{
-		Name:        "quickshell",
-		Status:      deps.StatusNeedsUpdate,
-		Version:     version,
-		Description: "QtQuick based desktop shell toolkit (needs 0.2.0+, via COPR)",
-		Required:    true,
-	}
-}
 
 func (f *FedoraDistribution) detectXDGPortal() deps.Dependency {
 	status := deps.StatusMissing

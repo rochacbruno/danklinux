@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"github.com/AvengeMedia/dankinstall/internal/deps"
@@ -62,7 +61,7 @@ func (a *ArchDistribution) DetectDependenciesWithTerminal(ctx context.Context, w
 	// Terminal with choice support
 	dependencies = append(dependencies, a.detectSpecificTerminal(terminal))
 
-	// Arch-specific detections
+	// Common detections using base methods
 	dependencies = append(dependencies, a.detectGit())
 	dependencies = append(dependencies, a.detectWindowManager(wm))
 	dependencies = append(dependencies, a.detectQuickshell())
@@ -83,93 +82,6 @@ func (a *ArchDistribution) DetectDependenciesWithTerminal(ctx context.Context, w
 	return dependencies, nil
 }
 
-func (a *ArchDistribution) detectWindowManager(wm deps.WindowManager) deps.Dependency {
-	switch wm {
-	case deps.WindowManagerHyprland:
-		status := deps.StatusMissing
-		if a.commandExists("hyprland") || a.commandExists("Hyprland") {
-			status = deps.StatusInstalled
-		}
-		return deps.Dependency{
-			Name:        "hyprland",
-			Status:      status,
-			Description: "Dynamic tiling Wayland compositor",
-			Required:    true,
-		}
-	case deps.WindowManagerNiri:
-		status := deps.StatusMissing
-		if a.commandExists("niri") {
-			status = deps.StatusInstalled
-		}
-		return deps.Dependency{
-			Name:        "niri",
-			Status:      status,
-			Description: "Scrollable-tiling Wayland compositor",
-			Required:    true,
-		}
-	default:
-		return deps.Dependency{
-			Name:        "unknown-wm",
-			Status:      deps.StatusMissing,
-			Description: "Unknown window manager",
-			Required:    true,
-		}
-	}
-}
-
-func (a *ArchDistribution) detectQuickshell() deps.Dependency {
-	if !a.commandExists("qs") {
-		return deps.Dependency{
-			Name:        "quickshell",
-			Status:      deps.StatusMissing,
-			Description: "QtQuick based desktop shell toolkit",
-			Required:    true,
-		}
-	}
-
-	cmd := exec.Command("qs", "--version")
-	output, err := cmd.Output()
-	if err != nil {
-		return deps.Dependency{
-			Name:        "quickshell",
-			Status:      deps.StatusNeedsReinstall,
-			Description: "QtQuick based desktop shell toolkit (version check failed)",
-			Required:    true,
-		}
-	}
-
-	versionStr := string(output)
-	versionRegex := regexp.MustCompile(`quickshell (\d+\.\d+\.\d+)`)
-	matches := versionRegex.FindStringSubmatch(versionStr)
-
-	if len(matches) < 2 {
-		return deps.Dependency{
-			Name:        "quickshell",
-			Status:      deps.StatusNeedsReinstall,
-			Description: "QtQuick based desktop shell toolkit (unknown version)",
-			Required:    true,
-		}
-	}
-
-	version := matches[1]
-	if a.versionCompare(version, "0.2.0") >= 0 {
-		return deps.Dependency{
-			Name:        "quickshell",
-			Status:      deps.StatusInstalled,
-			Version:     version,
-			Description: "QtQuick based desktop shell toolkit",
-			Required:    true,
-		}
-	}
-
-	return deps.Dependency{
-		Name:        "quickshell",
-		Status:      deps.StatusNeedsUpdate,
-		Version:     version,
-		Description: "QtQuick based desktop shell toolkit (needs 0.2.0+)",
-		Required:    true,
-	}
-}
 
 func (a *ArchDistribution) detectXDGPortal() deps.Dependency {
 	status := deps.StatusMissing
@@ -230,6 +142,7 @@ func (a *ArchDistribution) GetPackageMapping(wm deps.WindowManager) map[string]P
 		"mate-polkit":            {Name: "mate-polkit", Repository: RepoTypeSystem},
 		"font-material-symbols":  {Name: "ttf-material-symbols-variable-git", Repository: RepoTypeAUR},
 		"font-firacode":          {Name: "ttf-fira-code", Repository: RepoTypeSystem},
+		"font-inter":             {Name: "inter-font", Repository: RepoTypeSystem},
 	}
 
 	// Add window manager specific packages
