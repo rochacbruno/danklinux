@@ -133,6 +133,20 @@ func (b *BaseDetector) detectSpecificTerminal(terminal Terminal) Dependency {
 }
 
 
+func (b *BaseDetector) detectGrimblast() Dependency {
+	status := StatusMissing
+	if b.commandExists("grimblast") {
+		status = StatusInstalled
+	}
+
+	return Dependency{
+		Name:        "grimblast",
+		Status:      status,
+		Description: "Screenshot utility script for Hyprland",
+		Required:    true,
+	}
+}
+
 func (b *BaseDetector) detectFonts() []Dependency {
 	requiredFonts := []string{
 		"material-symbols",
@@ -172,6 +186,12 @@ func (b *BaseDetector) DetectDependenciesWithTerminal(ctx context.Context, wm Wi
 	// Add base dependencies that are common across distros, with DMS at the top
 	deps = append(deps, b.detectDMS())                      // Shell/DMS moved to top
 	deps = append(deps, b.detectSpecificTerminal(terminal)) // Terminal with choice
+	
+	// Hyprland-specific tools (base detection)
+	if wm == WindowManagerHyprland {
+		deps = append(deps, b.detectGrimblast())
+	}
+	
 	deps = append(deps, b.detectMatugen())
 	deps = append(deps, b.detectDgop())
 	deps = append(deps, b.detectFonts()...)

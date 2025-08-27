@@ -15,7 +15,7 @@ func (m Model) viewWelcome() string {
 	b.WriteString("\n")
 
 	// Create title - it IS left-aligned, just appears centered due to banner width
-	theme := PurpleTheme()
+	theme := TerminalTheme()
 	titleText := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(theme.Primary)).
 		Bold(true).

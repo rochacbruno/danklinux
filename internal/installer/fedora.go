@@ -470,6 +470,12 @@ func (f *FedoraInstaller) getPackageMap(wm deps.WindowManager) map[string]Fedora
 	switch wm {
 	case deps.WindowManagerHyprland:
 		packageMap["hyprland"] = FedoraPackageInfo{"hyprland", "copr", "solopasha/hyprland"}
+		// Hyprland screenshot tools
+		packageMap["grim"] = FedoraPackageInfo{"grim", "dnf", ""}
+		packageMap["slurp"] = FedoraPackageInfo{"slurp", "dnf", ""}
+		packageMap["hyprctl"] = FedoraPackageInfo{"hyprland", "copr", "solopasha/hyprland"} // Part of hyprland package
+		packageMap["hyprpicker"] = FedoraPackageInfo{"hyprpicker", "copr", "solopasha/hyprland"}
+		packageMap["jq"] = FedoraPackageInfo{"jq", "dnf", ""}
 	case deps.WindowManagerNiri:
 		packageMap["niri"] = FedoraPackageInfo{"niri-git", "copr", "yalter/niri-git"}
 	}

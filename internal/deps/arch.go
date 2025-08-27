@@ -38,6 +38,11 @@ func (a *ArchDetector) DetectDependenciesWithTerminal(ctx context.Context, wm Wi
 	deps = append(deps, a.detectXDGPortal())
 	deps = append(deps, a.detectPolkitAgent())
 
+	// Hyprland-specific tools
+	if wm == WindowManagerHyprland {
+		deps = append(deps, a.detectHyprlandTools()...)
+	}
+
 	// Base detections (common across distros)
 	deps = append(deps, a.detectMatugen())
 	deps = append(deps, a.detectDgop())
@@ -194,6 +199,37 @@ func (a *ArchDetector) packageInstalled(pkg string) bool {
 	cmd := exec.Command("pacman", "-Q", pkg)
 	err := cmd.Run()
 	return err == nil
+}
+
+func (a *ArchDetector) detectHyprlandTools() []Dependency {
+	var deps []Dependency
+
+	tools := []struct {
+		name        string
+		description string
+	}{
+		{"grim", "Screenshot utility for Wayland"},
+		{"slurp", "Region selection utility for Wayland"},
+		{"hyprctl", "Hyprland control utility"},
+		{"hyprpicker", "Color picker for Hyprland"},
+		{"jq", "JSON processor"},
+	}
+
+	for _, tool := range tools {
+		status := StatusMissing
+		if a.commandExists(tool.name) {
+			status = StatusInstalled
+		}
+
+		deps = append(deps, Dependency{
+			Name:        tool.name,
+			Status:      status,
+			Description: tool.description,
+			Required:    true,
+		})
+	}
+
+	return deps
 }
 
 func (a *ArchDetector) versionCompare(v1, v2 string) int {

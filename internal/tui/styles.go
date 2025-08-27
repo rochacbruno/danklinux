@@ -18,33 +18,18 @@ type AppTheme struct {
 	Surface    string
 }
 
-func PurpleTheme() AppTheme {
-	return AppTheme{
-		Primary:    "#ccbeff",
-		Secondary:  "#4a3e76",
-		Accent:     "#e7deff",
-		Text:       "#e6e1e9",
-		Subtle:     "#cac4cf",
-		Error:      "#ffb4ab",
-		Warning:    "#eeb8ca",
-		Success:    "#ccbeff",
-		Background: "#141318",
-		Surface:    "#201f24",
-	}
-}
-
 func TerminalTheme() AppTheme {
 	return AppTheme{
-		Primary:    "6",
-		Secondary:  "4",
-		Accent:     "14",
-		Text:       "7",
-		Subtle:     "8",
-		Error:      "1",
-		Warning:    "3",
-		Success:    "2",
-		Background: "0",
-		Surface:    "0",
+		Primary:    "6",  // #625690 - purple
+		Secondary:  "5",  // #36247a - dark purple
+		Accent:     "12", // #7060ac - light purple
+		Text:       "7",  // #2e2e2e - dark gray
+		Subtle:     "8",  // #4a4a4a - medium gray
+		Error:      "1",  // #d83636 - red
+		Warning:    "3",  // #ffff89 - yellow
+		Success:    "2",  // #53e550 - green
+		Background: "15", // #1a1a1a - near black
+		Surface:    "8",  // #4a4a4a - medium gray
 	}
 }
 
@@ -116,7 +101,7 @@ type Styles struct {
 }
 
 func (s Styles) NewThemedProgress(width int) progress.Model {
-	theme := PurpleTheme()
+	theme := TerminalTheme()
 	prog := progress.New(
 		progress.WithGradient(theme.Secondary, theme.Primary),
 	)

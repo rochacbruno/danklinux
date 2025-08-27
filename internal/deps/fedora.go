@@ -51,6 +51,11 @@ func (f *FedoraDetector) DetectDependenciesWithTerminal(ctx context.Context, wm 
 	deps = append(deps, f.detectXDGPortal())
 	deps = append(deps, f.detectPolkitAgent())
 
+	// Hyprland-specific tools
+	if wm == WindowManagerHyprland {
+		deps = append(deps, f.detectHyprlandTools()...)
+	}
+
 	// Base detections (common across distros)
 	deps = append(deps, f.detectMatugen())
 	deps = append(deps, f.detectDgop())
@@ -197,6 +202,37 @@ func (f *FedoraDetector) packageInstalled(pkg string) bool {
 	cmd := exec.Command("rpm", "-q", pkg)
 	err := cmd.Run()
 	return err == nil
+}
+
+func (f *FedoraDetector) detectHyprlandTools() []Dependency {
+	var deps []Dependency
+
+	tools := []struct {
+		name        string
+		description string
+	}{
+		{"grim", "Screenshot utility for Wayland"},
+		{"slurp", "Region selection utility for Wayland"},
+		{"hyprctl", "Hyprland control utility"},
+		{"hyprpicker", "Color picker for Hyprland"},
+		{"jq", "JSON processor"},
+	}
+
+	for _, tool := range tools {
+		status := StatusMissing
+		if f.commandExists(tool.name) {
+			status = StatusInstalled
+		}
+
+		deps = append(deps, Dependency{
+			Name:        tool.name,
+			Status:      status,
+			Description: tool.description,
+			Required:    true,
+		})
+	}
+
+	return deps
 }
 
 func (f *FedoraDetector) versionCompare(v1, v2 string) int {

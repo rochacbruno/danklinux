@@ -53,8 +53,11 @@ func (cd *ConfigDeployer) DeployConfigurationsWithTerminal(ctx context.Context, 
 			return results, fmt.Errorf("failed to deploy Niri config: %w", err)
 		}
 	case deps.WindowManagerHyprland:
-		// Future: Add Hyprland config deployment
-		cd.log("Hyprland configuration deployment not yet implemented")
+		result, err := cd.deployHyprlandConfig(ctx, terminal)
+		results = append(results, result)
+		if err != nil {
+			return results, fmt.Errorf("failed to deploy Hyprland config: %w", err)
+		}
 	}
 
 	// Deploy terminal config based on choice
@@ -305,6 +308,132 @@ func (cd *ConfigDeployer) mergeNiriOutputSections(newConfig, existingConfig stri
 	
 	for _, output := range existingOutputs {
 		builder.WriteString(output)
+		builder.WriteString("\n")
+	}
+	
+	builder.WriteString(mergedConfig[insertPos:])
+	
+	return builder.String(), nil
+}
+
+// deployHyprlandConfig handles Hyprland configuration deployment with backup and merging
+func (cd *ConfigDeployer) deployHyprlandConfig(ctx context.Context, terminal deps.Terminal) (DeploymentResult, error) {
+	result := DeploymentResult{
+		ConfigType: "Hyprland",
+		Path:       filepath.Join(os.Getenv("HOME"), ".config", "hypr", "hyprland.conf"),
+	}
+
+	// Create config directory if it doesn't exist
+	configDir := filepath.Dir(result.Path)
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		result.Error = fmt.Errorf("failed to create config directory: %w", err)
+		return result, result.Error
+	}
+
+	// Check if existing config exists
+	var existingConfig string
+	if _, err := os.Stat(result.Path); err == nil {
+		cd.log("Found existing Hyprland configuration")
+		
+		// Read existing config
+		existingData, err := os.ReadFile(result.Path)
+		if err != nil {
+			result.Error = fmt.Errorf("failed to read existing config: %w", err)
+			return result, result.Error
+		}
+		existingConfig = string(existingData)
+
+		// Create backup
+		timestamp := time.Now().Format("2006-01-02_15-04-05")
+		result.BackupPath = result.Path + ".backup." + timestamp
+		if err := os.WriteFile(result.BackupPath, existingData, 0644); err != nil {
+			result.Error = fmt.Errorf("failed to create backup: %w", err)
+			return result, result.Error
+		}
+		cd.log(fmt.Sprintf("Backed up existing config to %s", result.BackupPath))
+	}
+
+	// Detect polkit agent path
+	polkitPath, err := cd.detectPolkitAgent()
+	if err != nil {
+		cd.log(fmt.Sprintf("Warning: Could not detect polkit agent: %v", err))
+		polkitPath = "/usr/lib/mate-polkit/polkit-mate-authentication-agent-1" // fallback
+	}
+
+	// Determine terminal command based on choice
+	var terminalCommand string
+	switch terminal {
+	case deps.TerminalGhostty:
+		terminalCommand = "ghostty"
+	case deps.TerminalKitty:
+		terminalCommand = "kitty"
+	default:
+		terminalCommand = "ghostty" // fallback to ghostty
+	}
+
+	// Generate new config with polkit path and terminal command injection
+	newConfig := strings.Replace(HyprlandConfig, "{{POLKIT_AGENT_PATH}}", polkitPath, 1)
+	newConfig = strings.Replace(newConfig, "{{TERMINAL_COMMAND}}", terminalCommand, 1)
+
+	// If there was an existing config, merge the monitor sections
+	if existingConfig != "" {
+		mergedConfig, err := cd.mergeHyprlandMonitorSections(newConfig, existingConfig)
+		if err != nil {
+			cd.log(fmt.Sprintf("Warning: Failed to merge monitor sections: %v", err))
+		} else {
+			newConfig = mergedConfig
+			cd.log("Successfully merged existing monitor sections")
+		}
+	}
+
+	// Write new config
+	if err := os.WriteFile(result.Path, []byte(newConfig), 0644); err != nil {
+		result.Error = fmt.Errorf("failed to write config: %w", err)
+		return result, result.Error
+	}
+
+	result.Deployed = true
+	cd.log("Successfully deployed Hyprland configuration")
+	return result, nil
+}
+
+// mergeHyprlandMonitorSections extracts monitor sections from existing config and merges them into the new config
+func (cd *ConfigDeployer) mergeHyprlandMonitorSections(newConfig, existingConfig string) (string, error) {
+	// Regular expression to match monitor lines (including commented ones)
+	// Matches: monitor = NAME, RESOLUTION, POSITION, SCALE, etc.
+	// Also matches commented versions: # monitor = ...
+	monitorRegex := regexp.MustCompile(`(?m)^#?\s*monitor\s*=.*$`)
+	
+	// Find all monitor lines in the existing config
+	existingMonitors := monitorRegex.FindAllString(existingConfig, -1)
+	
+	if len(existingMonitors) == 0 {
+		// No monitor sections to merge
+		return newConfig, nil
+	}
+
+	// Remove the example monitor line from the new config
+	exampleMonitorRegex := regexp.MustCompile(`(?m)^# monitor = eDP-2.*$`)
+	mergedConfig := exampleMonitorRegex.ReplaceAllString(newConfig, "")
+
+	// Find where to insert the monitor sections (after the MONITOR CONFIG header)
+	monitorHeaderRegex := regexp.MustCompile(`(?m)^# MONITOR CONFIG\n# ==================$`)
+	headerMatch := monitorHeaderRegex.FindStringIndex(mergedConfig)
+	
+	if headerMatch == nil {
+		return "", fmt.Errorf("could not find MONITOR CONFIG section")
+	}
+
+	// Insert after the header
+	insertPos := headerMatch[1] + 1 // +1 for the newline
+
+	// Build the merged config
+	var builder strings.Builder
+	builder.WriteString(mergedConfig[:insertPos])
+	builder.WriteString("# Monitors from existing configuration\n")
+	
+	for _, monitor := range existingMonitors {
+		builder.WriteString(monitor)
 		builder.WriteString("\n")
 	}
 	

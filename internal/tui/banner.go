@@ -11,7 +11,7 @@ func (m Model) renderBanner() string {
 ██████╔╝██║  ██║██║ ╚████║██║  ██╗
 ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝ `
 
-	theme := PurpleTheme()
+	theme := TerminalTheme()
 	style := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(theme.Primary)).
 		Bold(true).

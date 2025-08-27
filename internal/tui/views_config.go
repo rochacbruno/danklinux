@@ -227,17 +227,32 @@ func (m Model) checkExistingConfigurations() tea.Cmd {
 	return func() tea.Msg {
 		var configs []ExistingConfigInfo
 		
-		// Check Niri config
-		niriPath := filepath.Join(os.Getenv("HOME"), ".config", "niri", "config.kdl")
-		niriExists := false
-		if _, err := os.Stat(niriPath); err == nil {
-			niriExists = true
+		// Check WM config based on selection
+		if m.selectedWM == 0 {
+			// Check Niri config
+			niriPath := filepath.Join(os.Getenv("HOME"), ".config", "niri", "config.kdl")
+			niriExists := false
+			if _, err := os.Stat(niriPath); err == nil {
+				niriExists = true
+			}
+			configs = append(configs, ExistingConfigInfo{
+				ConfigType: "Niri",
+				Path:       niriPath,
+				Exists:     niriExists,
+			})
+		} else {
+			// Check Hyprland config
+			hyprlandPath := filepath.Join(os.Getenv("HOME"), ".config", "hypr", "hyprland.conf")
+			hyprlandExists := false
+			if _, err := os.Stat(hyprlandPath); err == nil {
+				hyprlandExists = true
+			}
+			configs = append(configs, ExistingConfigInfo{
+				ConfigType: "Hyprland",
+				Path:       hyprlandPath,
+				Exists:     hyprlandExists,
+			})
 		}
-		configs = append(configs, ExistingConfigInfo{
-			ConfigType: "Niri",
-			Path:       niriPath,
-			Exists:     niriExists,
-		})
 		
 		// Check terminal config based on selection
 		if m.selectedTerminal == 0 {

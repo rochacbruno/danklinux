@@ -48,7 +48,7 @@ func (m Model) viewSelectWindowManager() string {
 	}
 
 	b.WriteString("\n")
-	help := m.styles.Subtle.Render("Use ↑/↓ to navigate, Enter to select")
+	help := m.styles.Subtle.Render("Use ↑/↓ to navigate, Enter to select, Esc to go back")
 	b.WriteString(help)
 
 	return b.String()
@@ -93,7 +93,7 @@ func (m Model) viewSelectTerminal() string {
 	}
 
 	b.WriteString("\n")
-	help := m.styles.Subtle.Render("Use ↑/↓ to navigate, Enter to select")
+	help := m.styles.Subtle.Render("Use ↑/↓ to navigate, Enter to select, Esc to go back")
 	b.WriteString(help)
 
 	return b.String()
@@ -114,6 +114,10 @@ func (m Model) updateSelectTerminalState(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.state = StateDetectingDeps
 			m.isLoading = true
 			return m, tea.Batch(m.spinner.Tick, m.detectDependencies())
+		case "esc":
+			// Go back to window manager selection
+			m.state = StateSelectWindowManager
+			return m, m.listenForLogs()
 		}
 	}
 	return m, m.listenForLogs()
@@ -132,6 +136,10 @@ func (m Model) updateSelectWindowManagerState(msg tea.Msg) (tea.Model, tea.Cmd) 
 			}
 		case "enter":
 			m.state = StateSelectTerminal
+			return m, m.listenForLogs()
+		case "esc":
+			// Go back to welcome screen
+			m.state = StateWelcome
 			return m, m.listenForLogs()
 		}
 	}

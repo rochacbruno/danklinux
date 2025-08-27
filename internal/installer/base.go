@@ -32,6 +32,10 @@ func (b *BaseInstaller) InstallManualPackages(ctx context.Context, packages []st
 			if err := b.installDgop(ctx, sudoPassword, progressChan); err != nil {
 				return fmt.Errorf("failed to install dgop: %w", err)
 			}
+		case "grimblast":
+			if err := b.installGrimblast(ctx, sudoPassword, progressChan); err != nil {
+				return fmt.Errorf("failed to install grimblast: %w", err)
+			}
 		case "font-material-symbols":
 			if err := b.installMaterialSymbolsFont(ctx, progressChan); err != nil {
 				return fmt.Errorf("failed to install material symbols font: %w", err)
@@ -108,6 +112,66 @@ func (b *BaseInstaller) installDgop(ctx context.Context, sudoPassword string, pr
 	}
 
 	b.log("dgop installed successfully from source")
+	return nil
+}
+
+func (b *BaseInstaller) installGrimblast(ctx context.Context, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
+	b.log("Installing grimblast script for Hyprland...")
+
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
+		Progress:    0.1,
+		Step:        "Downloading grimblast script...",
+		IsComplete:  false,
+		CommandInfo: "wget grimblast script",
+	}
+
+	// Download grimblast script
+	grimblastURL := "https://raw.githubusercontent.com/hyprwm/contrib/refs/heads/main/grimblast/grimblast"
+	tmpPath := "/tmp/grimblast"
+
+	downloadCmd := exec.CommandContext(ctx, "wget", grimblastURL, "-O", tmpPath)
+	if err := downloadCmd.Run(); err != nil {
+		b.logError("failed to download grimblast", err)
+		return fmt.Errorf("failed to download grimblast: %w", err)
+	}
+
+	// Make executable
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
+		Progress:    0.5,
+		Step:        "Making grimblast executable...",
+		IsComplete:  false,
+		CommandInfo: "chmod +x grimblast",
+	}
+
+	chmodCmd := exec.CommandContext(ctx, "chmod", "+x", tmpPath)
+	if err := chmodCmd.Run(); err != nil {
+		b.logError("failed to make grimblast executable", err)
+		return fmt.Errorf("failed to make grimblast executable: %w", err)
+	}
+
+	// Install to /usr/local/bin
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
+		Progress:    0.8,
+		Step:        "Installing grimblast to /usr/local/bin...",
+		IsComplete:  false,
+		NeedsSudo:   true,
+		CommandInfo: "sudo cp grimblast /usr/local/bin/",
+	}
+
+	installCmd := exec.CommandContext(ctx, "bash", "-c", 
+		fmt.Sprintf("echo '%s' | sudo -S cp %s /usr/local/bin/grimblast", sudoPassword, tmpPath))
+	if err := installCmd.Run(); err != nil {
+		b.logError("failed to install grimblast", err)
+		return fmt.Errorf("failed to install grimblast: %w", err)
+	}
+
+	// Clean up temp file
+	os.Remove(tmpPath)
+
+	b.log("grimblast installed successfully to /usr/local/bin")
 	return nil
 }
 

@@ -523,6 +523,12 @@ func (a *ArchInstaller) getPackageMap(wm deps.WindowManager) map[string]PackageI
 	switch wm {
 	case deps.WindowManagerHyprland:
 		packageMap["hyprland"] = PackageInfo{"hyprland", false}
+		// Hyprland screenshot tools
+		packageMap["grim"] = PackageInfo{"grim", false}
+		packageMap["slurp"] = PackageInfo{"slurp", false}
+		packageMap["hyprctl"] = PackageInfo{"hyprland", false} // Part of hyprland package
+		packageMap["hyprpicker"] = PackageInfo{"hyprpicker", false}
+		packageMap["jq"] = PackageInfo{"jq", false}
 	case deps.WindowManagerNiri:
 		packageMap["niri"] = PackageInfo{"niri-git", true}
 	}
