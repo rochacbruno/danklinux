@@ -479,6 +479,8 @@ func (u *UbuntuDistribution) installBuildDependencies(ctx context.Context, manua
 			buildDeps["libpango1.0-dev"] = true
 			buildDeps["libcairo-dev"] = true
 			buildDeps["libpipewire-0.3-dev"] = true
+			buildDeps["libc6-dev"] = true
+			buildDeps["clang"] = true
 		case "quickshell":
 			buildDeps["qt6-base-dev"] = true
 			buildDeps["qt6-declarative-dev"] = true
