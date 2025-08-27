@@ -503,6 +503,8 @@ func (u *UbuntuDistribution) installBuildDependencies(ctx context.Context, manua
 			buildDeps["libdrm-dev"] = true
 			buildDeps["libgbm-dev"] = true
 			buildDeps["libegl-dev"] = true
+			buildDeps["libgles2-mesa-dev"] = true
+			buildDeps["libgl1-mesa-dev"] = true
 			buildDeps["libxcb1-dev"] = true
 			buildDeps["libpipewire-0.3-dev"] = true
 			buildDeps["libpam0g-dev"] = true

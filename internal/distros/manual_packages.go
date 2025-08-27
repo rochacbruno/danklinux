@@ -411,7 +411,12 @@ func (m *ManualPackageInstaller) installQuickshell(ctx context.Context, sudoPass
 		CommandInfo: "cmake -B build -S . -G Ninja",
 	}
 
-	configureCmd := exec.CommandContext(ctx, "cmake", "-GNinja", "-B", "build", "-DCMAKE_BUILD_TYPE=RelWithDebInfo", "-DCRASH_REPORTER=off")
+	configureCmd := exec.CommandContext(ctx, "cmake", "-GNinja", "-B", "build", 
+		"-DCMAKE_BUILD_TYPE=RelWithDebInfo", 
+		"-DCRASH_REPORTER=off", 
+		"-DX11=OFF", 
+		"-DI3=OFF",
+		"-DCMAKE_CXX_FLAGS=-Wno-error")
 	configureCmd.Dir = tmpDir
 	
 	output, err := configureCmd.CombinedOutput()
