@@ -411,15 +411,8 @@ func (m *ManualPackageInstaller) installQuickshell(ctx context.Context, sudoPass
 		CommandInfo: "cmake -B build -S . -G Ninja",
 	}
 
-	configureCmd := exec.CommandContext(ctx, "cmake", "-B", "build", "-S", ".", "-G", "Ninja", 
-		"-DCRASH_REPORTER=OFF",
-		"-DCMAKE_INCLUDE_PATH=/usr/include/x86_64-linux-gnu/qt6")
+	configureCmd := exec.CommandContext(ctx, "cmake", "-GNinja", "-B", "build", "-DCMAKE_BUILD_TYPE=RelWithDebInfo", "-DCRASH_REPORTER=off")
 	configureCmd.Dir = tmpDir
-	
-	// Set environment to help CMake find Qt headers
-	configureCmd.Env = append(os.Environ(),
-		"Qt6_DIR=/usr/lib/x86_64-linux-gnu/cmake/Qt6",
-		"PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig")
 	
 	output, err := configureCmd.CombinedOutput()
 	if err != nil {
@@ -434,12 +427,12 @@ func (m *ManualPackageInstaller) installQuickshell(ctx context.Context, sudoPass
 		Progress:    0.4,
 		Step:        "Building quickshell (this may take a while)...",
 		IsComplete:  false,
-		CommandInfo: "ninja -C build",
+		CommandInfo: "cmake --build build",
 	}
 
-	buildCmd := exec.CommandContext(ctx, "ninja", "-C", "build")
+	buildCmd := exec.CommandContext(ctx, "cmake", "--build", "build")
 	buildCmd.Dir = tmpDir
-	if err := buildCmd.Run(); err != nil {
+	if err := m.runWithProgressStep(buildCmd, progressChan, installer.PhaseSystemPackages, 0.4, 0.8, "Building quickshell..."); err != nil {
 		return fmt.Errorf("failed to build quickshell: %w", err)
 	}
 
@@ -449,11 +442,11 @@ func (m *ManualPackageInstaller) installQuickshell(ctx context.Context, sudoPass
 		Step:        "Installing quickshell...",
 		IsComplete:  false,
 		NeedsSudo:   true,
-		CommandInfo: "sudo ninja -C build install",
+		CommandInfo: "sudo cmake --install build",
 	}
 
 	installCmd := exec.CommandContext(ctx, "bash", "-c",
-		fmt.Sprintf("cd %s && echo '%s' | sudo -S ninja -C build install", tmpDir, sudoPassword))
+		fmt.Sprintf("cd %s && echo '%s' | sudo -S cmake --install build", tmpDir, sudoPassword))
 	if err := installCmd.Run(); err != nil {
 		return fmt.Errorf("failed to install quickshell: %w", err)
 	}

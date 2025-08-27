@@ -487,10 +487,12 @@ func (u *UbuntuDistribution) installBuildDependencies(ctx context.Context, manua
 			buildDeps["fuzzel"] = true
 		case "quickshell":
 			buildDeps["qt6-base-dev"] = true
+			buildDeps["qt6-base-private-dev"] = true
 			buildDeps["qt6-declarative-dev"] = true
+			buildDeps["qt6-declarative-private-dev"] = true
 			buildDeps["qt6-wayland-dev"] = true
-			buildDeps["qt6-wayland-dev-tools"] = true
 			buildDeps["qt6-wayland-private-dev"] = true
+			buildDeps["qt6-tools-dev"] = true
 			buildDeps["libqt6svg6-dev"] = true
 			buildDeps["qt6-shadertools-dev"] = true
 			buildDeps["spirv-tools"] = true
