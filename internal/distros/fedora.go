@@ -141,6 +141,7 @@ func (f *FedoraDistribution) GetPackageMapping(wm deps.WindowManager) map[string
 		packages["slurp"] = PackageMapping{Name: "slurp", Repository: RepoTypeSystem}
 		packages["hyprctl"] = PackageMapping{Name: "hyprland", Repository: RepoTypeCOPR, RepoURL: "solopasha/hyprland"}
 		packages["hyprpicker"] = PackageMapping{Name: "hyprpicker", Repository: RepoTypeCOPR, RepoURL: "solopasha/hyprland"}
+		packages["grimblast"] = PackageMapping{Name: "grimblast", Repository: RepoTypeManual, BuildFunc: "installGrimblast"}
 		packages["jq"] = PackageMapping{Name: "jq", Repository: RepoTypeSystem}
 	case deps.WindowManagerNiri:
 		packages["niri"] = PackageMapping{Name: "niri-git", Repository: RepoTypeCOPR, RepoURL: "yalter/niri-git"}

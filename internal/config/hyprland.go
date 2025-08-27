@@ -11,7 +11,6 @@ const HyprlandConfig = `# Hyprland Configuration
 # ==================
 # ENVIRONMENT VARS
 # ==================
-env = XDG_CURRENT_DESKTOP,niri
 env = QT_QPA_PLATFORM,wayland
 env = ELECTRON_OZONE_PLATFORM_HINT,auto
 env = QT_QPA_PLATFORMTHEME,gtk3

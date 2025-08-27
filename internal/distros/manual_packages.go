@@ -41,6 +41,34 @@ func (m *ManualPackageInstaller) InstallManualPackages(ctx context.Context, pack
 			if err := m.installInterFont(ctx, progressChan); err != nil {
 				return fmt.Errorf("failed to install Inter font: %w", err)
 			}
+		case "niri":
+			if err := m.installNiri(ctx, sudoPassword, progressChan); err != nil {
+				return fmt.Errorf("failed to install niri: %w", err)
+			}
+		case "quickshell":
+			if err := m.installQuickshell(ctx, sudoPassword, progressChan); err != nil {
+				return fmt.Errorf("failed to install quickshell: %w", err)
+			}
+		case "hyprland":
+			if err := m.installHyprland(ctx, sudoPassword, progressChan); err != nil {
+				return fmt.Errorf("failed to install hyprland: %w", err)
+			}
+		case "hyprpicker":
+			if err := m.installHyprpicker(ctx, sudoPassword, progressChan); err != nil {
+				return fmt.Errorf("failed to install hyprpicker: %w", err)
+			}
+		case "ghostty":
+			if err := m.installGhostty(ctx, sudoPassword, progressChan); err != nil {
+				return fmt.Errorf("failed to install ghostty: %w", err)
+			}
+		case "matugen":
+			if err := m.installMatugen(ctx, sudoPassword, progressChan); err != nil {
+				return fmt.Errorf("failed to install matugen: %w", err)
+			}
+		case "cliphist":
+			if err := m.installCliphist(ctx, sudoPassword, progressChan); err != nil {
+				return fmt.Errorf("failed to install cliphist: %w", err)
+			}
 		default:
 			m.log(fmt.Sprintf("Warning: No manual build method for %s", pkg))
 		}
@@ -282,5 +310,341 @@ func (m *ManualPackageInstaller) installInterFont(ctx context.Context, progressC
 	}
 
 	m.log("Inter font installed successfully")
+	return nil
+}
+
+func (m *ManualPackageInstaller) installNiri(ctx context.Context, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
+	m.log("Installing niri from source...")
+
+	tmpDir := "/tmp/niri-build"
+	if err := os.MkdirAll(tmpDir, 0755); err != nil {
+		return fmt.Errorf("failed to create temp directory: %w", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	progressChan <- installer.InstallProgressMsg{
+		Phase:       installer.PhaseSystemPackages,
+		Progress:    0.2,
+		Step:        "Cloning niri repository...",
+		IsComplete:  false,
+		CommandInfo: "git clone https://github.com/YaLTeR/niri.git",
+	}
+
+	cloneCmd := exec.CommandContext(ctx, "git", "clone", "https://github.com/YaLTeR/niri.git", tmpDir)
+	if err := cloneCmd.Run(); err != nil {
+		return fmt.Errorf("failed to clone niri: %w", err)
+	}
+
+	progressChan <- installer.InstallProgressMsg{
+		Phase:       installer.PhaseSystemPackages,
+		Progress:    0.3,
+		Step:        "Building niri (this may take a while)...",
+		IsComplete:  false,
+		CommandInfo: "cargo build --release",
+	}
+
+	// Build using cargo (assumes Rust is available in PATH)
+	buildCmd := exec.CommandContext(ctx, "cargo", "build", "--release")
+	buildCmd.Dir = tmpDir
+	if err := buildCmd.Run(); err != nil {
+		return fmt.Errorf("failed to build niri: %w", err)
+	}
+
+	progressChan <- installer.InstallProgressMsg{
+		Phase:       installer.PhaseSystemPackages,
+		Progress:    0.8,
+		Step:        "Installing niri...",
+		IsComplete:  false,
+		NeedsSudo:   true,
+		CommandInfo: "sudo cp target/release/niri /usr/local/bin/",
+	}
+
+	installCmd := exec.CommandContext(ctx, "bash", "-c",
+		fmt.Sprintf("echo '%s' | sudo -S cp %s/target/release/niri /usr/local/bin/", sudoPassword, tmpDir))
+	if err := installCmd.Run(); err != nil {
+		return fmt.Errorf("failed to install niri: %w", err)
+	}
+
+	m.log("niri installed successfully from source")
+	return nil
+}
+
+func (m *ManualPackageInstaller) installQuickshell(ctx context.Context, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
+	m.log("Installing quickshell from source...")
+
+	tmpDir := "/tmp/quickshell-build"
+	if err := os.MkdirAll(tmpDir, 0755); err != nil {
+		return fmt.Errorf("failed to create temp directory: %w", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	progressChan <- installer.InstallProgressMsg{
+		Phase:       installer.PhaseSystemPackages,
+		Progress:    0.1,
+		Step:        "Cloning quickshell repository...",
+		IsComplete:  false,
+		CommandInfo: "git clone https://git.outfoxxed.me/outfoxxed/quickshell.git",
+	}
+
+	cloneCmd := exec.CommandContext(ctx, "git", "clone", "https://git.outfoxxed.me/outfoxxed/quickshell.git", tmpDir)
+	if err := cloneCmd.Run(); err != nil {
+		return fmt.Errorf("failed to clone quickshell: %w", err)
+	}
+
+	// Create build directory
+	buildDir := tmpDir + "/build"
+	if err := os.MkdirAll(buildDir, 0755); err != nil {
+		return fmt.Errorf("failed to create build directory: %w", err)
+	}
+
+	progressChan <- installer.InstallProgressMsg{
+		Phase:       installer.PhaseSystemPackages,
+		Progress:    0.3,
+		Step:        "Configuring quickshell build...",
+		IsComplete:  false,
+		CommandInfo: "cmake -B build -S . -G Ninja",
+	}
+
+	configureCmd := exec.CommandContext(ctx, "cmake", "-B", "build", "-S", ".", "-G", "Ninja")
+	configureCmd.Dir = tmpDir
+	if err := configureCmd.Run(); err != nil {
+		return fmt.Errorf("failed to configure quickshell: %w", err)
+	}
+
+	progressChan <- installer.InstallProgressMsg{
+		Phase:       installer.PhaseSystemPackages,
+		Progress:    0.4,
+		Step:        "Building quickshell (this may take a while)...",
+		IsComplete:  false,
+		CommandInfo: "ninja -C build",
+	}
+
+	buildCmd := exec.CommandContext(ctx, "ninja", "-C", "build")
+	buildCmd.Dir = tmpDir
+	if err := buildCmd.Run(); err != nil {
+		return fmt.Errorf("failed to build quickshell: %w", err)
+	}
+
+	progressChan <- installer.InstallProgressMsg{
+		Phase:       installer.PhaseSystemPackages,
+		Progress:    0.8,
+		Step:        "Installing quickshell...",
+		IsComplete:  false,
+		NeedsSudo:   true,
+		CommandInfo: "sudo ninja -C build install",
+	}
+
+	installCmd := exec.CommandContext(ctx, "bash", "-c",
+		fmt.Sprintf("cd %s && echo '%s' | sudo -S ninja -C build install", tmpDir, sudoPassword))
+	if err := installCmd.Run(); err != nil {
+		return fmt.Errorf("failed to install quickshell: %w", err)
+	}
+
+	m.log("quickshell installed successfully from source")
+	return nil
+}
+
+func (m *ManualPackageInstaller) installHyprland(ctx context.Context, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
+	m.log("Installing Hyprland from source...")
+
+	tmpDir := "/tmp/hyprland-build"
+	if err := os.MkdirAll(tmpDir, 0755); err != nil {
+		return fmt.Errorf("failed to create temp directory: %w", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	progressChan <- installer.InstallProgressMsg{
+		Phase:       installer.PhaseSystemPackages,
+		Progress:    0.1,
+		Step:        "Cloning Hyprland repository...",
+		IsComplete:  false,
+		CommandInfo: "git clone --recursive https://github.com/hyprwm/Hyprland.git",
+	}
+
+	cloneCmd := exec.CommandContext(ctx, "git", "clone", "--recursive", "https://github.com/hyprwm/Hyprland.git", tmpDir)
+	if err := cloneCmd.Run(); err != nil {
+		return fmt.Errorf("failed to clone Hyprland: %w", err)
+	}
+
+	progressChan <- installer.InstallProgressMsg{
+		Phase:       installer.PhaseSystemPackages,
+		Progress:    0.2,
+		Step:        "Building Hyprland (this may take a while)...",
+		IsComplete:  false,
+		CommandInfo: "make all",
+	}
+
+	buildCmd := exec.CommandContext(ctx, "make", "all")
+	buildCmd.Dir = tmpDir
+	if err := buildCmd.Run(); err != nil {
+		return fmt.Errorf("failed to build Hyprland: %w", err)
+	}
+
+	progressChan <- installer.InstallProgressMsg{
+		Phase:       installer.PhaseSystemPackages,
+		Progress:    0.8,
+		Step:        "Installing Hyprland...",
+		IsComplete:  false,
+		NeedsSudo:   true,
+		CommandInfo: "sudo make install",
+	}
+
+	installCmd := exec.CommandContext(ctx, "bash", "-c",
+		fmt.Sprintf("cd %s && echo '%s' | sudo -S make install", tmpDir, sudoPassword))
+	if err := installCmd.Run(); err != nil {
+		return fmt.Errorf("failed to install Hyprland: %w", err)
+	}
+
+	m.log("Hyprland installed successfully from source")
+	return nil
+}
+
+func (m *ManualPackageInstaller) installHyprpicker(ctx context.Context, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
+	m.log("Installing hyprpicker from source...")
+
+	tmpDir := "/tmp/hyprpicker-build"
+	if err := os.MkdirAll(tmpDir, 0755); err != nil {
+		return fmt.Errorf("failed to create temp directory: %w", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	progressChan <- installer.InstallProgressMsg{
+		Phase:       installer.PhaseSystemPackages,
+		Progress:    0.2,
+		Step:        "Cloning hyprpicker repository...",
+		IsComplete:  false,
+		CommandInfo: "git clone https://github.com/hyprwm/hyprpicker.git",
+	}
+
+	cloneCmd := exec.CommandContext(ctx, "git", "clone", "https://github.com/hyprwm/hyprpicker.git", tmpDir)
+	if err := cloneCmd.Run(); err != nil {
+		return fmt.Errorf("failed to clone hyprpicker: %w", err)
+	}
+
+	progressChan <- installer.InstallProgressMsg{
+		Phase:       installer.PhaseSystemPackages,
+		Progress:    0.4,
+		Step:        "Building hyprpicker...",
+		IsComplete:  false,
+		CommandInfo: "make all",
+	}
+
+	buildCmd := exec.CommandContext(ctx, "make", "all")
+	buildCmd.Dir = tmpDir
+	if err := buildCmd.Run(); err != nil {
+		return fmt.Errorf("failed to build hyprpicker: %w", err)
+	}
+
+	progressChan <- installer.InstallProgressMsg{
+		Phase:       installer.PhaseSystemPackages,
+		Progress:    0.8,
+		Step:        "Installing hyprpicker...",
+		IsComplete:  false,
+		NeedsSudo:   true,
+		CommandInfo: "sudo make install",
+	}
+
+	installCmd := exec.CommandContext(ctx, "bash", "-c",
+		fmt.Sprintf("cd %s && echo '%s' | sudo -S make install", tmpDir, sudoPassword))
+	if err := installCmd.Run(); err != nil {
+		return fmt.Errorf("failed to install hyprpicker: %w", err)
+	}
+
+	m.log("hyprpicker installed successfully from source")
+	return nil
+}
+
+func (m *ManualPackageInstaller) installGhostty(ctx context.Context, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
+	m.log("Installing Ghostty from source...")
+
+	tmpDir := "/tmp/ghostty-build"
+	if err := os.MkdirAll(tmpDir, 0755); err != nil {
+		return fmt.Errorf("failed to create temp directory: %w", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	progressChan <- installer.InstallProgressMsg{
+		Phase:       installer.PhaseSystemPackages,
+		Progress:    0.1,
+		Step:        "Cloning Ghostty repository...",
+		IsComplete:  false,
+		CommandInfo: "git clone https://github.com/ghostty-org/ghostty.git",
+	}
+
+	cloneCmd := exec.CommandContext(ctx, "git", "clone", "https://github.com/ghostty-org/ghostty.git", tmpDir)
+	if err := cloneCmd.Run(); err != nil {
+		return fmt.Errorf("failed to clone Ghostty: %w", err)
+	}
+
+	progressChan <- installer.InstallProgressMsg{
+		Phase:       installer.PhaseSystemPackages,
+		Progress:    0.2,
+		Step:        "Building Ghostty (this may take a while)...",
+		IsComplete:  false,
+		CommandInfo: "zig build -Doptimize=ReleaseFast",
+	}
+
+	buildCmd := exec.CommandContext(ctx, "zig", "build", "-Doptimize=ReleaseFast")
+	buildCmd.Dir = tmpDir
+	if err := buildCmd.Run(); err != nil {
+		return fmt.Errorf("failed to build Ghostty: %w", err)
+	}
+
+	progressChan <- installer.InstallProgressMsg{
+		Phase:       installer.PhaseSystemPackages,
+		Progress:    0.8,
+		Step:        "Installing Ghostty...",
+		IsComplete:  false,
+		NeedsSudo:   true,
+		CommandInfo: "sudo cp zig-out/bin/ghostty /usr/local/bin/",
+	}
+
+	installCmd := exec.CommandContext(ctx, "bash", "-c",
+		fmt.Sprintf("echo '%s' | sudo -S cp %s/zig-out/bin/ghostty /usr/local/bin/", sudoPassword, tmpDir))
+	if err := installCmd.Run(); err != nil {
+		return fmt.Errorf("failed to install Ghostty: %w", err)
+	}
+
+	m.log("Ghostty installed successfully from source")
+	return nil
+}
+
+func (m *ManualPackageInstaller) installMatugen(ctx context.Context, _ string, progressChan chan<- installer.InstallProgressMsg) error {
+	m.log("Installing matugen from source...")
+
+	progressChan <- installer.InstallProgressMsg{
+		Phase:       installer.PhaseSystemPackages,
+		Progress:    0.1,
+		Step:        "Installing matugen via cargo...",
+		IsComplete:  false,
+		CommandInfo: "cargo install matugen",
+	}
+
+	installCmd := exec.CommandContext(ctx, "cargo", "install", "matugen")
+	if err := installCmd.Run(); err != nil {
+		return fmt.Errorf("failed to install matugen: %w", err)
+	}
+
+	m.log("matugen installed successfully from source")
+	return nil
+}
+
+func (m *ManualPackageInstaller) installCliphist(ctx context.Context, _ string, progressChan chan<- installer.InstallProgressMsg) error {
+	m.log("Installing cliphist from source...")
+
+	progressChan <- installer.InstallProgressMsg{
+		Phase:       installer.PhaseSystemPackages,
+		Progress:    0.1,
+		Step:        "Installing cliphist via go install...",
+		IsComplete:  false,
+		CommandInfo: "go install go.senan.xyz/cliphist@latest",
+	}
+
+	installCmd := exec.CommandContext(ctx, "go", "install", "go.senan.xyz/cliphist@latest")
+	if err := installCmd.Run(); err != nil {
+		return fmt.Errorf("failed to install cliphist: %w", err)
+	}
+
+	m.log("cliphist installed successfully from source")
 	return nil
 }

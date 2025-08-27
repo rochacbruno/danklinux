@@ -82,7 +82,6 @@ func (a *ArchDistribution) DetectDependenciesWithTerminal(ctx context.Context, w
 	return dependencies, nil
 }
 
-
 func (a *ArchDistribution) detectXDGPortal() deps.Dependency {
 	status := deps.StatusMissing
 	if a.packageInstalled("xdg-desktop-portal-gtk") {
@@ -132,7 +131,7 @@ func (a *ArchDistribution) packageInstalled(pkg string) bool {
 func (a *ArchDistribution) GetPackageMapping(wm deps.WindowManager) map[string]PackageMapping {
 	packages := map[string]PackageMapping{
 		"git":                    {Name: "git", Repository: RepoTypeSystem},
-		"quickshell":             {Name: "quickshell-git", Repository: RepoTypeAUR},
+		"quickshell":             {Name: "quickshell", Repository: RepoTypeAUR},
 		"matugen":                {Name: "matugen-bin", Repository: RepoTypeAUR},
 		"dgop":                   {Name: "dgop", Repository: RepoTypeAUR},
 		"ghostty":                {Name: "ghostty", Repository: RepoTypeSystem},
@@ -153,6 +152,7 @@ func (a *ArchDistribution) GetPackageMapping(wm deps.WindowManager) map[string]P
 		packages["slurp"] = PackageMapping{Name: "slurp", Repository: RepoTypeSystem}
 		packages["hyprctl"] = PackageMapping{Name: "hyprland", Repository: RepoTypeSystem}
 		packages["hyprpicker"] = PackageMapping{Name: "hyprpicker", Repository: RepoTypeSystem}
+		packages["grimblast"] = PackageMapping{Name: "grimblast", Repository: RepoTypeManual, BuildFunc: "installGrimblast"}
 		packages["jq"] = PackageMapping{Name: "jq", Repository: RepoTypeSystem}
 	case deps.WindowManagerNiri:
 		packages["niri"] = PackageMapping{Name: "niri-git", Repository: RepoTypeAUR}
@@ -375,7 +375,7 @@ func (a *ArchDistribution) installAURPackages(ctx context.Context, packages []st
 			IsComplete:  false,
 			CommandInfo: "Installing prerequisite for niri-git",
 		}
-		
+
 		if err := a.installSingleAURPackage(ctx, "makepkg-git-lfs-proto", sudoPassword, progressChan, 0.63, 0.65); err != nil {
 			// Log error but don't fail - it might already be installed
 			a.log(fmt.Sprintf("Warning: makepkg-git-lfs-proto installation failed: %v", err))
@@ -472,10 +472,10 @@ func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sud
 
 	// Extract and install dependencies
 	srcinfoPath := filepath.Join(packageDir, ".SRCINFO")
-	depsCmd := exec.CommandContext(ctx, "bash", "-c", 
-		fmt.Sprintf("deps=$(sed -n 's/.*depends = //p' '%s'); if [ ! -z \"$deps\" ]; then echo '%s' | sudo -S pacman -S --needed --noconfirm $deps; fi", 
+	depsCmd := exec.CommandContext(ctx, "bash", "-c",
+		fmt.Sprintf("deps=$(sed -n 's/.*depends = //p' '%s'); if [ ! -z \"$deps\" ]; then echo '%s' | sudo -S pacman -S --needed --noconfirm $deps; fi",
 			srcinfoPath, sudoPassword))
-	
+
 	if err := depsCmd.Run(); err != nil {
 		// Log but don't fail - some deps might be optional or already installed
 		a.log(fmt.Sprintf("Warning: Some dependencies may have failed to install: %v", err))
