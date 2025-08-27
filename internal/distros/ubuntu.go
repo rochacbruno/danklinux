@@ -544,8 +544,10 @@ func (u *UbuntuDistribution) installRust(ctx context.Context, sudoPassword strin
 		return nil
 	}
 
-	rustCmd := exec.CommandContext(ctx, "bash", "-c", "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y")
-	return u.runWithProgress(rustCmd, progressChan, installer.PhaseSystemPackages, 0.82, 0.84)
+	// Install rustup from apt, then use it to install stable Rust
+	rustupCmd := exec.CommandContext(ctx, "bash", "-c", 
+		fmt.Sprintf("echo '%s' | sudo -S apt install -y rustup && rustup install stable && rustup default stable", sudoPassword))
+	return u.runWithProgress(rustupCmd, progressChan, installer.PhaseSystemPackages, 0.82, 0.84)
 }
 
 func (u *UbuntuDistribution) installZig(ctx context.Context, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
