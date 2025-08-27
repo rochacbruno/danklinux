@@ -160,7 +160,7 @@ func (u *UbuntuDistribution) InstallPrerequisites(ctx context.Context, sudoPassw
 	}
 
 	// Update package lists
-	updateCmd := exec.CommandContext(ctx, "bash", "-c", fmt.Sprintf("echo '%s' | sudo -S apt update", sudoPassword))
+	updateCmd := exec.CommandContext(ctx, "bash", "-c", fmt.Sprintf("echo '%s' | sudo -S apt-get update", sudoPassword))
 	if err := u.runWithProgress(updateCmd, progressChan, installer.PhasePrerequisites, 0.06, 0.07); err != nil {
 		return fmt.Errorf("failed to update package lists: %w", err)
 	}
@@ -171,7 +171,7 @@ func (u *UbuntuDistribution) InstallPrerequisites(ctx context.Context, sudoPassw
 		Step:        "Installing build-essential...",
 		IsComplete:  false,
 		NeedsSudo:   true,
-		CommandInfo: "sudo apt install -y build-essential",
+		CommandInfo: "sudo apt-get install -y build-essential",
 		LogOutput:   "Installing build tools",
 	}
 
@@ -179,7 +179,7 @@ func (u *UbuntuDistribution) InstallPrerequisites(ctx context.Context, sudoPassw
 	checkCmd := exec.CommandContext(ctx, "dpkg", "-l", "build-essential")
 	if err := checkCmd.Run(); err != nil {
 		// Not installed, install it
-		cmd := exec.CommandContext(ctx, "bash", "-c", fmt.Sprintf("echo '%s' | sudo -S apt install -y build-essential", sudoPassword))
+		cmd := exec.CommandContext(ctx, "bash", "-c", fmt.Sprintf("echo '%s' | sudo -S apt-get install -y build-essential", sudoPassword))
 		if err := u.runWithProgress(cmd, progressChan, installer.PhasePrerequisites, 0.08, 0.09); err != nil {
 			return fmt.Errorf("failed to install build-essential: %w", err)
 		}
@@ -192,12 +192,12 @@ func (u *UbuntuDistribution) InstallPrerequisites(ctx context.Context, sudoPassw
 		Step:        "Installing development dependencies...",
 		IsComplete:  false,
 		NeedsSudo:   true,
-		CommandInfo: "sudo apt install -y curl wget git cmake ninja-build pkg-config",
+		CommandInfo: "sudo apt-get install -y curl wget git cmake ninja-build pkg-config",
 		LogOutput:   "Installing additional development tools",
 	}
 
 	devToolsCmd := exec.CommandContext(ctx, "bash", "-c",
-		fmt.Sprintf("echo '%s' | sudo -S apt install -y curl wget git cmake ninja-build pkg-config", sudoPassword))
+		fmt.Sprintf("echo '%s' | sudo -S apt-get install -y curl wget git cmake ninja-build pkg-config", sudoPassword))
 	if err := u.runWithProgress(devToolsCmd, progressChan, installer.PhasePrerequisites, 0.10, 0.12); err != nil {
 		return fmt.Errorf("failed to install development tools: %w", err)
 	}
@@ -368,7 +368,7 @@ func (u *UbuntuDistribution) enablePPARepos(ctx context.Context, ppaPkgs []Packa
 
 	// Install software-properties-common first if needed
 	installPPACmd := exec.CommandContext(ctx, "bash", "-c",
-		fmt.Sprintf("echo '%s' | sudo -S apt install -y software-properties-common", sudoPassword))
+		fmt.Sprintf("echo '%s' | sudo -S apt-get install -y software-properties-common", sudoPassword))
 	if err := u.runWithProgress(installPPACmd, progressChan, installer.PhaseSystemPackages, 0.15, 0.17); err != nil {
 		return fmt.Errorf("failed to install software-properties-common: %w", err)
 	}
@@ -404,10 +404,10 @@ func (u *UbuntuDistribution) enablePPARepos(ctx context.Context, ppaPkgs []Packa
 			Step:        "Updating package lists...",
 			IsComplete:  false,
 			NeedsSudo:   true,
-			CommandInfo: "sudo apt update",
+			CommandInfo: "sudo apt-get update",
 		}
 
-		updateCmd := exec.CommandContext(ctx, "bash", "-c", fmt.Sprintf("echo '%s' | sudo -S apt update", sudoPassword))
+		updateCmd := exec.CommandContext(ctx, "bash", "-c", fmt.Sprintf("echo '%s' | sudo -S apt-get update", sudoPassword))
 		if err := u.runWithProgress(updateCmd, progressChan, installer.PhaseSystemPackages, 0.25, 0.27); err != nil {
 			return fmt.Errorf("failed to update package lists after adding PPAs: %w", err)
 		}
@@ -423,7 +423,7 @@ func (u *UbuntuDistribution) installAPTPackages(ctx context.Context, packages []
 
 	u.log(fmt.Sprintf("Installing APT packages: %s", strings.Join(packages, ", ")))
 
-	args := []string{"apt", "install", "-y"}
+	args := []string{"apt-get", "install", "-y"}
 	args = append(args, packages...)
 
 	progressChan <- installer.InstallProgressMsg{
@@ -447,7 +447,7 @@ func (u *UbuntuDistribution) installPPAPackages(ctx context.Context, packages []
 
 	u.log(fmt.Sprintf("Installing PPA packages: %s", strings.Join(packages, ", ")))
 
-	args := []string{"apt", "install", "-y"}
+	args := []string{"apt-get", "install", "-y"}
 	args = append(args, packages...)
 
 	progressChan <- installer.InstallProgressMsg{
@@ -498,6 +498,7 @@ func (u *UbuntuDistribution) installBuildDependencies(ctx context.Context, manua
 			buildDeps["wayland-protocols"] = true
 			buildDeps["libdrm-dev"] = true
 			buildDeps["libgbm-dev"] = true
+			buildDeps["libegl-dev"] = true
 			buildDeps["libxcb1-dev"] = true
 			buildDeps["libpipewire-0.3-dev"] = true
 			buildDeps["libpam0g-dev"] = true
@@ -553,7 +554,7 @@ func (u *UbuntuDistribution) installBuildDependencies(ctx context.Context, manua
 		depList = append(depList, dep)
 	}
 
-	args := []string{"apt", "install", "-y"}
+	args := []string{"apt-get", "install", "-y"}
 	args = append(args, depList...)
 
 	cmdStr := fmt.Sprintf("echo '%s' | sudo -S %s", sudoPassword, strings.Join(args, " "))
@@ -572,12 +573,12 @@ func (u *UbuntuDistribution) installRust(ctx context.Context, sudoPassword strin
 		Step:        "Installing rustup...",
 		IsComplete:  false,
 		NeedsSudo:   true,
-		CommandInfo: "sudo apt install rustup",
+		CommandInfo: "sudo apt-get install rustup",
 	}
 
 	// Install rustup from apt
 	rustupInstallCmd := exec.CommandContext(ctx, "bash", "-c", 
-		fmt.Sprintf("echo '%s' | sudo -S apt install -y rustup", sudoPassword))
+		fmt.Sprintf("echo '%s' | sudo -S apt-get install -y rustup", sudoPassword))
 	if err := u.runWithProgress(rustupInstallCmd, progressChan, installer.PhaseSystemPackages, 0.82, 0.83); err != nil {
 		return fmt.Errorf("failed to install rustup: %w", err)
 	}
@@ -655,12 +656,12 @@ func (u *UbuntuDistribution) installGo(ctx context.Context, sudoPassword string,
 		Step:        "Updating package lists...",
 		IsComplete:  false,
 		NeedsSudo:   true,
-		CommandInfo: "sudo apt update",
+		CommandInfo: "sudo apt-get update",
 	}
 
 	// Update package lists
 	updateCmd := exec.CommandContext(ctx, "bash", "-c",
-		fmt.Sprintf("echo '%s' | sudo -S apt update", sudoPassword))
+		fmt.Sprintf("echo '%s' | sudo -S apt-get update", sudoPassword))
 	if err := u.runWithProgress(updateCmd, progressChan, installer.PhaseSystemPackages, 0.88, 0.89); err != nil {
 		return fmt.Errorf("failed to update package lists after adding Go PPA: %w", err)
 	}
@@ -671,12 +672,12 @@ func (u *UbuntuDistribution) installGo(ctx context.Context, sudoPassword string,
 		Step:        "Installing Go...",
 		IsComplete:  false,
 		NeedsSudo:   true,
-		CommandInfo: "sudo apt install golang-go",
+		CommandInfo: "sudo apt-get install golang-go",
 	}
 
 	// Install Go
 	installCmd := exec.CommandContext(ctx, "bash", "-c",
-		fmt.Sprintf("echo '%s' | sudo -S apt install -y golang-go", sudoPassword))
+		fmt.Sprintf("echo '%s' | sudo -S apt-get install -y golang-go", sudoPassword))
 	return u.runWithProgress(installCmd, progressChan, installer.PhaseSystemPackages, 0.89, 0.90)
 }
 
