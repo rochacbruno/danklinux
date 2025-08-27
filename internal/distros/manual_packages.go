@@ -411,7 +411,10 @@ func (m *ManualPackageInstaller) installQuickshell(ctx context.Context, sudoPass
 		CommandInfo: "cmake -B build -S . -G Ninja",
 	}
 
-	configureCmd := exec.CommandContext(ctx, "cmake", "-B", "build", "-S", ".", "-G", "Ninja", "-DCRASH_REPORTER=OFF")
+	configureCmd := exec.CommandContext(ctx, "cmake", "-B", "build", "-S", ".", "-G", "Ninja", 
+		"-DCRASH_REPORTER=OFF",
+		"-DQt6_DIR=/usr/lib/x86_64-linux-gnu/cmake/Qt6",
+		"-DCMAKE_PREFIX_PATH=/usr/lib/x86_64-linux-gnu/cmake")
 	configureCmd.Dir = tmpDir
 	
 	output, err := configureCmd.CombinedOutput()

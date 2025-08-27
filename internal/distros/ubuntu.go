@@ -489,6 +489,8 @@ func (u *UbuntuDistribution) installBuildDependencies(ctx context.Context, manua
 			buildDeps["qt6-base-dev"] = true
 			buildDeps["qt6-declarative-dev"] = true
 			buildDeps["qt6-wayland-dev"] = true
+			buildDeps["qt6-wayland-dev-tools"] = true
+			buildDeps["qt6-wayland-private-dev"] = true
 			buildDeps["libqt6svg6-dev"] = true
 			buildDeps["qt6-shadertools-dev"] = true
 			buildDeps["spirv-tools"] = true
@@ -577,7 +579,7 @@ func (u *UbuntuDistribution) installRust(ctx context.Context, sudoPassword strin
 	}
 
 	// Install rustup from apt
-	rustupInstallCmd := exec.CommandContext(ctx, "bash", "-c", 
+	rustupInstallCmd := exec.CommandContext(ctx, "bash", "-c",
 		fmt.Sprintf("echo '%s' | sudo -S apt-get install -y rustup", sudoPassword))
 	if err := u.runWithProgress(rustupInstallCmd, progressChan, installer.PhaseSystemPackages, 0.82, 0.83); err != nil {
 		return fmt.Errorf("failed to install rustup: %w", err)
