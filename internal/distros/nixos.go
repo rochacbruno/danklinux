@@ -143,7 +143,7 @@ func (n *NixOSDistribution) GetPackageMapping(wm deps.WindowManager) map[string]
 		packages["grimblast"] = PackageMapping{Name: "github:hyprwm/contrib#grimblast", Repository: RepoTypeFlake}
 		packages["jq"] = PackageMapping{Name: "nixpkgs#jq", Repository: RepoTypeSystem}
 	case deps.WindowManagerNiri:
-		packages["niri"] = PackageMapping{Name: "github:YaLTeR/niri", Repository: RepoTypeFlake}
+		packages["niri"] = PackageMapping{Name: "nixpkgs#niri", Repository: RepoTypeSystem}
 	}
 
 	return packages
