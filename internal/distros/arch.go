@@ -19,6 +19,12 @@ func init() {
 	Register("cachyos", "#08A283", func(config DistroConfig, logChan chan<- string) Distribution {
 		return NewArchDistribution(config, logChan)
 	})
+	Register("endeavouros", "#7F3FBF", func(config DistroConfig, logChan chan<- string) Distribution {
+		return NewArchDistribution(config, logChan)
+	})
+	Register("manjaro", "#35BF5C", func(config DistroConfig, logChan chan<- string) Distribution {
+		return NewArchDistribution(config, logChan)
+	})
 }
 
 type ArchDistribution struct {

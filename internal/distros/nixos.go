@@ -78,8 +78,12 @@ func (n *NixOSDistribution) DetectDependenciesWithTerminal(ctx context.Context, 
 func (n *NixOSDistribution) detectDMS() deps.Dependency {
 	status := deps.StatusMissing
 	
-	// For NixOS, check if DankMaterialShell flake is installed
-	if n.packageInstalled("DankMaterialShell") {
+	// For NixOS, check if quickshell can find the dms config
+	cmd := exec.Command("qs", "-c", "dms", "--list")
+	if err := cmd.Run(); err == nil {
+		status = deps.StatusInstalled
+	} else if n.packageInstalled("DankMaterialShell") {
+		// Fallback: check if flake is in profile
 		status = deps.StatusInstalled
 	}
 	
