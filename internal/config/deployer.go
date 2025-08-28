@@ -43,36 +43,81 @@ func (cd *ConfigDeployer) DeployConfigurations(ctx context.Context, wm deps.Wind
 
 // DeployConfigurationsWithTerminal deploys all necessary configurations based on chosen window manager and terminal
 func (cd *ConfigDeployer) DeployConfigurationsWithTerminal(ctx context.Context, wm deps.WindowManager, terminal deps.Terminal) ([]DeploymentResult, error) {
-	var results []DeploymentResult
+	return cd.DeployConfigurationsSelective(ctx, wm, terminal, nil, nil)
+}
 
+// DeployConfigurationsSelective deploys configurations only for actually installed packages
+func (cd *ConfigDeployer) DeployConfigurationsSelective(ctx context.Context, wm deps.WindowManager, terminal deps.Terminal, installedDeps []deps.Dependency, replaceConfigs map[string]bool) ([]DeploymentResult, error) {
+	var results []DeploymentResult
+	
+	// Helper function to check if a package was actually installed
+	isPackageInstalled := func(packageName string) bool {
+		if installedDeps == nil {
+			return true // If no dep info provided, assume all are installed (backward compatibility)
+		}
+		
+		for _, dep := range installedDeps {
+			if dep.Name == packageName && (dep.Status == deps.StatusInstalled || dep.Status == deps.StatusNeedsUpdate) {
+				return true
+			}
+		}
+		return false
+	}
+	
+	// Helper function to check if config should be replaced
+	shouldReplaceConfig := func(configType string) bool {
+		if replaceConfigs == nil {
+			return true // Default to replacing if no preference specified
+		}
+		replace, exists := replaceConfigs[configType]
+		return !exists || replace // Default to true if not specified
+	}
+
+	// Deploy window manager config only if the WM was installed
 	switch wm {
 	case deps.WindowManagerNiri:
-		result, err := cd.deployNiriConfig(ctx, terminal)
-		results = append(results, result)
-		if err != nil {
-			return results, fmt.Errorf("failed to deploy Niri config: %w", err)
+		if isPackageInstalled("niri") && shouldReplaceConfig("Niri") {
+			result, err := cd.deployNiriConfig(ctx, terminal)
+			results = append(results, result)
+			if err != nil {
+				return results, fmt.Errorf("failed to deploy Niri config: %w", err)
+			}
+		} else {
+			cd.log("Skipping Niri config deployment (not installed or marked to keep existing)")
 		}
 	case deps.WindowManagerHyprland:
-		result, err := cd.deployHyprlandConfig(ctx, terminal)
-		results = append(results, result)
-		if err != nil {
-			return results, fmt.Errorf("failed to deploy Hyprland config: %w", err)
+		if isPackageInstalled("hyprland") && shouldReplaceConfig("Hyprland") {
+			result, err := cd.deployHyprlandConfig(ctx, terminal)
+			results = append(results, result)
+			if err != nil {
+				return results, fmt.Errorf("failed to deploy Hyprland config: %w", err)
+			}
+		} else {
+			cd.log("Skipping Hyprland config deployment (not installed or marked to keep existing)")
 		}
 	}
 
-	// Deploy terminal config based on choice
+	// Deploy terminal config only if the terminal was installed
 	switch terminal {
 	case deps.TerminalGhostty:
-		ghosttyResult, err := cd.deployGhosttyConfig(ctx)
-		results = append(results, ghosttyResult)
-		if err != nil {
-			return results, fmt.Errorf("failed to deploy Ghostty config: %w", err)
+		if isPackageInstalled("ghostty") && shouldReplaceConfig("Ghostty") {
+			ghosttyResult, err := cd.deployGhosttyConfig(ctx)
+			results = append(results, ghosttyResult)
+			if err != nil {
+				return results, fmt.Errorf("failed to deploy Ghostty config: %w", err)
+			}
+		} else {
+			cd.log("Skipping Ghostty config deployment (not installed or marked to keep existing)")
 		}
 	case deps.TerminalKitty:
-		kittyResult, err := cd.deployKittyConfig(ctx)
-		results = append(results, kittyResult)
-		if err != nil {
-			return results, fmt.Errorf("failed to deploy Kitty config: %w", err)
+		if isPackageInstalled("kitty") && shouldReplaceConfig("Kitty") {
+			kittyResult, err := cd.deployKittyConfig(ctx)
+			results = append(results, kittyResult)
+			if err != nil {
+				return results, fmt.Errorf("failed to deploy Kitty config: %w", err)
+			}
+		} else {
+			cd.log("Skipping Kitty config deployment (not installed or marked to keep existing)")
 		}
 	}
 

@@ -128,8 +128,8 @@ func (m Model) deployConfigurations() tea.Cmd {
 		// Create config deployer
 		deployer := config.NewConfigDeployer(m.logChan)
 		
-		// Deploy configurations with terminal choice
-		results, err := deployer.DeployConfigurationsWithTerminal(context.Background(), wm, terminal)
+		// Deploy configurations selectively based on installed packages and user preferences
+		results, err := deployer.DeployConfigurationsSelective(context.Background(), wm, terminal, m.dependencies, m.replaceConfigs)
 		
 		return configDeploymentResult{
 			results: results,
@@ -144,7 +144,7 @@ func (m Model) viewConfigConfirmation() string {
 	b.WriteString(m.renderBanner())
 	b.WriteString("\n")
 	
-	title := m.styles.Title.Render("Configuration Deployment Confirmation")
+	title := m.styles.Title.Render("Configuration Deployment")
 	b.WriteString(title)
 	b.WriteString("\n\n")
 	
@@ -155,30 +155,51 @@ func (m Model) viewConfigConfirmation() string {
 		return b.String()
 	}
 	
-	// Show existing configurations that will be overwritten
-	warning := m.styles.Warning.Render("⚠ Existing configurations detected!")
-	b.WriteString(warning)
-	b.WriteString("\n\n")
-	
-	info := m.styles.Normal.Render("The following configuration files already exist and will be overwritten:")
-	b.WriteString(info)
-	b.WriteString("\n\n")
-	
-	for _, configInfo := range m.existingConfigs {
+	// Show existing configurations with toggle options
+	for i, configInfo := range m.existingConfigs {
 		if configInfo.Exists {
-			configLine := m.styles.Subtle.Render(fmt.Sprintf("  • %s: %s", configInfo.ConfigType, configInfo.Path))
-			b.WriteString(configLine)
-			b.WriteString("\n")
+			var status string
+			var replaceMarker string
+			
+			// Check if this config is marked for replacement (default is true)
+			shouldReplace := m.replaceConfigs[configInfo.ConfigType]
+			if _, exists := m.replaceConfigs[configInfo.ConfigType]; !exists {
+				// Default to replace if not set
+				shouldReplace = true
+				m.replaceConfigs[configInfo.ConfigType] = true
+			}
+			
+			if shouldReplace {
+				replaceMarker = "🔄 "
+				status = m.styles.Warning.Render("Will replace")
+			} else {
+				replaceMarker = "✓ "
+				status = m.styles.Success.Render("Keep existing")
+			}
+			
+			// Highlight selected item
+			var line string
+			if i == m.selectedConfig {
+				line = fmt.Sprintf("▶ %s%-15s %s", replaceMarker, configInfo.ConfigType, status)
+				line += fmt.Sprintf("\n    %s", configInfo.Path)
+				line = m.styles.SelectedOption.Render(line)
+			} else {
+				line = fmt.Sprintf("  %s%-15s %s", replaceMarker, configInfo.ConfigType, status)
+				line += fmt.Sprintf("\n    %s", configInfo.Path)
+				line = m.styles.Normal.Render(line)
+			}
+			
+			b.WriteString(line)
+			b.WriteString("\n\n")
 		}
 	}
 	
-	b.WriteString("\n")
-	backup := m.styles.Success.Render("✓ Existing configurations will be backed up with timestamp")
+	backup := m.styles.Success.Render("✓ Replaced configurations will be backed up with timestamp")
 	b.WriteString(backup)
 	b.WriteString("\n\n")
 	
-	prompt := m.styles.Normal.Render("Press Enter to continue with deployment, or Ctrl+C to cancel")
-	b.WriteString(prompt)
+	help := m.styles.Subtle.Render("↑/↓: Navigate, Space: Toggle replace/keep, Enter: Continue")
+	b.WriteString(help)
 	
 	return b.String()
 }
@@ -192,6 +213,19 @@ func (m Model) updateConfigConfirmationState(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		
 		m.existingConfigs = result.configs
+		
+		// Initialize replaceConfigs map with default values (replace = true)
+		// and set selectedConfig to first existing config
+		firstExistingSet := false
+		for i, config := range result.configs {
+			if config.Exists {
+				m.replaceConfigs[config.ConfigType] = true
+				if !firstExistingSet {
+					m.selectedConfig = i
+					firstExistingSet = true
+				}
+			}
+		}
 		
 		// Check if any configs exist
 		hasExisting := false
@@ -214,6 +248,34 @@ func (m Model) updateConfigConfirmationState(msg tea.Msg) (tea.Model, tea.Cmd) {
 	
 	if keyMsg, ok := msg.(tea.KeyMsg); ok {
 		switch keyMsg.String() {
+		case "up":
+			if m.selectedConfig > 0 {
+				// Find previous existing config
+				for i := m.selectedConfig - 1; i >= 0; i-- {
+					if m.existingConfigs[i].Exists {
+						m.selectedConfig = i
+						break
+					}
+				}
+			}
+		case "down":
+			if m.selectedConfig < len(m.existingConfigs)-1 {
+				// Find next existing config
+				for i := m.selectedConfig + 1; i < len(m.existingConfigs); i++ {
+					if m.existingConfigs[i].Exists {
+						m.selectedConfig = i
+						break
+					}
+				}
+			}
+		case " ":
+			// Toggle replacement for selected config
+			if len(m.existingConfigs) > 0 && m.selectedConfig < len(m.existingConfigs) {
+				configType := m.existingConfigs[m.selectedConfig].ConfigType
+				if m.existingConfigs[m.selectedConfig].Exists {
+					m.replaceConfigs[configType] = !m.replaceConfigs[configType]
+				}
+			}
 		case "enter":
 			m.state = StateDeployingConfigs
 			return m, m.deployConfigurations()

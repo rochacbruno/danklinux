@@ -32,7 +32,9 @@ type Model struct {
 	selectedWM       int
 	selectedTerminal int
 	selectedDep      int
+	selectedConfig   int
 	reinstallItems   map[string]bool
+	replaceConfigs   map[string]bool
 	sudoPassword     string
 	existingConfigs  []ExistingConfigInfo
 }
@@ -74,7 +76,9 @@ func NewModel(version string) Model {
 		selectedWM:       0,
 		selectedTerminal: 0,  // Default to Ghostty
 		selectedDep:      0,
+		selectedConfig:   0,
 		reinstallItems:   make(map[string]bool),
+		replaceConfigs:   make(map[string]bool),
 		installationLogs: []string{},
 	}
 }

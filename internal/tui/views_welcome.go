@@ -4,11 +4,10 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/AvengeMedia/dankinstall/internal/distros"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/AvengeMedia/dankinstall/internal/distros"
 )
-
 
 func (m Model) viewWelcome() string {
 	var b strings.Builder
@@ -100,49 +99,49 @@ func (m Model) viewWelcome() string {
 			b.WriteString(sysBox.Render(sysInfo))
 			b.WriteString("\n")
 
-		// Feature list with better styling
-		featTitle := lipgloss.NewStyle().
-			Foreground(lipgloss.Color(theme.Primary)).
-			Bold(true).
-			Underline(true).
-			Render("WHAT YOU GET")
-		b.WriteString(featTitle + "\n\n")
+			// Feature list with better styling
+			featTitle := lipgloss.NewStyle().
+				Foreground(lipgloss.Color(theme.Primary)).
+				Bold(true).
+				Underline(true).
+				Render("WHAT YOU GET")
+			b.WriteString(featTitle + "\n\n")
 
-		// Create feature items with alternating styles
-		features := []string{
-			"[shell]   dms (DankMaterialShell)",
-			"[wm]      niri or Hyprland",
-			"[term]    Ghostty or kitty",
-			"[style]   All the themes, automatically.",
-			"[config]  DANK defaults - keybindings, rules, animations, etc.",
-		}
-
-		for i, feat := range features {
-			prefix := feat[:9]
-			content := feat[10:]
-
-			prefixStyle := lipgloss.NewStyle().
-				Foreground(lipgloss.Color(theme.Accent)).
-				Bold(true)
-
-			contentStyle := lipgloss.NewStyle().
-				Foreground(lipgloss.Color(theme.Text))
-
-			if i == len(features)-1 {
-				contentStyle = contentStyle.Bold(true)
+			// Create feature items with alternating styles
+			features := []string{
+				"[shell]   dms (DankMaterialShell)",
+				"[wm]      niri or Hyprland",
+				"[term]    Ghostty or kitty",
+				"[style]   All the themes, automatically.",
+				"[config]  DANK defaults - keybindings, rules, animations, etc.",
 			}
 
-			b.WriteString(fmt.Sprintf("  %s %s\n",
-				prefixStyle.Render(prefix),
-				contentStyle.Render(content)))
-		}
+			for i, feat := range features {
+				prefix := feat[:9]
+				content := feat[10:]
 
-		b.WriteString("\n")
+				prefixStyle := lipgloss.NewStyle().
+					Foreground(lipgloss.Color(theme.Accent)).
+					Bold(true)
+
+				contentStyle := lipgloss.NewStyle().
+					Foreground(lipgloss.Color(theme.Text))
+
+				if i == len(features)-1 {
+					contentStyle = contentStyle.Bold(true)
+				}
+
+				b.WriteString(fmt.Sprintf("  %s %s\n",
+					prefixStyle.Render(prefix),
+					contentStyle.Render(content)))
+			}
+
+			b.WriteString("\n")
 
 			noteStyle := lipgloss.NewStyle().
 				Foreground(lipgloss.Color(theme.Subtle)).
 				Italic(true)
-			note := noteStyle.Render("* In case of conflicts, existing configs will be backed up.")
+			note := noteStyle.Render("* Existing configs can be replaced (and backed up) or preserved")
 			b.WriteString(note)
 			b.WriteString("\n\n")
 		}

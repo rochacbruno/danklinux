@@ -43,10 +43,25 @@ func (m Model) viewDependencyReview() string {
 			var status string
 			var reinstallMarker string
 
+			// Check if this is DankMaterialShell (required, non-toggleable)
+			isDMS := dep.Name == "dms" || dep.Name == "DankMaterialShell"
+			
 			// Check if this item is marked for reinstall
 			if m.reinstallItems[dep.Name] {
 				reinstallMarker = "🔄 "
 				status = m.styles.Warning.Render("Will reinstall")
+			} else if isDMS {
+				reinstallMarker = "⚡ "
+				switch dep.Status {
+				case deps.StatusInstalled:
+					status = m.styles.Success.Render("✓ Required (installed)")
+				case deps.StatusMissing:
+					status = m.styles.Warning.Render("○ Required (will install)")
+				case deps.StatusNeedsUpdate:
+					status = m.styles.Warning.Render("△ Required (needs update)")
+				case deps.StatusNeedsReinstall:
+					status = m.styles.Error.Render("! Required (needs reinstall)")
+				}
 			} else {
 				switch dep.Status {
 				case deps.StatusInstalled:
@@ -82,7 +97,7 @@ func (m Model) viewDependencyReview() string {
 	}
 
 	b.WriteString("\n")
-	help := m.styles.Subtle.Render("↑/↓: Navigate, Space: Toggle reinstall, Enter: Continue")
+	help := m.styles.Subtle.Render("↑/↓: Navigate, Space: Toggle reinstall (except required), Enter: Continue")
 	b.WriteString(help)
 
 	return b.String()
@@ -117,6 +132,13 @@ func (m Model) updateDependencyReviewState(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case " ":
 			if len(m.dependencies) > 0 {
 				depName := m.dependencies[m.selectedDep].Name
+				
+				// Prevent toggling off DankMaterialShell
+				if depName == "dms" || depName == "DankMaterialShell" {
+					// Don't allow toggling DMS off
+					return m, m.listenForLogs()
+				}
+				
 				// Only allow toggling reinstall for installed items or items that need reinstall
 				if m.dependencies[m.selectedDep].Status == deps.StatusInstalled ||
 					m.dependencies[m.selectedDep].Status == deps.StatusNeedsReinstall {
