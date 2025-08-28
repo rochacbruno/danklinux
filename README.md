@@ -1,19 +1,23 @@
 <div align="center">
 
-<pre style="color: #CCBEFF; font-family: monospace; line-height: 1;">
-██████╗  █████╗ ███╗   ██╗██╗  ██╗
-██╔══██╗██╔══██╗████╗  ██║██║ ██╔╝
-██║  ██║███████║██╔██╗ ██║█████╔╝ 
-██║  ██║██╔══██║██║╚██╗██║██╔═██╗ 
-██████╔╝██║  ██║██║ ╚████║██║  ██╗
-╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝
-</pre>
+<img src="assets/dank.svg" alt="DANK" width="400">
 
 </div>
 
-# dankinstall
+# Dank Linux
 
 A comprehensive installer and management tool for DankMaterialShell, a modern desktop environment built on Quickshell for Wayland compositors.
+
+- **dankinstall** Installs the Dank Linux suite for [niri](https://github.com/YaLTeR/niri) and/or [Hyprland](https://hypr.land)
+  - Features the [DankMaterialShell](https://github.com/AvengeMedia/DankMaterialShell)
+    - Which features a complete desktop experience with wallpapers, auto theming, notifications, lock screen, etc.
+  - Offers up solid out of the box configurations as usable, featured starting points.
+  - Can be installed if you already have niri/Hyprland configured
+    - Will allow you to keep your existing config, or replace with Dank ones (existing configs always backed up though)
+- **dms** Management wrapper for the Dank Linux Suite
+  - Handle updates
+  - Process ipc commands
+  - Run dank shell
 
 ## Supported Distributions
 
