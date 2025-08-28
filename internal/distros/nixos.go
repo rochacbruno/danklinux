@@ -75,6 +75,22 @@ func (n *NixOSDistribution) DetectDependenciesWithTerminal(ctx context.Context, 
 	return dependencies, nil
 }
 
+func (n *NixOSDistribution) detectDMS() deps.Dependency {
+	status := deps.StatusMissing
+	
+	// For NixOS, check if DankMaterialShell flake is installed
+	if n.packageInstalled("DankMaterialShell") {
+		status = deps.StatusInstalled
+	}
+	
+	return deps.Dependency{
+		Name:        "dms (DankMaterialShell)",
+		Status:      status,
+		Description: "Desktop Management System configuration (installed as flake)",
+		Required:    true,
+	}
+}
+
 func (n *NixOSDistribution) detectXDGPortal() deps.Dependency {
 	status := deps.StatusMissing
 	if n.packageInstalled("xdg-desktop-portal-gtk") {
@@ -202,6 +218,7 @@ func (n *NixOSDistribution) GetPackageMapping(wm deps.WindowManager) map[string]
 		"quickshell":             {Name: "github:quickshell-mirror/quickshell", Repository: RepoTypeFlake},
 		"matugen":                {Name: "github:InioX/matugen", Repository: RepoTypeFlake},
 		"dgop":                   {Name: "github:AvengeMedia/dgop", Repository: RepoTypeFlake},
+		"dms (DankMaterialShell)": {Name: "github:AvengeMedia/DankMaterialShell", Repository: RepoTypeFlake},
 		"ghostty":                {Name: "nixpkgs#ghostty", Repository: RepoTypeSystem},
 		"alacritty":              {Name: "nixpkgs#alacritty", Repository: RepoTypeSystem},
 		"cliphist":               {Name: "nixpkgs#cliphist", Repository: RepoTypeSystem},
@@ -389,5 +406,19 @@ func (n *NixOSDistribution) installFlakePackages(ctx context.Context, packages [
 		}
 	}
 
+	return nil
+}
+
+func (n *NixOSDistribution) postInstallConfig(ctx context.Context, wm deps.WindowManager, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
+	// For NixOS, DMS is installed as a flake package, so we skip the git clone
+	// The flake installation handles placing the config files correctly
+	progressChan <- installer.InstallProgressMsg{
+		Phase:      installer.PhaseConfiguration,
+		Progress:   0.95,
+		Step:       "NixOS configuration complete",
+		IsComplete: false,
+		LogOutput:  "DMS installed via flake - no additional configuration needed",
+	}
+	
 	return nil
 }
