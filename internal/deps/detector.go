@@ -33,6 +33,7 @@ type Terminal int
 const (
 	TerminalGhostty Terminal = iota
 	TerminalKitty
+	TerminalAlacritty
 )
 
 type DependencyDetector interface {

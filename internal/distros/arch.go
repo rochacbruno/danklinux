@@ -135,6 +135,7 @@ func (a *ArchDistribution) GetPackageMapping(wm deps.WindowManager) map[string]P
 		"matugen":                {Name: "matugen-bin", Repository: RepoTypeAUR},
 		"dgop":                   {Name: "dgop", Repository: RepoTypeAUR},
 		"ghostty":                {Name: "ghostty", Repository: RepoTypeSystem},
+		"alacritty":              {Name: "alacritty", Repository: RepoTypeSystem},
 		"cliphist":               {Name: "cliphist", Repository: RepoTypeSystem},
 		"wl-clipboard":           {Name: "wl-clipboard", Repository: RepoTypeSystem},
 		"xdg-desktop-portal-gtk": {Name: "xdg-desktop-portal-gtk", Repository: RepoTypeSystem},

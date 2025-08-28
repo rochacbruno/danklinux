@@ -89,6 +89,86 @@ func (n *NixOSDistribution) detectXDGPortal() deps.Dependency {
 	}
 }
 
+func (n *NixOSDistribution) detectWindowManager(wm deps.WindowManager) deps.Dependency {
+	switch wm {
+	case deps.WindowManagerHyprland:
+		status := deps.StatusMissing
+		description := "Dynamic tiling Wayland compositor"
+		if n.commandExists("hyprland") || n.commandExists("Hyprland") {
+			status = deps.StatusInstalled
+		} else {
+			description = "Install system-wide: programs.hyprland.enable = true; in configuration.nix"
+		}
+		return deps.Dependency{
+			Name:        "hyprland",
+			Status:      status,
+			Description: description,
+			Required:    true,
+		}
+	case deps.WindowManagerNiri:
+		status := deps.StatusMissing
+		description := "Scrollable-tiling Wayland compositor"
+		if n.commandExists("niri") {
+			status = deps.StatusInstalled
+		} else {
+			description = "Install system-wide: environment.systemPackages = [ pkgs.niri ]; in configuration.nix"
+		}
+		return deps.Dependency{
+			Name:        "niri",
+			Status:      status,
+			Description: description,
+			Required:    true,
+		}
+	default:
+		return deps.Dependency{
+			Name:        "unknown-wm",
+			Status:      deps.StatusMissing,
+			Description: "Unknown window manager",
+			Required:    true,
+		}
+	}
+}
+
+func (n *NixOSDistribution) detectHyprlandTools() []deps.Dependency {
+	var dependencies []deps.Dependency
+
+	tools := []struct {
+		name        string
+		description string
+	}{
+		{"grim", "Screenshot utility for Wayland"},
+		{"slurp", "Region selection utility for Wayland"},
+		{"hyprctl", "Hyprland control utility (comes with system Hyprland)"},
+		{"hyprpicker", "Color picker for Hyprland"},
+		{"grimblast", "Screenshot script for Hyprland"},
+		{"jq", "JSON processor"},
+	}
+
+	for _, tool := range tools {
+		status := deps.StatusMissing
+		
+		// Special handling for hyprctl - it comes with system hyprland
+		if tool.name == "hyprctl" {
+			if n.commandExists("hyprctl") {
+				status = deps.StatusInstalled
+			}
+		} else {
+			if n.commandExists(tool.name) {
+				status = deps.StatusInstalled
+			}
+		}
+
+		dependencies = append(dependencies, deps.Dependency{
+			Name:        tool.name,
+			Status:      status,
+			Description: tool.description,
+			Required:    true,
+		})
+	}
+
+	return dependencies
+}
+
 func (n *NixOSDistribution) detectPolkitAgent() deps.Dependency {
 	if n.packageInstalled("mate-polkit") {
 		return deps.Dependency{
@@ -123,6 +203,7 @@ func (n *NixOSDistribution) GetPackageMapping(wm deps.WindowManager) map[string]
 		"matugen":                {Name: "github:InioX/matugen", Repository: RepoTypeFlake},
 		"dgop":                   {Name: "github:AvengeMedia/dgop", Repository: RepoTypeFlake},
 		"ghostty":                {Name: "nixpkgs#ghostty", Repository: RepoTypeSystem},
+		"alacritty":              {Name: "nixpkgs#alacritty", Repository: RepoTypeSystem},
 		"cliphist":               {Name: "nixpkgs#cliphist", Repository: RepoTypeSystem},
 		"wl-clipboard":           {Name: "nixpkgs#wl-clipboard", Repository: RepoTypeSystem},
 		"xdg-desktop-portal-gtk": {Name: "nixpkgs#xdg-desktop-portal-gtk", Repository: RepoTypeSystem},
@@ -133,17 +214,19 @@ func (n *NixOSDistribution) GetPackageMapping(wm deps.WindowManager) map[string]
 	}
 
 	// Add window manager specific packages
+	// Note: Window managers (hyprland/niri) should be installed system-wide on NixOS
+	// We only install the tools here
 	switch wm {
 	case deps.WindowManagerHyprland:
-		packages["hyprland"] = PackageMapping{Name: "nixpkgs#hyprland", Repository: RepoTypeSystem}
+		// Skip hyprland itself - should be installed system-wide
 		packages["grim"] = PackageMapping{Name: "nixpkgs#grim", Repository: RepoTypeSystem}
 		packages["slurp"] = PackageMapping{Name: "nixpkgs#slurp", Repository: RepoTypeSystem}
-		packages["hyprctl"] = PackageMapping{Name: "nixpkgs#hyprland", Repository: RepoTypeSystem}
 		packages["hyprpicker"] = PackageMapping{Name: "nixpkgs#hyprpicker", Repository: RepoTypeSystem}
 		packages["grimblast"] = PackageMapping{Name: "github:hyprwm/contrib#grimblast", Repository: RepoTypeFlake}
 		packages["jq"] = PackageMapping{Name: "nixpkgs#jq", Repository: RepoTypeSystem}
 	case deps.WindowManagerNiri:
-		packages["niri"] = PackageMapping{Name: "nixpkgs#niri", Repository: RepoTypeSystem}
+		// Skip niri itself - should be installed system-wide
+		// No additional tools needed for niri
 	}
 
 	return packages
@@ -204,13 +287,25 @@ func (n *NixOSDistribution) InstallPackages(ctx context.Context, dependencies []
 		}
 	}
 
-	// Phase 4: Complete
+	// Phase 4: Configuration
+	progressChan <- installer.InstallProgressMsg{
+		Phase:      installer.PhaseConfiguration,
+		Progress:   0.90,
+		Step:       "Configuring system...",
+		IsComplete: false,
+		LogOutput:  "Starting post-installation configuration...",
+	}
+	if err := n.postInstallConfig(ctx, wm, sudoPassword, progressChan); err != nil {
+		return fmt.Errorf("failed to configure system: %w", err)
+	}
+
+	// Phase 5: Complete
 	progressChan <- installer.InstallProgressMsg{
 		Phase:      installer.PhaseComplete,
 		Progress:   1.0,
 		Step:       "Installation complete!",
 		IsComplete: true,
-		LogOutput:  "All packages installed successfully",
+		LogOutput:  "All packages installed and configured successfully",
 	}
 
 	return nil

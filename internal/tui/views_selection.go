@@ -71,6 +71,7 @@ func (m Model) viewSelectTerminal() string {
 	}{
 		{"ghostty", "A fast, native terminal emulator built in Zig."},
 		{"kitty", "A feature-rich, customizable terminal emulator."},
+		{"alacritty", "A simple terminal emulator. (No Dynamic Theming)"},
 	}
 
 	for i, option := range options {
@@ -108,7 +109,7 @@ func (m Model) updateSelectTerminalState(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.selectedTerminal--
 			}
 		case "down":
-			if m.selectedTerminal < 1 {
+			if m.selectedTerminal < 2 {
 				m.selectedTerminal++
 			}
 		case "enter":
@@ -170,8 +171,10 @@ func (m Model) detectDependencies() tea.Cmd {
 		var terminal deps.Terminal
 		if m.selectedTerminal == 0 {
 			terminal = deps.TerminalGhostty
-		} else {
+		} else if m.selectedTerminal == 1 {
 			terminal = deps.TerminalKitty
+		} else {
+			terminal = deps.TerminalAlacritty
 		}
 
 		dependencies, err := detector.DetectDependenciesWithTerminal(context.Background(), wm, terminal)

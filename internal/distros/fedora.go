@@ -120,6 +120,7 @@ func (f *FedoraDistribution) GetPackageMapping(wm deps.WindowManager) map[string
 		"git":                    {Name: "git", Repository: RepoTypeSystem},
 		"ghostty":                {Name: "ghostty", Repository: RepoTypeCOPR, RepoURL: "alternateved/ghostty"},
 		"kitty":                  {Name: "kitty", Repository: RepoTypeSystem},
+		"alacritty":              {Name: "alacritty", Repository: RepoTypeSystem},
 		"wl-clipboard":           {Name: "wl-clipboard", Repository: RepoTypeSystem},
 		"xdg-desktop-portal-gtk": {Name: "xdg-desktop-portal-gtk", Repository: RepoTypeSystem},
 		"mate-polkit":            {Name: "mate-polkit", Repository: RepoTypeSystem},

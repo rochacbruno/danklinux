@@ -178,6 +178,8 @@ func (cd *ConfigDeployer) deployNiriConfig(ctx context.Context, terminal deps.Te
 		terminalCommand = "ghostty"
 	case deps.TerminalKitty:
 		terminalCommand = "kitty"
+	case deps.TerminalAlacritty:
+		terminalCommand = "alacritty"
 	default:
 		terminalCommand = "ghostty" // fallback to ghostty
 	}
@@ -415,6 +417,8 @@ func (cd *ConfigDeployer) deployHyprlandConfig(ctx context.Context, terminal dep
 		terminalCommand = "ghostty"
 	case deps.TerminalKitty:
 		terminalCommand = "kitty"
+	case deps.TerminalAlacritty:
+		terminalCommand = "alacritty"
 	default:
 		terminalCommand = "ghostty" // fallback to ghostty
 	}

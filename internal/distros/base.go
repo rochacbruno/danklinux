@@ -129,6 +129,17 @@ func (b *BaseDistribution) detectSpecificTerminal(terminal deps.Terminal) deps.D
 			Description: "A feature-rich, customizable terminal emulator.",
 			Required:    true,
 		}
+	case deps.TerminalAlacritty:
+		status := deps.StatusMissing
+		if b.commandExists("alacritty") {
+			status = deps.StatusInstalled
+		}
+		return deps.Dependency{
+			Name:        "alacritty",
+			Status:      status,
+			Description: "A simple terminal emulator. (No dynamic theming)",
+			Required:    true,
+		}
 	default:
 		return b.detectSpecificTerminal(deps.TerminalGhostty)
 	}
