@@ -128,8 +128,7 @@ func (m Model) deployConfigurations() tea.Cmd {
 		// Create config deployer
 		deployer := config.NewConfigDeployer(m.logChan)
 		
-		// Deploy configurations selectively based on installed packages and user preferences
-		results, err := deployer.DeployConfigurationsSelective(context.Background(), wm, terminal, m.dependencies, m.replaceConfigs)
+		results, err := deployer.DeployConfigurationsSelectiveWithReinstalls(context.Background(), wm, terminal, m.dependencies, m.replaceConfigs, m.reinstallItems)
 		
 		return configDeploymentResult{
 			results: results,
@@ -161,10 +160,8 @@ func (m Model) viewConfigConfirmation() string {
 			var status string
 			var replaceMarker string
 			
-			// Check if this config is marked for replacement (default is true)
 			shouldReplace := m.replaceConfigs[configInfo.ConfigType]
 			if _, exists := m.replaceConfigs[configInfo.ConfigType]; !exists {
-				// Default to replace if not set
 				shouldReplace = true
 				m.replaceConfigs[configInfo.ConfigType] = true
 			}
@@ -177,7 +174,6 @@ func (m Model) viewConfigConfirmation() string {
 				status = m.styles.Success.Render("Keep existing")
 			}
 			
-			// Highlight selected item
 			var line string
 			if i == m.selectedConfig {
 				line = fmt.Sprintf("▶ %s%-15s %s", replaceMarker, configInfo.ConfigType, status)
@@ -214,8 +210,6 @@ func (m Model) updateConfigConfirmationState(msg tea.Msg) (tea.Model, tea.Cmd) {
 		
 		m.existingConfigs = result.configs
 		
-		// Initialize replaceConfigs map with default values (replace = true)
-		// and set selectedConfig to first existing config
 		firstExistingSet := false
 		for i, config := range result.configs {
 			if config.Exists {
@@ -250,7 +244,6 @@ func (m Model) updateConfigConfirmationState(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch keyMsg.String() {
 		case "up":
 			if m.selectedConfig > 0 {
-				// Find previous existing config
 				for i := m.selectedConfig - 1; i >= 0; i-- {
 					if m.existingConfigs[i].Exists {
 						m.selectedConfig = i
@@ -260,7 +253,6 @@ func (m Model) updateConfigConfirmationState(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "down":
 			if m.selectedConfig < len(m.existingConfigs)-1 {
-				// Find next existing config
 				for i := m.selectedConfig + 1; i < len(m.existingConfigs); i++ {
 					if m.existingConfigs[i].Exists {
 						m.selectedConfig = i
@@ -269,7 +261,6 @@ func (m Model) updateConfigConfirmationState(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		case " ":
-			// Toggle replacement for selected config
 			if len(m.existingConfigs) > 0 && m.selectedConfig < len(m.existingConfigs) {
 				configType := m.existingConfigs[m.selectedConfig].ConfigType
 				if m.existingConfigs[m.selectedConfig].Exists {

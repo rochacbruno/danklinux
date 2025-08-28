@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/AvengeMedia/dankinstall/internal/deps"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -223,11 +224,19 @@ func (m Model) updateInstallingPackagesState(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.state = StateError
 				m.isLoading = false
 			} else {
-				// Clear installation logs when transitioning to config confirmation
 				m.installationLogs = []string{}
-				m.state = StateConfigConfirmation
-				m.isLoading = true
-				return m, tea.Batch(m.spinner.Tick, m.checkExistingConfigurations())
+				
+				needsConfigDeployment := m.anyPackagesNeedConfigDeployment()
+				
+				if needsConfigDeployment {
+					m.state = StateConfigConfirmation
+					m.isLoading = true
+					return m, tea.Batch(m.spinner.Tick, m.checkExistingConfigurations())
+				} else {
+					m.state = StateInstallComplete
+					m.isLoading = false
+					return m, nil
+				}
 			}
 		}
 		return m, m.listenForPackageProgress()
@@ -265,4 +274,25 @@ func (m Model) listenForPackageProgress() tea.Cmd {
 		// Always return the message, completion will be handled in updateInstallingPackagesState
 		return msg
 	}
+}
+
+func (m Model) anyPackagesNeedConfigDeployment() bool {
+	configPackages := []string{"niri", "hyprland", "ghostty", "kitty"}
+	
+	for _, packageName := range configPackages {
+		if m.reinstallItems[packageName] {
+			return true
+		}
+		
+		for _, dep := range m.dependencies {
+			if dep.Name == packageName {
+				if dep.Status == deps.StatusMissing || dep.Status == deps.StatusNeedsUpdate {
+					return true
+				}
+				break
+			}
+		}
+	}
+	
+	return false
 }

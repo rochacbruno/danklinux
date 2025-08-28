@@ -43,10 +43,7 @@ func (m Model) viewDependencyReview() string {
 			var status string
 			var reinstallMarker string
 
-			// Check if this is DankMaterialShell (required, non-toggleable)
 			isDMS := dep.Name == "dms" || dep.Name == "DankMaterialShell"
-			
-			// Check if this item is marked for reinstall
 			if m.reinstallItems[dep.Name] {
 				reinstallMarker = "🔄 "
 				status = m.styles.Warning.Render("Will reinstall")
@@ -75,7 +72,6 @@ func (m Model) viewDependencyReview() string {
 				}
 			}
 
-			// Highlight selected item
 			var line string
 			if i == m.selectedDep {
 				line = fmt.Sprintf("▶ %s%-25s %s", reinstallMarker, dep.Name, status)
@@ -133,13 +129,9 @@ func (m Model) updateDependencyReviewState(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if len(m.dependencies) > 0 {
 				depName := m.dependencies[m.selectedDep].Name
 				
-				// Prevent toggling off DankMaterialShell
 				if depName == "dms" || depName == "DankMaterialShell" {
-					// Don't allow toggling DMS off
 					return m, m.listenForLogs()
 				}
-				
-				// Only allow toggling reinstall for installed items or items that need reinstall
 				if m.dependencies[m.selectedDep].Status == deps.StatusInstalled ||
 					m.dependencies[m.selectedDep].Status == deps.StatusNeedsReinstall {
 					m.reinstallItems[depName] = !m.reinstallItems[depName]

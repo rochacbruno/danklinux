@@ -46,78 +46,81 @@ func (cd *ConfigDeployer) DeployConfigurationsWithTerminal(ctx context.Context, 
 	return cd.DeployConfigurationsSelective(ctx, wm, terminal, nil, nil)
 }
 
-// DeployConfigurationsSelective deploys configurations only for actually installed packages
 func (cd *ConfigDeployer) DeployConfigurationsSelective(ctx context.Context, wm deps.WindowManager, terminal deps.Terminal, installedDeps []deps.Dependency, replaceConfigs map[string]bool) ([]DeploymentResult, error) {
+	return cd.DeployConfigurationsSelectiveWithReinstalls(ctx, wm, terminal, installedDeps, replaceConfigs, nil)
+}
+
+func (cd *ConfigDeployer) DeployConfigurationsSelectiveWithReinstalls(ctx context.Context, wm deps.WindowManager, terminal deps.Terminal, installedDeps []deps.Dependency, replaceConfigs map[string]bool, reinstallItems map[string]bool) ([]DeploymentResult, error) {
 	var results []DeploymentResult
 	
-	// Helper function to check if a package was actually installed
-	isPackageInstalled := func(packageName string) bool {
+	wasPackageActuallyInstalled := func(packageName string) bool {
 		if installedDeps == nil {
-			return true // If no dep info provided, assume all are installed (backward compatibility)
+			return true
+		}
+		
+		if reinstallItems != nil && reinstallItems[packageName] {
+			return true
 		}
 		
 		for _, dep := range installedDeps {
-			if dep.Name == packageName && (dep.Status == deps.StatusInstalled || dep.Status == deps.StatusNeedsUpdate) {
-				return true
+			if dep.Name == packageName {
+				return dep.Status == deps.StatusMissing || dep.Status == deps.StatusNeedsUpdate
 			}
 		}
 		return false
 	}
 	
-	// Helper function to check if config should be replaced
 	shouldReplaceConfig := func(configType string) bool {
 		if replaceConfigs == nil {
-			return true // Default to replacing if no preference specified
+			return true
 		}
 		replace, exists := replaceConfigs[configType]
-		return !exists || replace // Default to true if not specified
+		return !exists || replace
 	}
 
-	// Deploy window manager config only if the WM was installed
 	switch wm {
 	case deps.WindowManagerNiri:
-		if isPackageInstalled("niri") && shouldReplaceConfig("Niri") {
+		if wasPackageActuallyInstalled("niri") && shouldReplaceConfig("Niri") {
 			result, err := cd.deployNiriConfig(ctx, terminal)
 			results = append(results, result)
 			if err != nil {
 				return results, fmt.Errorf("failed to deploy Niri config: %w", err)
 			}
 		} else {
-			cd.log("Skipping Niri config deployment (not installed or marked to keep existing)")
+			cd.log("Skipping Niri config deployment (not newly installed/reinstalled or marked to keep existing)")
 		}
 	case deps.WindowManagerHyprland:
-		if isPackageInstalled("hyprland") && shouldReplaceConfig("Hyprland") {
+		if wasPackageActuallyInstalled("hyprland") && shouldReplaceConfig("Hyprland") {
 			result, err := cd.deployHyprlandConfig(ctx, terminal)
 			results = append(results, result)
 			if err != nil {
 				return results, fmt.Errorf("failed to deploy Hyprland config: %w", err)
 			}
 		} else {
-			cd.log("Skipping Hyprland config deployment (not installed or marked to keep existing)")
+			cd.log("Skipping Hyprland config deployment (not newly installed/reinstalled or marked to keep existing)")
 		}
 	}
 
-	// Deploy terminal config only if the terminal was installed
 	switch terminal {
 	case deps.TerminalGhostty:
-		if isPackageInstalled("ghostty") && shouldReplaceConfig("Ghostty") {
+		if wasPackageActuallyInstalled("ghostty") && shouldReplaceConfig("Ghostty") {
 			ghosttyResult, err := cd.deployGhosttyConfig(ctx)
 			results = append(results, ghosttyResult)
 			if err != nil {
 				return results, fmt.Errorf("failed to deploy Ghostty config: %w", err)
 			}
 		} else {
-			cd.log("Skipping Ghostty config deployment (not installed or marked to keep existing)")
+			cd.log("Skipping Ghostty config deployment (not newly installed/reinstalled or marked to keep existing)")
 		}
 	case deps.TerminalKitty:
-		if isPackageInstalled("kitty") && shouldReplaceConfig("Kitty") {
+		if wasPackageActuallyInstalled("kitty") && shouldReplaceConfig("Kitty") {
 			kittyResult, err := cd.deployKittyConfig(ctx)
 			results = append(results, kittyResult)
 			if err != nil {
 				return results, fmt.Errorf("failed to deploy Kitty config: %w", err)
 			}
 		} else {
-			cd.log("Skipping Kitty config deployment (not installed or marked to keep existing)")
+			cd.log("Skipping Kitty config deployment (not newly installed/reinstalled or marked to keep existing)")
 		}
 	}
 
