@@ -76,7 +76,7 @@ func GetOSInfo() (*OSInfo, error) {
 			if !exists {
 				return nil, errdefs.NewCustomError(errdefs.ErrTypeUnsupportedDistribution, fmt.Sprintf("Unsupported distribution: %s", value))
 			}
-			
+
 			// Get distribution info from the registry
 			info.Distribution = DistroInfo{
 				ID:           value, // Use the actual ID from os-release
@@ -100,7 +100,7 @@ func GetDistroInfo(distroID string) (*DistroInfo, error) {
 	if !exists {
 		return nil, fmt.Errorf("unsupported distribution: %s", distroID)
 	}
-	
+
 	return &DistroInfo{
 		ID:           distroID,
 		HexColorCode: config.ColorHex,
@@ -110,7 +110,7 @@ func GetDistroInfo(distroID string) (*DistroInfo, error) {
 // IsUnsupportedDistro checks if a distribution/version combination is supported
 func IsUnsupportedDistro(distroID, versionID string) bool {
 	switch distroID {
-	case "arch", "cachyos", "fedora":
+	case "arch", "cachyos", "fedora", "nobara":
 		return false // These are supported
 	case "ubuntu":
 		// Parse version (format: "24.04")
@@ -118,7 +118,7 @@ func IsUnsupportedDistro(distroID, versionID string) bool {
 		if len(parts) >= 2 {
 			major, err1 := strconv.Atoi(parts[0])
 			minor, err2 := strconv.Atoi(parts[1])
-			
+
 			if err1 == nil && err2 == nil {
 				// Check if version is less than 25.04
 				return major < 25 || (major == 25 && minor < 4)

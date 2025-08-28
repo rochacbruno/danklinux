@@ -14,6 +14,9 @@ func init() {
 	Register("fedora", "#0B57A4", func(config DistroConfig, logChan chan<- string) Distribution {
 		return NewFedoraDistribution(config, logChan)
 	})
+	Register("nobara", "#0B57A4", func(config DistroConfig, logChan chan<- string) Distribution {
+		return NewFedoraDistribution(config, logChan)
+	})
 }
 
 type FedoraDistribution struct {
