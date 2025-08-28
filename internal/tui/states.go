@@ -6,6 +6,7 @@ const (
 	StateWelcome ApplicationState = iota
 	StateSelectWindowManager
 	StateSelectTerminal
+	StateMissingWMInstructions
 	StateDetectingDeps
 	StateDependencyReview
 	StatePasswordPrompt

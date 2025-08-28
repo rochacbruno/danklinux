@@ -82,6 +82,12 @@ func NewStyles(theme AppTheme) Styles {
 		SelectedOption: lipgloss.NewStyle().
 			Foreground(lipgloss.Color(theme.Accent)).
 			Bold(true),
+
+		CodeBlock: lipgloss.NewStyle().
+			Background(lipgloss.Color(theme.Surface)).
+			Foreground(lipgloss.Color(theme.Text)).
+			Padding(1, 2).
+			MarginLeft(2),
 	}
 }
 
@@ -98,6 +104,7 @@ type Styles struct {
 	Success         lipgloss.Style
 	HighlightButton lipgloss.Style
 	SelectedOption  lipgloss.Style
+	CodeBlock       lipgloss.Style
 }
 
 func (s Styles) NewThemedProgress(width int) progress.Model {

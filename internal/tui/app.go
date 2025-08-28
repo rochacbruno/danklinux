@@ -122,6 +122,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateSelectWindowManagerState(msg)
 	case StateSelectTerminal:
 		return m.updateSelectTerminalState(msg)
+	case StateMissingWMInstructions:
+		return m.updateMissingWMInstructionsState(msg)
 	case StateDetectingDeps:
 		return m.updateDetectingDepsState(msg)
 	case StateDependencyReview:
@@ -151,6 +153,8 @@ func (m Model) View() string {
 		return m.viewSelectWindowManager()
 	case StateSelectTerminal:
 		return m.viewSelectTerminal()
+	case StateMissingWMInstructions:
+		return m.viewMissingWMInstructions()
 	case StateDetectingDeps:
 		return m.viewDetectingDeps()
 	case StateDependencyReview:

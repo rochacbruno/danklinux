@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"fmt"
+	"os/exec"
 	"strings"
 
 	"github.com/AvengeMedia/dankinstall/internal/deps"
@@ -113,6 +114,23 @@ func (m Model) updateSelectTerminalState(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.selectedTerminal++
 			}
 		case "enter":
+			// On NixOS, check if the selected WM is actually installed
+			if m.osInfo != nil && m.osInfo.Distribution.ID == "nixos" {
+				var wmInstalled bool
+				if m.selectedWM == 0 {
+					// Check for niri
+					wmInstalled = m.commandExists("niri")
+				} else {
+					// Check for hyprland
+					wmInstalled = m.commandExists("hyprland") || m.commandExists("Hyprland")
+				}
+				
+				if !wmInstalled {
+					m.state = StateMissingWMInstructions
+					return m, m.listenForLogs()
+				}
+			}
+			
 			m.state = StateDetectingDeps
 			m.isLoading = true
 			return m, tea.Batch(m.spinner.Tick, m.detectDependencies())
@@ -146,6 +164,11 @@ func (m Model) updateSelectWindowManagerState(msg tea.Msg) (tea.Model, tea.Cmd) 
 		}
 	}
 	return m, m.listenForLogs()
+}
+
+func (m Model) commandExists(cmd string) bool {
+	_, err := exec.LookPath(cmd)
+	return err == nil
 }
 
 func (m Model) detectDependencies() tea.Cmd {
