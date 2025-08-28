@@ -20,7 +20,7 @@ func (m Model) viewMissingWMInstructions() string {
 ];`
 	alternateCmd := `# Or enable the module if available:
 # programs.niri.enable = true;`
-	
+
 	if m.selectedWM == 1 {
 		wmName = "Hyprland"
 		installCmd = `programs.hyprland.enable = true;`
@@ -59,7 +59,7 @@ func (m Model) viewMissingWMInstructions() string {
 	rebuildInstruction := m.styles.Normal.Render("Then rebuild your system:")
 	b.WriteString(rebuildInstruction)
 	b.WriteString("\n")
-	
+
 	rebuildCmd := m.styles.CodeBlock.Render("sudo nixos-rebuild switch")
 	b.WriteString(rebuildCmd)
 	b.WriteString("\n\n")

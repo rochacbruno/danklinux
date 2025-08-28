@@ -47,7 +47,6 @@ func NewModel(version string) Model {
 	styles := NewStyles(theme)
 	s.Style = styles.SpinnerStyle
 
-	// Setup password input
 	pi := textinput.New()
 	pi.Placeholder = "Enter sudo password"
 	pi.EchoMode = textinput.EchoPassword
@@ -74,7 +73,7 @@ func NewModel(version string) Model {
 			isComplete: false,
 		},
 		selectedWM:       0,
-		selectedTerminal: 0,  // Default to Ghostty
+		selectedTerminal: 0, // Default to Ghostty
 		selectedDep:      0,
 		selectedConfig:   0,
 		reinstallItems:   make(map[string]bool),

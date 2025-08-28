@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/AvengeMedia/dankinstall/internal/deps"
-	"github.com/AvengeMedia/dankinstall/internal/installer"
 )
 
 func init() {
@@ -133,7 +132,6 @@ func (u *UbuntuDistribution) GetPackageMapping(wm deps.WindowManager) map[string
 		"font-material-symbols": {Name: "font-material-symbols", Repository: RepoTypeManual, BuildFunc: "installMaterialSymbolsFont"},
 	}
 
-	// Add window manager specific packages
 	switch wm {
 	case deps.WindowManagerHyprland:
 		// Use the cppiber PPA for Hyprland
@@ -151,23 +149,22 @@ func (u *UbuntuDistribution) GetPackageMapping(wm deps.WindowManager) map[string
 	return packages
 }
 
-func (u *UbuntuDistribution) InstallPrerequisites(ctx context.Context, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
-	progressChan <- installer.InstallProgressMsg{
-		Phase:      installer.PhasePrerequisites,
+func (u *UbuntuDistribution) InstallPrerequisites(ctx context.Context, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
+	progressChan <- InstallProgressMsg{
+		Phase:      PhasePrerequisites,
 		Progress:   0.06,
 		Step:       "Updating package lists...",
 		IsComplete: false,
 		LogOutput:  "Updating APT package lists",
 	}
 
-	// Update package lists
 	updateCmd := exec.CommandContext(ctx, "bash", "-c", fmt.Sprintf("echo '%s' | sudo -S apt-get update", sudoPassword))
-	if err := u.runWithProgress(updateCmd, progressChan, installer.PhasePrerequisites, 0.06, 0.07); err != nil {
+	if err := u.runWithProgress(updateCmd, progressChan, PhasePrerequisites, 0.06, 0.07); err != nil {
 		return fmt.Errorf("failed to update package lists: %w", err)
 	}
 
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhasePrerequisites,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhasePrerequisites,
 		Progress:    0.08,
 		Step:        "Installing build-essential...",
 		IsComplete:  false,
@@ -176,19 +173,17 @@ func (u *UbuntuDistribution) InstallPrerequisites(ctx context.Context, sudoPassw
 		LogOutput:   "Installing build tools",
 	}
 
-	// Install build-essential (equivalent to base-devel on Arch)
 	checkCmd := exec.CommandContext(ctx, "dpkg", "-l", "build-essential")
 	if err := checkCmd.Run(); err != nil {
 		// Not installed, install it
 		cmd := exec.CommandContext(ctx, "bash", "-c", fmt.Sprintf("echo '%s' | sudo -S apt-get install -y build-essential", sudoPassword))
-		if err := u.runWithProgress(cmd, progressChan, installer.PhasePrerequisites, 0.08, 0.09); err != nil {
+		if err := u.runWithProgress(cmd, progressChan, PhasePrerequisites, 0.08, 0.09); err != nil {
 			return fmt.Errorf("failed to install build-essential: %w", err)
 		}
 	}
 
-	// Install additional development tools needed for building from source
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhasePrerequisites,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhasePrerequisites,
 		Progress:    0.10,
 		Step:        "Installing development dependencies...",
 		IsComplete:  false,
@@ -199,12 +194,12 @@ func (u *UbuntuDistribution) InstallPrerequisites(ctx context.Context, sudoPassw
 
 	devToolsCmd := exec.CommandContext(ctx, "bash", "-c",
 		fmt.Sprintf("echo '%s' | sudo -S apt-get install -y curl wget git cmake ninja-build pkg-config", sudoPassword))
-	if err := u.runWithProgress(devToolsCmd, progressChan, installer.PhasePrerequisites, 0.10, 0.12); err != nil {
+	if err := u.runWithProgress(devToolsCmd, progressChan, PhasePrerequisites, 0.10, 0.12); err != nil {
 		return fmt.Errorf("failed to install development tools: %w", err)
 	}
 
-	progressChan <- installer.InstallProgressMsg{
-		Phase:      installer.PhasePrerequisites,
+	progressChan <- InstallProgressMsg{
+		Phase:      PhasePrerequisites,
 		Progress:   0.12,
 		Step:       "Prerequisites installation complete",
 		IsComplete: false,
@@ -214,10 +209,10 @@ func (u *UbuntuDistribution) InstallPrerequisites(ctx context.Context, sudoPassw
 	return nil
 }
 
-func (u *UbuntuDistribution) InstallPackages(ctx context.Context, dependencies []deps.Dependency, wm deps.WindowManager, sudoPassword string, reinstallFlags map[string]bool, progressChan chan<- installer.InstallProgressMsg) error {
+func (u *UbuntuDistribution) InstallPackages(ctx context.Context, dependencies []deps.Dependency, wm deps.WindowManager, sudoPassword string, reinstallFlags map[string]bool, progressChan chan<- InstallProgressMsg) error {
 	// Phase 1: Check Prerequisites
-	progressChan <- installer.InstallProgressMsg{
-		Phase:      installer.PhasePrerequisites,
+	progressChan <- InstallProgressMsg{
+		Phase:      PhasePrerequisites,
 		Progress:   0.05,
 		Step:       "Checking system prerequisites...",
 		IsComplete: false,
@@ -232,8 +227,8 @@ func (u *UbuntuDistribution) InstallPackages(ctx context.Context, dependencies [
 
 	// Phase 2: Enable PPA repositories
 	if len(ppaPkgs) > 0 {
-		progressChan <- installer.InstallProgressMsg{
-			Phase:      installer.PhaseSystemPackages,
+		progressChan <- InstallProgressMsg{
+			Phase:      PhaseSystemPackages,
 			Progress:   0.15,
 			Step:       "Enabling PPA repositories...",
 			IsComplete: false,
@@ -246,8 +241,8 @@ func (u *UbuntuDistribution) InstallPackages(ctx context.Context, dependencies [
 
 	// Phase 3: System Packages (APT)
 	if len(systemPkgs) > 0 {
-		progressChan <- installer.InstallProgressMsg{
-			Phase:      installer.PhaseSystemPackages,
+		progressChan <- InstallProgressMsg{
+			Phase:      PhaseSystemPackages,
 			Progress:   0.35,
 			Step:       fmt.Sprintf("Installing %d system packages...", len(systemPkgs)),
 			IsComplete: false,
@@ -262,8 +257,8 @@ func (u *UbuntuDistribution) InstallPackages(ctx context.Context, dependencies [
 	// Phase 4: PPA Packages
 	ppaPkgNames := u.extractPackageNames(ppaPkgs)
 	if len(ppaPkgNames) > 0 {
-		progressChan <- installer.InstallProgressMsg{
-			Phase:      installer.PhaseAURPackages, // Reusing AUR phase for PPA
+		progressChan <- InstallProgressMsg{
+			Phase:      PhaseAURPackages, // Reusing AUR phase for PPA
 			Progress:   0.65,
 			Step:       fmt.Sprintf("Installing %d PPA packages...", len(ppaPkgNames)),
 			IsComplete: false,
@@ -276,9 +271,8 @@ func (u *UbuntuDistribution) InstallPackages(ctx context.Context, dependencies [
 
 	// Phase 5: Manual Builds
 	if len(manualPkgs) > 0 {
-		// Install build dependencies first
-		progressChan <- installer.InstallProgressMsg{
-			Phase:      installer.PhaseSystemPackages,
+		progressChan <- InstallProgressMsg{
+			Phase:      PhaseSystemPackages,
 			Progress:   0.80,
 			Step:       "Installing build dependencies...",
 			IsComplete: false,
@@ -288,8 +282,8 @@ func (u *UbuntuDistribution) InstallPackages(ctx context.Context, dependencies [
 			return fmt.Errorf("failed to install build dependencies: %w", err)
 		}
 
-		progressChan <- installer.InstallProgressMsg{
-			Phase:      installer.PhaseSystemPackages,
+		progressChan <- InstallProgressMsg{
+			Phase:      PhaseSystemPackages,
 			Progress:   0.85,
 			Step:       fmt.Sprintf("Building %d packages from source...", len(manualPkgs)),
 			IsComplete: false,
@@ -301,8 +295,8 @@ func (u *UbuntuDistribution) InstallPackages(ctx context.Context, dependencies [
 	}
 
 	// Phase 6: Configuration
-	progressChan <- installer.InstallProgressMsg{
-		Phase:      installer.PhaseConfiguration,
+	progressChan <- InstallProgressMsg{
+		Phase:      PhaseConfiguration,
 		Progress:   0.90,
 		Step:       "Configuring system...",
 		IsComplete: false,
@@ -313,8 +307,8 @@ func (u *UbuntuDistribution) InstallPackages(ctx context.Context, dependencies [
 	}
 
 	// Phase 7: Complete
-	progressChan <- installer.InstallProgressMsg{
-		Phase:      installer.PhaseComplete,
+	progressChan <- InstallProgressMsg{
+		Phase:      PhaseComplete,
 		Progress:   1.0,
 		Step:       "Installation complete!",
 		IsComplete: true,
@@ -364,21 +358,20 @@ func (u *UbuntuDistribution) extractPackageNames(packages []PackageMapping) []st
 	return names
 }
 
-func (u *UbuntuDistribution) enablePPARepos(ctx context.Context, ppaPkgs []PackageMapping, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
+func (u *UbuntuDistribution) enablePPARepos(ctx context.Context, ppaPkgs []PackageMapping, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
 	enabledRepos := make(map[string]bool)
 
-	// Install software-properties-common first if needed
 	installPPACmd := exec.CommandContext(ctx, "bash", "-c",
 		fmt.Sprintf("echo '%s' | sudo -S apt-get install -y software-properties-common", sudoPassword))
-	if err := u.runWithProgress(installPPACmd, progressChan, installer.PhaseSystemPackages, 0.15, 0.17); err != nil {
+	if err := u.runWithProgress(installPPACmd, progressChan, PhaseSystemPackages, 0.15, 0.17); err != nil {
 		return fmt.Errorf("failed to install software-properties-common: %w", err)
 	}
 
 	for _, pkg := range ppaPkgs {
 		if pkg.RepoURL != "" && !enabledRepos[pkg.RepoURL] {
 			u.log(fmt.Sprintf("Enabling PPA repository: %s", pkg.RepoURL))
-			progressChan <- installer.InstallProgressMsg{
-				Phase:       installer.PhaseSystemPackages,
+			progressChan <- InstallProgressMsg{
+				Phase:       PhaseSystemPackages,
 				Progress:    0.20,
 				Step:        fmt.Sprintf("Enabling PPA repo %s...", pkg.RepoURL),
 				IsComplete:  false,
@@ -388,7 +381,7 @@ func (u *UbuntuDistribution) enablePPARepos(ctx context.Context, ppaPkgs []Packa
 
 			cmd := exec.CommandContext(ctx, "bash", "-c",
 				fmt.Sprintf("echo '%s' | sudo -S add-apt-repository -y %s", sudoPassword, pkg.RepoURL))
-			if err := u.runWithProgress(cmd, progressChan, installer.PhaseSystemPackages, 0.20, 0.22); err != nil {
+			if err := u.runWithProgress(cmd, progressChan, PhaseSystemPackages, 0.20, 0.22); err != nil {
 				u.logError(fmt.Sprintf("failed to enable PPA repo %s", pkg.RepoURL), err)
 				return fmt.Errorf("failed to enable PPA repo %s: %w", pkg.RepoURL, err)
 			}
@@ -397,10 +390,9 @@ func (u *UbuntuDistribution) enablePPARepos(ctx context.Context, ppaPkgs []Packa
 		}
 	}
 
-	// Update package lists after adding PPAs
 	if len(enabledRepos) > 0 {
-		progressChan <- installer.InstallProgressMsg{
-			Phase:       installer.PhaseSystemPackages,
+		progressChan <- InstallProgressMsg{
+			Phase:       PhaseSystemPackages,
 			Progress:    0.25,
 			Step:        "Updating package lists...",
 			IsComplete:  false,
@@ -409,7 +401,7 @@ func (u *UbuntuDistribution) enablePPARepos(ctx context.Context, ppaPkgs []Packa
 		}
 
 		updateCmd := exec.CommandContext(ctx, "bash", "-c", fmt.Sprintf("echo '%s' | sudo -S apt-get update", sudoPassword))
-		if err := u.runWithProgress(updateCmd, progressChan, installer.PhaseSystemPackages, 0.25, 0.27); err != nil {
+		if err := u.runWithProgress(updateCmd, progressChan, PhaseSystemPackages, 0.25, 0.27); err != nil {
 			return fmt.Errorf("failed to update package lists after adding PPAs: %w", err)
 		}
 	}
@@ -417,7 +409,7 @@ func (u *UbuntuDistribution) enablePPARepos(ctx context.Context, ppaPkgs []Packa
 	return nil
 }
 
-func (u *UbuntuDistribution) installAPTPackages(ctx context.Context, packages []string, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
+func (u *UbuntuDistribution) installAPTPackages(ctx context.Context, packages []string, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
 	if len(packages) == 0 {
 		return nil
 	}
@@ -427,8 +419,8 @@ func (u *UbuntuDistribution) installAPTPackages(ctx context.Context, packages []
 	args := []string{"apt-get", "install", "-y"}
 	args = append(args, packages...)
 
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhaseSystemPackages,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
 		Progress:    0.40,
 		Step:        "Installing system packages...",
 		IsComplete:  false,
@@ -438,10 +430,10 @@ func (u *UbuntuDistribution) installAPTPackages(ctx context.Context, packages []
 
 	cmdStr := fmt.Sprintf("echo '%s' | sudo -S %s", sudoPassword, strings.Join(args, " "))
 	cmd := exec.CommandContext(ctx, "bash", "-c", cmdStr)
-	return u.runWithProgress(cmd, progressChan, installer.PhaseSystemPackages, 0.40, 0.60)
+	return u.runWithProgress(cmd, progressChan, PhaseSystemPackages, 0.40, 0.60)
 }
 
-func (u *UbuntuDistribution) installPPAPackages(ctx context.Context, packages []string, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
+func (u *UbuntuDistribution) installPPAPackages(ctx context.Context, packages []string, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
 	if len(packages) == 0 {
 		return nil
 	}
@@ -451,8 +443,8 @@ func (u *UbuntuDistribution) installPPAPackages(ctx context.Context, packages []
 	args := []string{"apt-get", "install", "-y"}
 	args = append(args, packages...)
 
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhaseAURPackages,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseAURPackages,
 		Progress:    0.70,
 		Step:        "Installing PPA packages...",
 		IsComplete:  false,
@@ -462,10 +454,10 @@ func (u *UbuntuDistribution) installPPAPackages(ctx context.Context, packages []
 
 	cmdStr := fmt.Sprintf("echo '%s' | sudo -S %s", sudoPassword, strings.Join(args, " "))
 	cmd := exec.CommandContext(ctx, "bash", "-c", cmdStr)
-	return u.runWithProgress(cmd, progressChan, installer.PhaseAURPackages, 0.70, 0.85)
+	return u.runWithProgress(cmd, progressChan, PhaseAURPackages, 0.70, 0.85)
 }
 
-func (u *UbuntuDistribution) installBuildDependencies(ctx context.Context, manualPkgs []string, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
+func (u *UbuntuDistribution) installBuildDependencies(ctx context.Context, manualPkgs []string, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
 	buildDeps := make(map[string]bool)
 
 	for _, pkg := range manualPkgs {
@@ -520,7 +512,6 @@ func (u *UbuntuDistribution) installBuildDependencies(ctx context.Context, manua
 		}
 	}
 
-	// Install language toolchains that need special handling
 	for _, pkg := range manualPkgs {
 		switch pkg {
 		case "niri", "matugen":
@@ -552,16 +543,16 @@ func (u *UbuntuDistribution) installBuildDependencies(ctx context.Context, manua
 
 	cmdStr := fmt.Sprintf("echo '%s' | sudo -S %s", sudoPassword, strings.Join(args, " "))
 	cmd := exec.CommandContext(ctx, "bash", "-c", cmdStr)
-	return u.runWithProgress(cmd, progressChan, installer.PhaseSystemPackages, 0.80, 0.82)
+	return u.runWithProgress(cmd, progressChan, PhaseSystemPackages, 0.80, 0.82)
 }
 
-func (u *UbuntuDistribution) installRust(ctx context.Context, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
+func (u *UbuntuDistribution) installRust(ctx context.Context, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
 	if u.commandExists("cargo") {
 		return nil
 	}
 
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhaseSystemPackages,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
 		Progress:    0.82,
 		Step:        "Installing rustup...",
 		IsComplete:  false,
@@ -569,24 +560,22 @@ func (u *UbuntuDistribution) installRust(ctx context.Context, sudoPassword strin
 		CommandInfo: "sudo apt-get install rustup",
 	}
 
-	// Install rustup from apt
 	rustupInstallCmd := exec.CommandContext(ctx, "bash", "-c",
 		fmt.Sprintf("echo '%s' | sudo -S apt-get install -y rustup", sudoPassword))
-	if err := u.runWithProgress(rustupInstallCmd, progressChan, installer.PhaseSystemPackages, 0.82, 0.83); err != nil {
+	if err := u.runWithProgress(rustupInstallCmd, progressChan, PhaseSystemPackages, 0.82, 0.83); err != nil {
 		return fmt.Errorf("failed to install rustup: %w", err)
 	}
 
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhaseSystemPackages,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
 		Progress:    0.83,
 		Step:        "Installing stable Rust toolchain...",
 		IsComplete:  false,
 		CommandInfo: "rustup install stable",
 	}
 
-	// Install and set stable Rust toolchain
 	rustInstallCmd := exec.CommandContext(ctx, "bash", "-c", "rustup install stable && rustup default stable")
-	if err := u.runWithProgress(rustInstallCmd, progressChan, installer.PhaseSystemPackages, 0.83, 0.84); err != nil {
+	if err := u.runWithProgress(rustInstallCmd, progressChan, PhaseSystemPackages, 0.83, 0.84); err != nil {
 		return fmt.Errorf("failed to install Rust toolchain: %w", err)
 	}
 
@@ -598,7 +587,7 @@ func (u *UbuntuDistribution) installRust(ctx context.Context, sudoPassword strin
 	return nil
 }
 
-func (u *UbuntuDistribution) installZig(ctx context.Context, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
+func (u *UbuntuDistribution) installZig(ctx context.Context, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
 	if u.commandExists("zig") {
 		return nil
 	}
@@ -607,28 +596,28 @@ func (u *UbuntuDistribution) installZig(ctx context.Context, sudoPassword string
 	zigTmp := "/tmp/zig.tar.xz"
 
 	downloadCmd := exec.CommandContext(ctx, "curl", "-L", zigUrl, "-o", zigTmp)
-	if err := u.runWithProgress(downloadCmd, progressChan, installer.PhaseSystemPackages, 0.84, 0.85); err != nil {
+	if err := u.runWithProgress(downloadCmd, progressChan, PhaseSystemPackages, 0.84, 0.85); err != nil {
 		return fmt.Errorf("failed to download Zig: %w", err)
 	}
 
 	extractCmd := exec.CommandContext(ctx, "bash", "-c",
 		fmt.Sprintf("echo '%s' | sudo -S tar -xf %s -C /opt/", sudoPassword, zigTmp))
-	if err := u.runWithProgress(extractCmd, progressChan, installer.PhaseSystemPackages, 0.85, 0.86); err != nil {
+	if err := u.runWithProgress(extractCmd, progressChan, PhaseSystemPackages, 0.85, 0.86); err != nil {
 		return fmt.Errorf("failed to extract Zig: %w", err)
 	}
 
 	linkCmd := exec.CommandContext(ctx, "bash", "-c",
 		fmt.Sprintf("echo '%s' | sudo -S ln -sf /opt/zig-linux-x86_64-0.11.0/zig /usr/local/bin/zig", sudoPassword))
-	return u.runWithProgress(linkCmd, progressChan, installer.PhaseSystemPackages, 0.86, 0.87)
+	return u.runWithProgress(linkCmd, progressChan, PhaseSystemPackages, 0.86, 0.87)
 }
 
-func (u *UbuntuDistribution) installGo(ctx context.Context, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
+func (u *UbuntuDistribution) installGo(ctx context.Context, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
 	if u.commandExists("go") {
 		return nil
 	}
 
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhaseSystemPackages,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
 		Progress:    0.87,
 		Step:        "Adding Go PPA repository...",
 		IsComplete:  false,
@@ -636,15 +625,14 @@ func (u *UbuntuDistribution) installGo(ctx context.Context, sudoPassword string,
 		CommandInfo: "sudo add-apt-repository ppa:longsleep/golang-backports",
 	}
 
-	// Add PPA repository
 	addPPACmd := exec.CommandContext(ctx, "bash", "-c",
 		fmt.Sprintf("echo '%s' | sudo -S add-apt-repository -y ppa:longsleep/golang-backports", sudoPassword))
-	if err := u.runWithProgress(addPPACmd, progressChan, installer.PhaseSystemPackages, 0.87, 0.88); err != nil {
+	if err := u.runWithProgress(addPPACmd, progressChan, PhaseSystemPackages, 0.87, 0.88); err != nil {
 		return fmt.Errorf("failed to add Go PPA: %w", err)
 	}
 
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhaseSystemPackages,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
 		Progress:    0.88,
 		Step:        "Updating package lists...",
 		IsComplete:  false,
@@ -652,15 +640,14 @@ func (u *UbuntuDistribution) installGo(ctx context.Context, sudoPassword string,
 		CommandInfo: "sudo apt-get update",
 	}
 
-	// Update package lists
 	updateCmd := exec.CommandContext(ctx, "bash", "-c",
 		fmt.Sprintf("echo '%s' | sudo -S apt-get update", sudoPassword))
-	if err := u.runWithProgress(updateCmd, progressChan, installer.PhaseSystemPackages, 0.88, 0.89); err != nil {
+	if err := u.runWithProgress(updateCmd, progressChan, PhaseSystemPackages, 0.88, 0.89); err != nil {
 		return fmt.Errorf("failed to update package lists after adding Go PPA: %w", err)
 	}
 
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhaseSystemPackages,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
 		Progress:    0.89,
 		Step:        "Installing Go...",
 		IsComplete:  false,
@@ -668,17 +655,16 @@ func (u *UbuntuDistribution) installGo(ctx context.Context, sudoPassword string,
 		CommandInfo: "sudo apt-get install golang-go",
 	}
 
-	// Install Go
 	installCmd := exec.CommandContext(ctx, "bash", "-c",
 		fmt.Sprintf("echo '%s' | sudo -S apt-get install -y golang-go", sudoPassword))
-	return u.runWithProgress(installCmd, progressChan, installer.PhaseSystemPackages, 0.89, 0.90)
+	return u.runWithProgress(installCmd, progressChan, PhaseSystemPackages, 0.89, 0.90)
 }
 
-func (u *UbuntuDistribution) installGhosttyUbuntu(ctx context.Context, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
+func (u *UbuntuDistribution) installGhosttyUbuntu(ctx context.Context, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
 	u.log("Installing Ghostty using Ubuntu installer script...")
 
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhaseSystemPackages,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
 		Progress:    0.1,
 		Step:        "Running Ghostty Ubuntu installer...",
 		IsComplete:  false,
@@ -690,7 +676,7 @@ func (u *UbuntuDistribution) installGhosttyUbuntu(ctx context.Context, sudoPassw
 	installCmd := exec.CommandContext(ctx, "bash", "-c",
 		fmt.Sprintf("echo '%s' | sudo -S /bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/mkasberg/ghostty-ubuntu/HEAD/install.sh)\"", sudoPassword))
 
-	if err := u.runWithProgress(installCmd, progressChan, installer.PhaseSystemPackages, 0.1, 0.9); err != nil {
+	if err := u.runWithProgress(installCmd, progressChan, PhaseSystemPackages, 0.1, 0.9); err != nil {
 		return fmt.Errorf("failed to install Ghostty: %w", err)
 	}
 
@@ -699,7 +685,7 @@ func (u *UbuntuDistribution) installGhosttyUbuntu(ctx context.Context, sudoPassw
 }
 
 // Override InstallManualPackages for Ubuntu to handle Ubuntu-specific installations
-func (u *UbuntuDistribution) InstallManualPackages(ctx context.Context, packages []string, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
+func (u *UbuntuDistribution) InstallManualPackages(ctx context.Context, packages []string, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
 	if len(packages) == 0 {
 		return nil
 	}

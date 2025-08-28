@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/AvengeMedia/dankinstall/internal/deps"
-	"github.com/AvengeMedia/dankinstall/internal/installer"
 )
 
 func init() {
@@ -77,7 +76,7 @@ func (n *NixOSDistribution) DetectDependenciesWithTerminal(ctx context.Context, 
 
 func (n *NixOSDistribution) detectDMS() deps.Dependency {
 	status := deps.StatusMissing
-	
+
 	// For NixOS, check if quickshell can find the dms config
 	cmd := exec.Command("qs", "-c", "dms", "--list")
 	if err := cmd.Run(); err == nil {
@@ -86,7 +85,7 @@ func (n *NixOSDistribution) detectDMS() deps.Dependency {
 		// Fallback: check if flake is in profile
 		status = deps.StatusInstalled
 	}
-	
+
 	return deps.Dependency{
 		Name:        "dms (DankMaterialShell)",
 		Status:      status,
@@ -166,7 +165,7 @@ func (n *NixOSDistribution) detectHyprlandTools() []deps.Dependency {
 
 	for _, tool := range tools {
 		status := deps.StatusMissing
-		
+
 		// Special handling for hyprctl - it comes with system hyprland
 		if tool.name == "hyprctl" {
 			if n.commandExists("hyprctl") {
@@ -218,23 +217,22 @@ func (n *NixOSDistribution) packageInstalled(pkg string) bool {
 
 func (n *NixOSDistribution) GetPackageMapping(wm deps.WindowManager) map[string]PackageMapping {
 	packages := map[string]PackageMapping{
-		"git":                    {Name: "nixpkgs#git", Repository: RepoTypeSystem},
-		"quickshell":             {Name: "github:quickshell-mirror/quickshell", Repository: RepoTypeFlake},
-		"matugen":                {Name: "github:InioX/matugen", Repository: RepoTypeFlake},
-		"dgop":                   {Name: "github:AvengeMedia/dgop", Repository: RepoTypeFlake},
+		"git":                     {Name: "nixpkgs#git", Repository: RepoTypeSystem},
+		"quickshell":              {Name: "github:quickshell-mirror/quickshell", Repository: RepoTypeFlake},
+		"matugen":                 {Name: "github:InioX/matugen", Repository: RepoTypeFlake},
+		"dgop":                    {Name: "github:AvengeMedia/dgop", Repository: RepoTypeFlake},
 		"dms (DankMaterialShell)": {Name: "github:AvengeMedia/DankMaterialShell", Repository: RepoTypeFlake},
-		"ghostty":                {Name: "nixpkgs#ghostty", Repository: RepoTypeSystem},
-		"alacritty":              {Name: "nixpkgs#alacritty", Repository: RepoTypeSystem},
-		"cliphist":               {Name: "nixpkgs#cliphist", Repository: RepoTypeSystem},
-		"wl-clipboard":           {Name: "nixpkgs#wl-clipboard", Repository: RepoTypeSystem},
-		"xdg-desktop-portal-gtk": {Name: "nixpkgs#xdg-desktop-portal-gtk", Repository: RepoTypeSystem},
-		"mate-polkit":            {Name: "nixpkgs#mate.mate-polkit", Repository: RepoTypeSystem},
-		"font-material-symbols":  {Name: "nixpkgs#material-symbols", Repository: RepoTypeSystem},
-		"font-firacode":          {Name: "nixpkgs#fira-code", Repository: RepoTypeSystem},
-		"font-inter":             {Name: "nixpkgs#inter", Repository: RepoTypeSystem},
+		"ghostty":                 {Name: "nixpkgs#ghostty", Repository: RepoTypeSystem},
+		"alacritty":               {Name: "nixpkgs#alacritty", Repository: RepoTypeSystem},
+		"cliphist":                {Name: "nixpkgs#cliphist", Repository: RepoTypeSystem},
+		"wl-clipboard":            {Name: "nixpkgs#wl-clipboard", Repository: RepoTypeSystem},
+		"xdg-desktop-portal-gtk":  {Name: "nixpkgs#xdg-desktop-portal-gtk", Repository: RepoTypeSystem},
+		"mate-polkit":             {Name: "nixpkgs#mate.mate-polkit", Repository: RepoTypeSystem},
+		"font-material-symbols":   {Name: "nixpkgs#material-symbols", Repository: RepoTypeSystem},
+		"font-firacode":           {Name: "nixpkgs#fira-code", Repository: RepoTypeSystem},
+		"font-inter":              {Name: "nixpkgs#inter", Repository: RepoTypeSystem},
 	}
 
-	// Add window manager specific packages
 	// Note: Window managers (hyprland/niri) should be installed system-wide on NixOS
 	// We only install the tools here
 	switch wm {
@@ -253,9 +251,9 @@ func (n *NixOSDistribution) GetPackageMapping(wm deps.WindowManager) map[string]
 	return packages
 }
 
-func (n *NixOSDistribution) InstallPrerequisites(ctx context.Context, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
-	progressChan <- installer.InstallProgressMsg{
-		Phase:      installer.PhasePrerequisites,
+func (n *NixOSDistribution) InstallPrerequisites(ctx context.Context, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
+	progressChan <- InstallProgressMsg{
+		Phase:      PhasePrerequisites,
 		Progress:   0.10,
 		Step:       "NixOS prerequisites ready",
 		IsComplete: false,
@@ -264,10 +262,10 @@ func (n *NixOSDistribution) InstallPrerequisites(ctx context.Context, sudoPasswo
 	return nil
 }
 
-func (n *NixOSDistribution) InstallPackages(ctx context.Context, dependencies []deps.Dependency, wm deps.WindowManager, sudoPassword string, reinstallFlags map[string]bool, progressChan chan<- installer.InstallProgressMsg) error {
+func (n *NixOSDistribution) InstallPackages(ctx context.Context, dependencies []deps.Dependency, wm deps.WindowManager, sudoPassword string, reinstallFlags map[string]bool, progressChan chan<- InstallProgressMsg) error {
 	// Phase 1: Check Prerequisites
-	progressChan <- installer.InstallProgressMsg{
-		Phase:      installer.PhasePrerequisites,
+	progressChan <- InstallProgressMsg{
+		Phase:      PhasePrerequisites,
 		Progress:   0.05,
 		Step:       "Checking system prerequisites...",
 		IsComplete: false,
@@ -282,8 +280,8 @@ func (n *NixOSDistribution) InstallPackages(ctx context.Context, dependencies []
 
 	// Phase 2: Nixpkgs Packages
 	if len(nixpkgsPkgs) > 0 {
-		progressChan <- installer.InstallProgressMsg{
-			Phase:      installer.PhaseSystemPackages,
+		progressChan <- InstallProgressMsg{
+			Phase:      PhaseSystemPackages,
 			Progress:   0.35,
 			Step:       fmt.Sprintf("Installing %d packages from nixpkgs...", len(nixpkgsPkgs)),
 			IsComplete: false,
@@ -296,8 +294,8 @@ func (n *NixOSDistribution) InstallPackages(ctx context.Context, dependencies []
 
 	// Phase 3: Flake Packages
 	if len(flakePkgs) > 0 {
-		progressChan <- installer.InstallProgressMsg{
-			Phase:      installer.PhaseAURPackages,
+		progressChan <- InstallProgressMsg{
+			Phase:      PhaseAURPackages,
 			Progress:   0.65,
 			Step:       fmt.Sprintf("Installing %d packages from flakes...", len(flakePkgs)),
 			IsComplete: false,
@@ -309,8 +307,8 @@ func (n *NixOSDistribution) InstallPackages(ctx context.Context, dependencies []
 	}
 
 	// Phase 4: Configuration
-	progressChan <- installer.InstallProgressMsg{
-		Phase:      installer.PhaseConfiguration,
+	progressChan <- InstallProgressMsg{
+		Phase:      PhaseConfiguration,
 		Progress:   0.90,
 		Step:       "Configuring system...",
 		IsComplete: false,
@@ -321,8 +319,8 @@ func (n *NixOSDistribution) InstallPackages(ctx context.Context, dependencies []
 	}
 
 	// Phase 5: Complete
-	progressChan <- installer.InstallProgressMsg{
-		Phase:      installer.PhaseComplete,
+	progressChan <- InstallProgressMsg{
+		Phase:      PhaseComplete,
 		Progress:   1.0,
 		Step:       "Installation complete!",
 		IsComplete: true,
@@ -361,7 +359,7 @@ func (n *NixOSDistribution) categorizePackages(dependencies []deps.Dependency, w
 	return nixpkgsPkgs, flakePkgs
 }
 
-func (n *NixOSDistribution) installNixpkgsPackages(ctx context.Context, packages []string, progressChan chan<- installer.InstallProgressMsg) error {
+func (n *NixOSDistribution) installNixpkgsPackages(ctx context.Context, packages []string, progressChan chan<- InstallProgressMsg) error {
 	if len(packages) == 0 {
 		return nil
 	}
@@ -371,8 +369,8 @@ func (n *NixOSDistribution) installNixpkgsPackages(ctx context.Context, packages
 	args := []string{"profile", "install"}
 	args = append(args, packages...)
 
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhaseSystemPackages,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
 		Progress:    0.40,
 		Step:        "Installing nixpkgs packages...",
 		IsComplete:  false,
@@ -380,10 +378,10 @@ func (n *NixOSDistribution) installNixpkgsPackages(ctx context.Context, packages
 	}
 
 	cmd := exec.CommandContext(ctx, "nix", args...)
-	return n.runWithProgress(cmd, progressChan, installer.PhaseSystemPackages, 0.40, 0.60)
+	return n.runWithProgress(cmd, progressChan, PhaseSystemPackages, 0.40, 0.60)
 }
 
-func (n *NixOSDistribution) installFlakePackages(ctx context.Context, packages []string, progressChan chan<- installer.InstallProgressMsg) error {
+func (n *NixOSDistribution) installFlakePackages(ctx context.Context, packages []string, progressChan chan<- InstallProgressMsg) error {
 	if len(packages) == 0 {
 		return nil
 	}
@@ -396,8 +394,8 @@ func (n *NixOSDistribution) installFlakePackages(ctx context.Context, packages [
 	for i, pkg := range packages {
 		currentProgress := baseProgress + (float64(i) * progressStep)
 
-		progressChan <- installer.InstallProgressMsg{
-			Phase:       installer.PhaseAURPackages,
+		progressChan <- InstallProgressMsg{
+			Phase:       PhaseAURPackages,
 			Progress:    currentProgress,
 			Step:        fmt.Sprintf("Installing flake package %s (%d/%d)...", pkg, i+1, len(packages)),
 			IsComplete:  false,
@@ -405,7 +403,7 @@ func (n *NixOSDistribution) installFlakePackages(ctx context.Context, packages [
 		}
 
 		cmd := exec.CommandContext(ctx, "nix", "profile", "install", pkg)
-		if err := n.runWithProgress(cmd, progressChan, installer.PhaseAURPackages, currentProgress, currentProgress+progressStep); err != nil {
+		if err := n.runWithProgress(cmd, progressChan, PhaseAURPackages, currentProgress, currentProgress+progressStep); err != nil {
 			return fmt.Errorf("failed to install flake package %s: %w", pkg, err)
 		}
 	}
@@ -413,16 +411,16 @@ func (n *NixOSDistribution) installFlakePackages(ctx context.Context, packages [
 	return nil
 }
 
-func (n *NixOSDistribution) postInstallConfig(ctx context.Context, wm deps.WindowManager, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
+func (n *NixOSDistribution) postInstallConfig(ctx context.Context, wm deps.WindowManager, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
 	// For NixOS, DMS is installed as a flake package, so we skip the git clone
 	// The flake installation handles placing the config files correctly
-	progressChan <- installer.InstallProgressMsg{
-		Phase:      installer.PhaseConfiguration,
+	progressChan <- InstallProgressMsg{
+		Phase:      PhaseConfiguration,
 		Progress:   0.95,
 		Step:       "NixOS configuration complete",
 		IsComplete: false,
 		LogOutput:  "DMS installed via flake - no additional configuration needed",
 	}
-	
+
 	return nil
 }

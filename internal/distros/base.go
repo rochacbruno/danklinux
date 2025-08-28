@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/AvengeMedia/dankinstall/internal/deps"
-	"github.com/AvengeMedia/dankinstall/internal/installer"
 )
 
 // BaseDistribution provides common functionality for all distributions
@@ -33,6 +32,10 @@ func NewBaseDistribution(logChan chan<- string) *BaseDistribution {
 func (b *BaseDistribution) commandExists(cmd string) bool {
 	_, err := exec.LookPath(cmd)
 	return err == nil
+}
+
+func (b *BaseDistribution) CommandExists(cmd string) bool {
+	return b.commandExists(cmd)
 }
 
 func (b *BaseDistribution) log(message string) {
@@ -348,11 +351,11 @@ func (b *BaseDistribution) versionCompare(v1, v2 string) int {
 }
 
 // Common installation helper
-func (b *BaseDistribution) runWithProgress(cmd *exec.Cmd, progressChan chan<- installer.InstallProgressMsg, phase installer.InstallPhase, startProgress, endProgress float64) error {
+func (b *BaseDistribution) runWithProgress(cmd *exec.Cmd, progressChan chan<- InstallProgressMsg, phase InstallPhase, startProgress, endProgress float64) error {
 	return b.runWithProgressStep(cmd, progressChan, phase, startProgress, endProgress, "Installing...")
 }
 
-func (b *BaseDistribution) runWithProgressStep(cmd *exec.Cmd, progressChan chan<- installer.InstallProgressMsg, phase installer.InstallPhase, startProgress, endProgress float64, stepMessage string) error {
+func (b *BaseDistribution) runWithProgressStep(cmd *exec.Cmd, progressChan chan<- InstallProgressMsg, phase InstallPhase, startProgress, endProgress float64, stepMessage string) error {
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return fmt.Errorf("failed to create stdout pipe: %w", err)
@@ -369,7 +372,6 @@ func (b *BaseDistribution) runWithProgressStep(cmd *exec.Cmd, progressChan chan<
 	outputChan := make(chan string, 100)
 	done := make(chan error, 1)
 
-	// Read stdout
 	go func() {
 		scanner := bufio.NewScanner(stdout)
 		for scanner.Scan() {
@@ -379,7 +381,6 @@ func (b *BaseDistribution) runWithProgressStep(cmd *exec.Cmd, progressChan chan<
 		}
 	}()
 
-	// Read stderr
 	go func() {
 		scanner := bufio.NewScanner(stderr)
 		for scanner.Scan() {
@@ -409,7 +410,7 @@ func (b *BaseDistribution) runWithProgressStep(cmd *exec.Cmd, progressChan chan<
 			if err != nil {
 				b.logError("Command execution failed", err)
 				b.log(fmt.Sprintf("Last output before failure: %s", lastOutput))
-				progressChan <- installer.InstallProgressMsg{
+				progressChan <- InstallProgressMsg{
 					Phase:      phase,
 					Progress:   startProgress,
 					Step:       "Command failed",
@@ -419,7 +420,7 @@ func (b *BaseDistribution) runWithProgressStep(cmd *exec.Cmd, progressChan chan<
 				}
 				return err
 			}
-			progressChan <- installer.InstallProgressMsg{
+			progressChan <- InstallProgressMsg{
 				Phase:      phase,
 				Progress:   endProgress,
 				Step:       "Installation step complete",
@@ -430,7 +431,7 @@ func (b *BaseDistribution) runWithProgressStep(cmd *exec.Cmd, progressChan chan<
 		case output, ok := <-outputChan:
 			if ok {
 				lastOutput = output
-				progressChan <- installer.InstallProgressMsg{
+				progressChan <- InstallProgressMsg{
 					Phase:      phase,
 					Progress:   progress,
 					Step:       stepMessage,
@@ -444,7 +445,7 @@ func (b *BaseDistribution) runWithProgressStep(cmd *exec.Cmd, progressChan chan<
 				cmd.Process.Kill()
 			}
 			err := fmt.Errorf("installation timed out after 10 minutes")
-			progressChan <- installer.InstallProgressMsg{
+			progressChan <- InstallProgressMsg{
 				Phase:      phase,
 				Progress:   startProgress,
 				Step:       "Installation timed out",
@@ -456,7 +457,7 @@ func (b *BaseDistribution) runWithProgressStep(cmd *exec.Cmd, progressChan chan<
 		case <-ticker.C:
 			if progress < endProgress-0.01 {
 				progress += progressStep
-				progressChan <- installer.InstallProgressMsg{
+				progressChan <- InstallProgressMsg{
 					Phase:      phase,
 					Progress:   progress,
 					Step:       "Installing...",
@@ -469,12 +470,12 @@ func (b *BaseDistribution) runWithProgressStep(cmd *exec.Cmd, progressChan chan<
 }
 
 // Post-installation configuration
-func (b *BaseDistribution) postInstallConfig(ctx context.Context, _ deps.WindowManager, _ string, progressChan chan<- installer.InstallProgressMsg) error {
+func (b *BaseDistribution) postInstallConfig(ctx context.Context, _ deps.WindowManager, _ string, progressChan chan<- InstallProgressMsg) error {
 	// Clone DMS config if needed
 	dmsPath := filepath.Join(os.Getenv("HOME"), ".config/quickshell/dms")
 	if _, err := os.Stat(dmsPath); os.IsNotExist(err) {
-		progressChan <- installer.InstallProgressMsg{
-			Phase:       installer.PhaseConfiguration,
+		progressChan <- InstallProgressMsg{
+			Phase:       PhaseConfiguration,
 			Progress:    0.90,
 			Step:        "Installing DankMaterialShell config...",
 			IsComplete:  false,

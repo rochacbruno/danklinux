@@ -52,16 +52,16 @@ func (cd *ConfigDeployer) DeployConfigurationsSelective(ctx context.Context, wm 
 
 func (cd *ConfigDeployer) DeployConfigurationsSelectiveWithReinstalls(ctx context.Context, wm deps.WindowManager, terminal deps.Terminal, installedDeps []deps.Dependency, replaceConfigs map[string]bool, reinstallItems map[string]bool) ([]DeploymentResult, error) {
 	var results []DeploymentResult
-	
+
 	wasPackageActuallyInstalled := func(packageName string) bool {
 		if installedDeps == nil {
 			return true
 		}
-		
+
 		if reinstallItems != nil && reinstallItems[packageName] {
 			return true
 		}
-		
+
 		for _, dep := range installedDeps {
 			if dep.Name == packageName {
 				return dep.Status == deps.StatusMissing || dep.Status == deps.StatusNeedsUpdate
@@ -69,7 +69,7 @@ func (cd *ConfigDeployer) DeployConfigurationsSelectiveWithReinstalls(ctx contex
 		}
 		return false
 	}
-	
+
 	shouldReplaceConfig := func(configType string) bool {
 		if replaceConfigs == nil {
 			return true
@@ -134,19 +134,16 @@ func (cd *ConfigDeployer) deployNiriConfig(ctx context.Context, terminal deps.Te
 		Path:       filepath.Join(os.Getenv("HOME"), ".config", "niri", "config.kdl"),
 	}
 
-	// Create config directory if it doesn't exist
 	configDir := filepath.Dir(result.Path)
 	if err := os.MkdirAll(configDir, 0755); err != nil {
 		result.Error = fmt.Errorf("failed to create config directory: %w", err)
 		return result, result.Error
 	}
 
-	// Check if existing config exists
 	var existingConfig string
 	if _, err := os.Stat(result.Path); err == nil {
 		cd.log("Found existing Niri configuration")
-		
-		// Read existing config
+
 		existingData, err := os.ReadFile(result.Path)
 		if err != nil {
 			result.Error = fmt.Errorf("failed to read existing config: %w", err)
@@ -154,7 +151,6 @@ func (cd *ConfigDeployer) deployNiriConfig(ctx context.Context, terminal deps.Te
 		}
 		existingConfig = string(existingData)
 
-		// Create backup
 		timestamp := time.Now().Format("2006-01-02_15-04-05")
 		result.BackupPath = result.Path + ".backup." + timestamp
 		if err := os.WriteFile(result.BackupPath, existingData, 0644); err != nil {
@@ -184,7 +180,6 @@ func (cd *ConfigDeployer) deployNiriConfig(ctx context.Context, terminal deps.Te
 		terminalCommand = "ghostty" // fallback to ghostty
 	}
 
-	// Generate new config with polkit path and terminal command injection
 	newConfig := strings.Replace(NiriConfig, "{{POLKIT_AGENT_PATH}}", polkitPath, 1)
 	newConfig = strings.Replace(newConfig, "{{TERMINAL_COMMAND}}", terminalCommand, 1)
 
@@ -199,7 +194,6 @@ func (cd *ConfigDeployer) deployNiriConfig(ctx context.Context, terminal deps.Te
 		}
 	}
 
-	// Write new config
 	if err := os.WriteFile(result.Path, []byte(newConfig), 0644); err != nil {
 		result.Error = fmt.Errorf("failed to write config: %w", err)
 		return result, result.Error
@@ -217,25 +211,21 @@ func (cd *ConfigDeployer) deployGhosttyConfig(ctx context.Context) (DeploymentRe
 		Path:       filepath.Join(os.Getenv("HOME"), ".config", "ghostty", "config"),
 	}
 
-	// Create config directory if it doesn't exist
 	configDir := filepath.Dir(result.Path)
 	if err := os.MkdirAll(configDir, 0755); err != nil {
 		result.Error = fmt.Errorf("failed to create config directory: %w", err)
 		return result, result.Error
 	}
 
-	// Check if existing config exists
 	if _, err := os.Stat(result.Path); err == nil {
 		cd.log("Found existing Ghostty configuration")
-		
-		// Read existing config for backup
+
 		existingData, err := os.ReadFile(result.Path)
 		if err != nil {
 			result.Error = fmt.Errorf("failed to read existing config: %w", err)
 			return result, result.Error
 		}
 
-		// Create backup
 		timestamp := time.Now().Format("2006-01-02_15-04-05")
 		result.BackupPath = result.Path + ".backup." + timestamp
 		if err := os.WriteFile(result.BackupPath, existingData, 0644); err != nil {
@@ -245,7 +235,6 @@ func (cd *ConfigDeployer) deployGhosttyConfig(ctx context.Context) (DeploymentRe
 		cd.log(fmt.Sprintf("Backed up existing config to %s", result.BackupPath))
 	}
 
-	// Write new config
 	if err := os.WriteFile(result.Path, []byte(GhosttyConfig), 0644); err != nil {
 		result.Error = fmt.Errorf("failed to write config: %w", err)
 		return result, result.Error
@@ -263,25 +252,21 @@ func (cd *ConfigDeployer) deployKittyConfig(ctx context.Context) (DeploymentResu
 		Path:       filepath.Join(os.Getenv("HOME"), ".config", "kitty", "kitty.conf"),
 	}
 
-	// Create config directory if it doesn't exist
 	configDir := filepath.Dir(result.Path)
 	if err := os.MkdirAll(configDir, 0755); err != nil {
 		result.Error = fmt.Errorf("failed to create config directory: %w", err)
 		return result, result.Error
 	}
 
-	// Check if existing config exists
 	if _, err := os.Stat(result.Path); err == nil {
 		cd.log("Found existing Kitty configuration")
-		
-		// Read existing config for backup
+
 		existingData, err := os.ReadFile(result.Path)
 		if err != nil {
 			result.Error = fmt.Errorf("failed to read existing config: %w", err)
 			return result, result.Error
 		}
 
-		// Create backup
 		timestamp := time.Now().Format("2006-01-02_15-04-05")
 		result.BackupPath = result.Path + ".backup." + timestamp
 		if err := os.WriteFile(result.BackupPath, existingData, 0644); err != nil {
@@ -291,7 +276,6 @@ func (cd *ConfigDeployer) deployKittyConfig(ctx context.Context) (DeploymentResu
 		cd.log(fmt.Sprintf("Backed up existing config to %s", result.BackupPath))
 	}
 
-	// Write new config
 	if err := os.WriteFile(result.Path, []byte(KittyConfig), 0644); err != nil {
 		result.Error = fmt.Errorf("failed to write config: %w", err)
 		return result, result.Error
@@ -327,10 +311,10 @@ func (cd *ConfigDeployer) detectPolkitAgent() (string, error) {
 func (cd *ConfigDeployer) mergeNiriOutputSections(newConfig, existingConfig string) (string, error) {
 	// Regular expression to match output sections (including commented ones)
 	outputRegex := regexp.MustCompile(`(?m)^(/-)?\s*output\s+"[^"]+"\s*\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}`)
-	
+
 	// Find all output sections in the existing config
 	existingOutputs := outputRegex.FindAllString(existingConfig, -1)
-	
+
 	if len(existingOutputs) == 0 {
 		// No output sections to merge
 		return newConfig, nil
@@ -343,26 +327,25 @@ func (cd *ConfigDeployer) mergeNiriOutputSections(newConfig, existingConfig stri
 	// Find where to insert the output sections (after the input section)
 	inputEndRegex := regexp.MustCompile(`(?m)^}$`)
 	inputMatches := inputEndRegex.FindAllStringIndex(newConfig, -1)
-	
+
 	if len(inputMatches) < 1 {
 		return "", fmt.Errorf("could not find insertion point for output sections")
 	}
 
 	// Insert after the first closing brace (end of input section)
 	insertPos := inputMatches[0][1]
-	
-	// Build the merged config
+
 	var builder strings.Builder
 	builder.WriteString(mergedConfig[:insertPos])
 	builder.WriteString("\n// Outputs from existing configuration\n")
-	
+
 	for _, output := range existingOutputs {
 		builder.WriteString(output)
 		builder.WriteString("\n")
 	}
-	
+
 	builder.WriteString(mergedConfig[insertPos:])
-	
+
 	return builder.String(), nil
 }
 
@@ -373,19 +356,16 @@ func (cd *ConfigDeployer) deployHyprlandConfig(ctx context.Context, terminal dep
 		Path:       filepath.Join(os.Getenv("HOME"), ".config", "hypr", "hyprland.conf"),
 	}
 
-	// Create config directory if it doesn't exist
 	configDir := filepath.Dir(result.Path)
 	if err := os.MkdirAll(configDir, 0755); err != nil {
 		result.Error = fmt.Errorf("failed to create config directory: %w", err)
 		return result, result.Error
 	}
 
-	// Check if existing config exists
 	var existingConfig string
 	if _, err := os.Stat(result.Path); err == nil {
 		cd.log("Found existing Hyprland configuration")
-		
-		// Read existing config
+
 		existingData, err := os.ReadFile(result.Path)
 		if err != nil {
 			result.Error = fmt.Errorf("failed to read existing config: %w", err)
@@ -393,7 +373,6 @@ func (cd *ConfigDeployer) deployHyprlandConfig(ctx context.Context, terminal dep
 		}
 		existingConfig = string(existingData)
 
-		// Create backup
 		timestamp := time.Now().Format("2006-01-02_15-04-05")
 		result.BackupPath = result.Path + ".backup." + timestamp
 		if err := os.WriteFile(result.BackupPath, existingData, 0644); err != nil {
@@ -423,7 +402,6 @@ func (cd *ConfigDeployer) deployHyprlandConfig(ctx context.Context, terminal dep
 		terminalCommand = "ghostty" // fallback to ghostty
 	}
 
-	// Generate new config with polkit path and terminal command injection
 	newConfig := strings.Replace(HyprlandConfig, "{{POLKIT_AGENT_PATH}}", polkitPath, 1)
 	newConfig = strings.Replace(newConfig, "{{TERMINAL_COMMAND}}", terminalCommand, 1)
 
@@ -438,7 +416,6 @@ func (cd *ConfigDeployer) deployHyprlandConfig(ctx context.Context, terminal dep
 		}
 	}
 
-	// Write new config
 	if err := os.WriteFile(result.Path, []byte(newConfig), 0644); err != nil {
 		result.Error = fmt.Errorf("failed to write config: %w", err)
 		return result, result.Error
@@ -455,10 +432,10 @@ func (cd *ConfigDeployer) mergeHyprlandMonitorSections(newConfig, existingConfig
 	// Matches: monitor = NAME, RESOLUTION, POSITION, SCALE, etc.
 	// Also matches commented versions: # monitor = ...
 	monitorRegex := regexp.MustCompile(`(?m)^#?\s*monitor\s*=.*$`)
-	
+
 	// Find all monitor lines in the existing config
 	existingMonitors := monitorRegex.FindAllString(existingConfig, -1)
-	
+
 	if len(existingMonitors) == 0 {
 		// No monitor sections to merge
 		return newConfig, nil
@@ -471,7 +448,7 @@ func (cd *ConfigDeployer) mergeHyprlandMonitorSections(newConfig, existingConfig
 	// Find where to insert the monitor sections (after the MONITOR CONFIG header)
 	monitorHeaderRegex := regexp.MustCompile(`(?m)^# MONITOR CONFIG\n# ==================$`)
 	headerMatch := monitorHeaderRegex.FindStringIndex(mergedConfig)
-	
+
 	if headerMatch == nil {
 		return "", fmt.Errorf("could not find MONITOR CONFIG section")
 	}
@@ -479,17 +456,16 @@ func (cd *ConfigDeployer) mergeHyprlandMonitorSections(newConfig, existingConfig
 	// Insert after the header
 	insertPos := headerMatch[1] + 1 // +1 for the newline
 
-	// Build the merged config
 	var builder strings.Builder
 	builder.WriteString(mergedConfig[:insertPos])
 	builder.WriteString("# Monitors from existing configuration\n")
-	
+
 	for _, monitor := range existingMonitors {
 		builder.WriteString(monitor)
 		builder.WriteString("\n")
 	}
-	
+
 	builder.WriteString(mergedConfig[insertPos:])
-	
+
 	return builder.String(), nil
 }

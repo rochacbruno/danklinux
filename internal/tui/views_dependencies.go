@@ -7,7 +7,6 @@ import (
 
 	"github.com/AvengeMedia/dankinstall/internal/deps"
 	"github.com/AvengeMedia/dankinstall/internal/distros"
-	installerPkg "github.com/AvengeMedia/dankinstall/internal/installer"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -128,7 +127,7 @@ func (m Model) updateDependencyReviewState(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case " ":
 			if len(m.dependencies) > 0 {
 				depName := m.dependencies[m.selectedDep].Name
-				
+
 				if depName == "dms" || depName == "DankMaterialShell" {
 					return m, m.listenForLogs()
 				}
@@ -156,7 +155,6 @@ func (m Model) installPackages() tea.Cmd {
 			}
 		}
 
-		// Create installer
 		installer, err := distros.NewPackageInstaller(m.osInfo.Distribution.ID, m.logChan)
 		if err != nil {
 			return packageInstallProgressMsg{
@@ -174,15 +172,13 @@ func (m Model) installPackages() tea.Cmd {
 			wm = deps.WindowManagerHyprland
 		}
 
-		// Create progress channel
-		installerProgressChan := make(chan installerPkg.InstallProgressMsg, 100)
+		installerProgressChan := make(chan distros.InstallProgressMsg, 100)
 
-		// Start installation in background
 		go func() {
 			defer close(installerProgressChan)
 			err := installer.InstallPackages(context.Background(), m.dependencies, wm, m.sudoPassword, m.reinstallItems, installerProgressChan)
 			if err != nil {
-				installerProgressChan <- installerPkg.InstallProgressMsg{
+				installerProgressChan <- distros.InstallProgressMsg{
 					Progress:   0.0,
 					Step:       fmt.Sprintf("Installation error: %s", err.Error()),
 					IsComplete: true,
@@ -203,7 +199,6 @@ func (m Model) installPackages() tea.Cmd {
 					logOutput:   msg.LogOutput,
 					error:       msg.Error,
 				}
-				// Debug logging
 				if msg.IsComplete {
 					m.logChan <- fmt.Sprintf("[DEBUG] Sending completion signal: step=%s, progress=%.2f", msg.Step, msg.Progress)
 				}
@@ -212,7 +207,6 @@ func (m Model) installPackages() tea.Cmd {
 			m.logChan <- "[DEBUG] Installer channel closed"
 		}()
 
-		// Return initial progress
 		return packageInstallProgressMsg{
 			progress:   0.05,
 			step:       "Starting installation...",

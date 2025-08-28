@@ -281,11 +281,11 @@ func TestMergeHyprlandMonitorSections(t *testing.T) {
 	cd := &ConfigDeployer{}
 
 	tests := []struct {
-		name           string
-		newConfig      string
-		existingConfig string
-		wantError      bool
-		wantContains   []string
+		name            string
+		newConfig       string
+		existingConfig  string
+		wantError       bool
+		wantContains    []string
 		wantNotContains []string
 	}{
 		{
@@ -379,7 +379,7 @@ input {
     kb_layout = us
 }`,
 			existingConfig: `monitor = DP-1, 1920x1080@144, 0x0, 1`,
-			wantError: true,
+			wantError:      true,
 		},
 	}
 
@@ -433,7 +433,7 @@ func TestHyprlandConfigDeployment(t *testing.T) {
 		require.NoError(t, err)
 		assert.Contains(t, string(content), "# MONITOR CONFIG")
 		assert.Contains(t, string(content), "bind = $mod, T, exec, ghostty") // Terminal injection
-		assert.Contains(t, string(content), "exec-once = ") // Polkit agent
+		assert.Contains(t, string(content), "exec-once = ")                  // Polkit agent
 	})
 
 	t.Run("deploy hyprland config with existing monitors", func(t *testing.T) {
@@ -472,7 +472,7 @@ general {
 		assert.Contains(t, string(newContent), "monitor = DP-1, 1920x1080@144")
 		assert.Contains(t, string(newContent), "monitor = HDMI-A-1, 3840x2160@60")
 		assert.Contains(t, string(newContent), "bind = $mod, T, exec, kitty") // Kitty terminal
-		assert.NotContains(t, string(newContent), "monitor = eDP-2") // Example monitor removed
+		assert.NotContains(t, string(newContent), "monitor = eDP-2")          // Example monitor removed
 	})
 }
 

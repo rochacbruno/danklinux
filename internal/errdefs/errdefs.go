@@ -1,7 +1,5 @@
 package errdefs
 
-import "fmt"
-
 type ErrorType int
 
 const (
@@ -26,8 +24,4 @@ func NewCustomError(errType ErrorType, message string) error {
 		Type:    errType,
 		Message: message,
 	}
-}
-
-func NewGenericError(message string, args ...interface{}) error {
-	return NewCustomError(ErrTypeGeneric, fmt.Sprintf(message, args...))
 }

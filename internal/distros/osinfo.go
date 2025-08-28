@@ -26,18 +26,6 @@ type OSInfo struct {
 	Architecture string
 }
 
-// GetSupportedDistros returns all supported distributions by querying the registry
-func GetSupportedDistros() []DistroInfo {
-	var distros []DistroInfo
-	for id, config := range Registry {
-		distros = append(distros, DistroInfo{
-			ID:           id,
-			HexColorCode: config.ColorHex,
-		})
-	}
-	return distros
-}
-
 // GetOSInfo detects the current OS and returns information about it
 func GetOSInfo() (*OSInfo, error) {
 	if runtime.GOOS != "linux" {
@@ -71,13 +59,11 @@ func GetOSInfo() (*OSInfo, error) {
 
 		switch key {
 		case "ID":
-			// Check if we support this distribution
 			config, exists := Registry[value]
 			if !exists {
 				return nil, errdefs.NewCustomError(errdefs.ErrTypeUnsupportedDistribution, fmt.Sprintf("Unsupported distribution: %s", value))
 			}
 
-			// Get distribution info from the registry
 			info.Distribution = DistroInfo{
 				ID:           value, // Use the actual ID from os-release
 				HexColorCode: config.ColorHex,
@@ -94,33 +80,18 @@ func GetOSInfo() (*OSInfo, error) {
 	return info, scanner.Err()
 }
 
-// GetDistroInfo returns the DistroInfo for a given distribution ID
-func GetDistroInfo(distroID string) (*DistroInfo, error) {
-	config, exists := Registry[distroID]
-	if !exists {
-		return nil, fmt.Errorf("unsupported distribution: %s", distroID)
-	}
-
-	return &DistroInfo{
-		ID:           distroID,
-		HexColorCode: config.ColorHex,
-	}, nil
-}
-
 // IsUnsupportedDistro checks if a distribution/version combination is supported
 func IsUnsupportedDistro(distroID, versionID string) bool {
 	switch distroID {
 	case "arch", "cachyos", "endeavouros", "manjaro", "fedora", "nobara", "nixos":
 		return false // These are supported
 	case "ubuntu":
-		// Parse version (format: "24.04")
 		parts := strings.Split(versionID, ".")
 		if len(parts) >= 2 {
 			major, err1 := strconv.Atoi(parts[0])
 			minor, err2 := strconv.Atoi(parts[1])
 
 			if err1 == nil && err2 == nil {
-				// Check if version is less than 25.04
 				return major < 25 || (major == 25 && minor < 4)
 			}
 		}

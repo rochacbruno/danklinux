@@ -15,10 +15,8 @@ func (m Model) viewWelcome() string {
 	b.WriteString(m.renderBanner())
 	b.WriteString("\n")
 
-	// Create title with some visual pop
 	theme := TerminalTheme()
 
-	// Add some decorative elements
 	decorator := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(theme.Accent)).
 		Render("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
@@ -52,7 +50,6 @@ func (m Model) viewWelcome() string {
 	b.WriteString("\n\n")
 
 	if m.osInfo != nil {
-		// Check for unsupported distros
 		if distros.IsUnsupportedDistro(m.osInfo.Distribution.ID, m.osInfo.VersionID) {
 			errorBox := lipgloss.NewStyle().
 				Border(lipgloss.RoundedBorder()).
@@ -107,11 +104,10 @@ func (m Model) viewWelcome() string {
 				Render("WHAT YOU GET")
 			b.WriteString(featTitle + "\n\n")
 
-			// Create feature items with alternating styles
 			features := []string{
 				"[shell]   dms (DankMaterialShell)",
 				"[wm]      niri or Hyprland",
-				"[term]    Ghostty or kitty",
+				"[term]    Ghostty, kitty, or Alacritty",
 				"[style]   All the themes, automatically.",
 				"[config]  DANK defaults - keybindings, rules, animations, etc.",
 			}

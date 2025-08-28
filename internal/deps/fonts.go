@@ -17,7 +17,7 @@ func NewFontDetector(logChan chan<- string) *FontDetector {
 func (f *FontDetector) DetectFont(fontName string) (bool, error) {
 	fontPaths := []string{
 		"/usr/share/fonts",
-		"/usr/local/share/fonts", 
+		"/usr/local/share/fonts",
 		filepath.Join(os.Getenv("HOME"), ".local/share/fonts"),
 		filepath.Join(os.Getenv("HOME"), ".fonts"),
 	}
@@ -41,17 +41,17 @@ func (f *FontDetector) searchFontInPath(basePath, fontName string) bool {
 		if err != nil {
 			return nil
 		}
-		
+
 		fileName := strings.ToLower(info.Name())
 		searchName := strings.ToLower(fontName)
-		
-		if strings.Contains(fileName, searchName) || 
-		   strings.Contains(fileName, strings.ReplaceAll(searchName, "-", "")) {
+
+		if strings.Contains(fileName, searchName) ||
+			strings.Contains(fileName, strings.ReplaceAll(searchName, "-", "")) {
 			found = true
 			return filepath.SkipAll
 		}
 		return nil
 	})
-	
+
 	return found
 }

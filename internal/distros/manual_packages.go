@@ -7,8 +7,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-
-	"github.com/AvengeMedia/dankinstall/internal/installer"
 )
 
 // ManualPackageInstaller provides methods for installing packages from source
@@ -17,7 +15,7 @@ type ManualPackageInstaller struct {
 }
 
 // InstallManualPackages handles packages that need manual building
-func (m *ManualPackageInstaller) InstallManualPackages(ctx context.Context, packages []string, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
+func (m *ManualPackageInstaller) InstallManualPackages(ctx context.Context, packages []string, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
 	if len(packages) == 0 {
 		return nil
 	}
@@ -78,7 +76,7 @@ func (m *ManualPackageInstaller) InstallManualPackages(ctx context.Context, pack
 	return nil
 }
 
-func (m *ManualPackageInstaller) installDgop(ctx context.Context, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
+func (m *ManualPackageInstaller) installDgop(ctx context.Context, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
 	m.log("Installing dgop from source...")
 
 	tmpDir := "/tmp/dgop-build"
@@ -87,8 +85,8 @@ func (m *ManualPackageInstaller) installDgop(ctx context.Context, sudoPassword s
 	}
 	defer os.RemoveAll(tmpDir)
 
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhaseSystemPackages,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
 		Progress:    0.1,
 		Step:        "Cloning dgop repository...",
 		IsComplete:  false,
@@ -103,12 +101,12 @@ func (m *ManualPackageInstaller) installDgop(ctx context.Context, sudoPassword s
 
 	buildCmd := exec.CommandContext(ctx, "make")
 	buildCmd.Dir = tmpDir
-	if err := m.runWithProgressStep(buildCmd, progressChan, installer.PhaseSystemPackages, 0.4, 0.7, "Building dgop..."); err != nil {
+	if err := m.runWithProgressStep(buildCmd, progressChan, PhaseSystemPackages, 0.4, 0.7, "Building dgop..."); err != nil {
 		return fmt.Errorf("failed to build dgop: %w", err)
 	}
 
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhaseSystemPackages,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
 		Progress:    0.7,
 		Step:        "Installing dgop...",
 		IsComplete:  false,
@@ -127,11 +125,11 @@ func (m *ManualPackageInstaller) installDgop(ctx context.Context, sudoPassword s
 	return nil
 }
 
-func (m *ManualPackageInstaller) installGrimblast(ctx context.Context, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
+func (m *ManualPackageInstaller) installGrimblast(ctx context.Context, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
 	m.log("Installing grimblast script for Hyprland...")
 
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhaseSystemPackages,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
 		Progress:    0.1,
 		Step:        "Downloading grimblast script...",
 		IsComplete:  false,
@@ -147,8 +145,8 @@ func (m *ManualPackageInstaller) installGrimblast(ctx context.Context, sudoPassw
 		return fmt.Errorf("failed to download grimblast: %w", err)
 	}
 
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhaseSystemPackages,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
 		Progress:    0.5,
 		Step:        "Making grimblast executable...",
 		IsComplete:  false,
@@ -161,8 +159,8 @@ func (m *ManualPackageInstaller) installGrimblast(ctx context.Context, sudoPassw
 		return fmt.Errorf("failed to make grimblast executable: %w", err)
 	}
 
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhaseSystemPackages,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
 		Progress:    0.8,
 		Step:        "Installing grimblast to /usr/local/bin...",
 		IsComplete:  false,
@@ -183,11 +181,11 @@ func (m *ManualPackageInstaller) installGrimblast(ctx context.Context, sudoPassw
 	return nil
 }
 
-func (m *ManualPackageInstaller) installMaterialSymbolsFont(ctx context.Context, progressChan chan<- installer.InstallProgressMsg) error {
+func (m *ManualPackageInstaller) installMaterialSymbolsFont(ctx context.Context, progressChan chan<- InstallProgressMsg) error {
 	m.log("Installing Material Symbols font manually...")
 
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhaseSystemPackages,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
 		Progress:    0.1,
 		Step:        "Creating fonts directory...",
 		IsComplete:  false,
@@ -201,8 +199,8 @@ func (m *ManualPackageInstaller) installMaterialSymbolsFont(ctx context.Context,
 		return fmt.Errorf("failed to create fonts directory: %w", err)
 	}
 
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhaseSystemPackages,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
 		Progress:    0.4,
 		Step:        "Downloading Material Symbols font...",
 		IsComplete:  false,
@@ -218,8 +216,8 @@ func (m *ManualPackageInstaller) installMaterialSymbolsFont(ctx context.Context,
 		return fmt.Errorf("failed to download Material Symbols font: %w", err)
 	}
 
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhaseSystemPackages,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
 		Progress:    0.8,
 		Step:        "Refreshing font cache...",
 		IsComplete:  false,
@@ -236,11 +234,11 @@ func (m *ManualPackageInstaller) installMaterialSymbolsFont(ctx context.Context,
 	return nil
 }
 
-func (m *ManualPackageInstaller) installInterFont(ctx context.Context, progressChan chan<- installer.InstallProgressMsg) error {
+func (m *ManualPackageInstaller) installInterFont(ctx context.Context, progressChan chan<- InstallProgressMsg) error {
 	m.log("Installing Inter font manually...")
 
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhaseSystemPackages,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
 		Progress:    0.1,
 		Step:        "Creating fonts directory...",
 		IsComplete:  false,
@@ -254,8 +252,8 @@ func (m *ManualPackageInstaller) installInterFont(ctx context.Context, progressC
 		return fmt.Errorf("failed to create fonts directory: %w", err)
 	}
 
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhaseSystemPackages,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
 		Progress:    0.3,
 		Step:        "Downloading Inter font...",
 		IsComplete:  false,
@@ -271,8 +269,8 @@ func (m *ManualPackageInstaller) installInterFont(ctx context.Context, progressC
 		return fmt.Errorf("failed to download Inter font: %w", err)
 	}
 
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhaseSystemPackages,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
 		Progress:    0.6,
 		Step:        "Extracting Inter font files...",
 		IsComplete:  false,
@@ -287,8 +285,8 @@ func (m *ManualPackageInstaller) installInterFont(ctx context.Context, progressC
 
 	os.Remove(zipPath)
 
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhaseSystemPackages,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
 		Progress:    0.8,
 		Step:        "Refreshing font cache...",
 		IsComplete:  false,
@@ -305,7 +303,7 @@ func (m *ManualPackageInstaller) installInterFont(ctx context.Context, progressC
 	return nil
 }
 
-func (m *ManualPackageInstaller) installNiri(ctx context.Context, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
+func (m *ManualPackageInstaller) installNiri(ctx context.Context, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
 	m.log("Installing niri from source...")
 
 	tmpDir := "/tmp/niri-build"
@@ -314,8 +312,8 @@ func (m *ManualPackageInstaller) installNiri(ctx context.Context, sudoPassword s
 	}
 	defer os.RemoveAll(tmpDir)
 
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhaseSystemPackages,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
 		Progress:    0.2,
 		Step:        "Cloning niri repository...",
 		IsComplete:  false,
@@ -327,23 +325,21 @@ func (m *ManualPackageInstaller) installNiri(ctx context.Context, sudoPassword s
 		return fmt.Errorf("failed to clone niri: %w", err)
 	}
 
-	// Install cargo-deb first if not present
 	if !m.commandExists("cargo-deb") {
 		cargoDebInstallCmd := exec.CommandContext(ctx, "cargo", "install", "cargo-deb")
-		if err := m.runWithProgressStep(cargoDebInstallCmd, progressChan, installer.PhaseSystemPackages, 0.3, 0.35, "Installing cargo-deb..."); err != nil {
+		if err := m.runWithProgressStep(cargoDebInstallCmd, progressChan, PhaseSystemPackages, 0.3, 0.35, "Installing cargo-deb..."); err != nil {
 			return fmt.Errorf("failed to install cargo-deb: %w", err)
 		}
 	}
 
-	// Build the deb package (this takes a long time)
 	buildDebCmd := exec.CommandContext(ctx, "cargo", "deb")
 	buildDebCmd.Dir = tmpDir
-	if err := m.runWithProgressStep(buildDebCmd, progressChan, installer.PhaseSystemPackages, 0.35, 0.95, "Building niri deb package..."); err != nil {
+	if err := m.runWithProgressStep(buildDebCmd, progressChan, PhaseSystemPackages, 0.35, 0.95, "Building niri deb package..."); err != nil {
 		return fmt.Errorf("failed to build niri deb: %w", err)
 	}
 
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhaseSystemPackages,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
 		Progress:    0.95,
 		Step:        "Installing niri deb package...",
 		IsComplete:  false,
@@ -351,23 +347,22 @@ func (m *ManualPackageInstaller) installNiri(ctx context.Context, sudoPassword s
 		CommandInfo: "dpkg -i niri.deb",
 	}
 
-	// Install the deb package
 	installDebCmd := exec.CommandContext(ctx, "bash", "-c",
 		fmt.Sprintf("echo '%s' | sudo -S dpkg -i %s/target/debian/niri_*.deb", sudoPassword, tmpDir))
-	
+
 	output, err := installDebCmd.CombinedOutput()
 	if err != nil {
 		m.log(fmt.Sprintf("dpkg install failed. Output:\n%s", string(output)))
 		return fmt.Errorf("failed to install niri deb package: %w\nOutput:\n%s", err, string(output))
 	}
-	
+
 	m.log(fmt.Sprintf("dpkg install successful. Output:\n%s", string(output)))
 
 	m.log("niri installed successfully from source")
 	return nil
 }
 
-func (m *ManualPackageInstaller) installQuickshell(ctx context.Context, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
+func (m *ManualPackageInstaller) installQuickshell(ctx context.Context, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
 	m.log("Installing quickshell from source...")
 
 	tmpDir := "/tmp/quickshell-build"
@@ -376,8 +371,8 @@ func (m *ManualPackageInstaller) installQuickshell(ctx context.Context, sudoPass
 	}
 	defer os.RemoveAll(tmpDir)
 
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhaseSystemPackages,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
 		Progress:    0.1,
 		Step:        "Cloning quickshell repository...",
 		IsComplete:  false,
@@ -389,39 +384,38 @@ func (m *ManualPackageInstaller) installQuickshell(ctx context.Context, sudoPass
 		return fmt.Errorf("failed to clone quickshell: %w", err)
 	}
 
-	// Create build directory
 	buildDir := tmpDir + "/build"
 	if err := os.MkdirAll(buildDir, 0755); err != nil {
 		return fmt.Errorf("failed to create build directory: %w", err)
 	}
 
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhaseSystemPackages,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
 		Progress:    0.3,
 		Step:        "Configuring quickshell build...",
 		IsComplete:  false,
 		CommandInfo: "cmake -B build -S . -G Ninja",
 	}
 
-	configureCmd := exec.CommandContext(ctx, "cmake", "-GNinja", "-B", "build", 
-		"-DCMAKE_BUILD_TYPE=RelWithDebInfo", 
-		"-DCRASH_REPORTER=off", 
-		"-DX11=off", 
+	configureCmd := exec.CommandContext(ctx, "cmake", "-GNinja", "-B", "build",
+		"-DCMAKE_BUILD_TYPE=RelWithDebInfo",
+		"-DCRASH_REPORTER=off",
+		"-DX11=off",
 		"-DI3=off",
 		"-DSERVICE_GREETD=off",
 		"-DCMAKE_CXX_STANDARD=20")
 	configureCmd.Dir = tmpDir
-	
+
 	output, err := configureCmd.CombinedOutput()
 	if err != nil {
 		m.log(fmt.Sprintf("cmake configure failed. Output:\n%s", string(output)))
 		return fmt.Errorf("failed to configure quickshell: %w\nCMake output:\n%s", err, string(output))
 	}
-	
+
 	m.log(fmt.Sprintf("cmake configure successful. Output:\n%s", string(output)))
 
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhaseSystemPackages,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
 		Progress:    0.4,
 		Step:        "Building quickshell (this may take a while)...",
 		IsComplete:  false,
@@ -430,12 +424,12 @@ func (m *ManualPackageInstaller) installQuickshell(ctx context.Context, sudoPass
 
 	buildCmd := exec.CommandContext(ctx, "cmake", "--build", "build")
 	buildCmd.Dir = tmpDir
-	if err := m.runWithProgressStep(buildCmd, progressChan, installer.PhaseSystemPackages, 0.4, 0.8, "Building quickshell..."); err != nil {
+	if err := m.runWithProgressStep(buildCmd, progressChan, PhaseSystemPackages, 0.4, 0.8, "Building quickshell..."); err != nil {
 		return fmt.Errorf("failed to build quickshell: %w", err)
 	}
 
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhaseSystemPackages,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
 		Progress:    0.8,
 		Step:        "Installing quickshell...",
 		IsComplete:  false,
@@ -453,7 +447,7 @@ func (m *ManualPackageInstaller) installQuickshell(ctx context.Context, sudoPass
 	return nil
 }
 
-func (m *ManualPackageInstaller) installHyprland(ctx context.Context, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
+func (m *ManualPackageInstaller) installHyprland(ctx context.Context, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
 	m.log("Installing Hyprland from source...")
 
 	tmpDir := "/tmp/hyprland-build"
@@ -462,8 +456,8 @@ func (m *ManualPackageInstaller) installHyprland(ctx context.Context, sudoPasswo
 	}
 	defer os.RemoveAll(tmpDir)
 
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhaseSystemPackages,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
 		Progress:    0.1,
 		Step:        "Cloning Hyprland repository...",
 		IsComplete:  false,
@@ -477,12 +471,12 @@ func (m *ManualPackageInstaller) installHyprland(ctx context.Context, sudoPasswo
 
 	buildCmd := exec.CommandContext(ctx, "make", "all")
 	buildCmd.Dir = tmpDir
-	if err := m.runWithProgressStep(buildCmd, progressChan, installer.PhaseSystemPackages, 0.2, 0.8, "Building Hyprland..."); err != nil {
+	if err := m.runWithProgressStep(buildCmd, progressChan, PhaseSystemPackages, 0.2, 0.8, "Building Hyprland..."); err != nil {
 		return fmt.Errorf("failed to build Hyprland: %w", err)
 	}
 
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhaseSystemPackages,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
 		Progress:    0.8,
 		Step:        "Installing Hyprland...",
 		IsComplete:  false,
@@ -500,7 +494,7 @@ func (m *ManualPackageInstaller) installHyprland(ctx context.Context, sudoPasswo
 	return nil
 }
 
-func (m *ManualPackageInstaller) installHyprpicker(ctx context.Context, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
+func (m *ManualPackageInstaller) installHyprpicker(ctx context.Context, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
 	m.log("Installing hyprpicker from source...")
 
 	tmpDir := "/tmp/hyprpicker-build"
@@ -509,8 +503,8 @@ func (m *ManualPackageInstaller) installHyprpicker(ctx context.Context, sudoPass
 	}
 	defer os.RemoveAll(tmpDir)
 
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhaseSystemPackages,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
 		Progress:    0.2,
 		Step:        "Cloning hyprpicker repository...",
 		IsComplete:  false,
@@ -522,8 +516,8 @@ func (m *ManualPackageInstaller) installHyprpicker(ctx context.Context, sudoPass
 		return fmt.Errorf("failed to clone hyprpicker: %w", err)
 	}
 
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhaseSystemPackages,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
 		Progress:    0.4,
 		Step:        "Building hyprpicker...",
 		IsComplete:  false,
@@ -536,8 +530,8 @@ func (m *ManualPackageInstaller) installHyprpicker(ctx context.Context, sudoPass
 		return fmt.Errorf("failed to build hyprpicker: %w", err)
 	}
 
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhaseSystemPackages,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
 		Progress:    0.8,
 		Step:        "Installing hyprpicker...",
 		IsComplete:  false,
@@ -555,7 +549,7 @@ func (m *ManualPackageInstaller) installHyprpicker(ctx context.Context, sudoPass
 	return nil
 }
 
-func (m *ManualPackageInstaller) installGhostty(ctx context.Context, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
+func (m *ManualPackageInstaller) installGhostty(ctx context.Context, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
 	m.log("Installing Ghostty from source...")
 
 	tmpDir := "/tmp/ghostty-build"
@@ -564,8 +558,8 @@ func (m *ManualPackageInstaller) installGhostty(ctx context.Context, sudoPasswor
 	}
 	defer os.RemoveAll(tmpDir)
 
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhaseSystemPackages,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
 		Progress:    0.1,
 		Step:        "Cloning Ghostty repository...",
 		IsComplete:  false,
@@ -577,8 +571,8 @@ func (m *ManualPackageInstaller) installGhostty(ctx context.Context, sudoPasswor
 		return fmt.Errorf("failed to clone Ghostty: %w", err)
 	}
 
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhaseSystemPackages,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
 		Progress:    0.2,
 		Step:        "Building Ghostty (this may take a while)...",
 		IsComplete:  false,
@@ -591,8 +585,8 @@ func (m *ManualPackageInstaller) installGhostty(ctx context.Context, sudoPasswor
 		return fmt.Errorf("failed to build Ghostty: %w", err)
 	}
 
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhaseSystemPackages,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
 		Progress:    0.8,
 		Step:        "Installing Ghostty...",
 		IsComplete:  false,
@@ -610,11 +604,11 @@ func (m *ManualPackageInstaller) installGhostty(ctx context.Context, sudoPasswor
 	return nil
 }
 
-func (m *ManualPackageInstaller) installMatugen(ctx context.Context, _ string, progressChan chan<- installer.InstallProgressMsg) error {
+func (m *ManualPackageInstaller) installMatugen(ctx context.Context, _ string, progressChan chan<- InstallProgressMsg) error {
 	m.log("Installing matugen from source...")
 
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhaseSystemPackages,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
 		Progress:    0.1,
 		Step:        "Installing matugen via cargo...",
 		IsComplete:  false,
@@ -622,7 +616,7 @@ func (m *ManualPackageInstaller) installMatugen(ctx context.Context, _ string, p
 	}
 
 	installCmd := exec.CommandContext(ctx, "cargo", "install", "matugen")
-	if err := m.runWithProgress(installCmd, progressChan, installer.PhaseSystemPackages, 0.1, 0.9); err != nil {
+	if err := m.runWithProgress(installCmd, progressChan, PhaseSystemPackages, 0.1, 0.9); err != nil {
 		return fmt.Errorf("failed to install matugen: %w", err)
 	}
 
@@ -630,11 +624,11 @@ func (m *ManualPackageInstaller) installMatugen(ctx context.Context, _ string, p
 	return nil
 }
 
-func (m *ManualPackageInstaller) installCliphist(ctx context.Context, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
+func (m *ManualPackageInstaller) installCliphist(ctx context.Context, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
 	m.log("Installing cliphist from source...")
 
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhaseSystemPackages,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
 		Progress:    0.1,
 		Step:        "Installing cliphist via go install...",
 		IsComplete:  false,
@@ -642,17 +636,16 @@ func (m *ManualPackageInstaller) installCliphist(ctx context.Context, sudoPasswo
 	}
 
 	installCmd := exec.CommandContext(ctx, "go", "install", "go.senan.xyz/cliphist@latest")
-	if err := m.runWithProgressStep(installCmd, progressChan, installer.PhaseSystemPackages, 0.1, 0.7, "Building cliphist..."); err != nil {
+	if err := m.runWithProgressStep(installCmd, progressChan, PhaseSystemPackages, 0.1, 0.7, "Building cliphist..."); err != nil {
 		return fmt.Errorf("failed to install cliphist: %w", err)
 	}
 
-	// Copy binary from ~/go/bin to /usr/local/bin
 	homeDir := os.Getenv("HOME")
 	sourcePath := filepath.Join(homeDir, "go", "bin", "cliphist")
 	targetPath := "/usr/local/bin/cliphist"
 
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhaseSystemPackages,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
 		Progress:    0.7,
 		Step:        "Installing cliphist binary to system...",
 		IsComplete:  false,

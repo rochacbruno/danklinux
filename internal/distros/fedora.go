@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/AvengeMedia/dankinstall/internal/deps"
-	"github.com/AvengeMedia/dankinstall/internal/installer"
 )
 
 func init() {
@@ -137,7 +136,6 @@ func (f *FedoraDistribution) GetPackageMapping(wm deps.WindowManager) map[string
 		"font-inter":            {Name: "font-inter", Repository: RepoTypeManual, BuildFunc: "installInterFont"},
 	}
 
-	// Add window manager specific packages
 	switch wm {
 	case deps.WindowManagerHyprland:
 		packages["hyprland"] = PackageMapping{Name: "hyprland", Repository: RepoTypeCOPR, RepoURL: "solopasha/hyprland"}
@@ -154,9 +152,9 @@ func (f *FedoraDistribution) GetPackageMapping(wm deps.WindowManager) map[string
 	return packages
 }
 
-func (f *FedoraDistribution) InstallPrerequisites(ctx context.Context, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
-	progressChan <- installer.InstallProgressMsg{
-		Phase:      installer.PhasePrerequisites,
+func (f *FedoraDistribution) InstallPrerequisites(ctx context.Context, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
+	progressChan <- InstallProgressMsg{
+		Phase:      PhasePrerequisites,
 		Progress:   0.06,
 		Step:       "Checking dnf-plugins-core...",
 		IsComplete: false,
@@ -170,8 +168,8 @@ func (f *FedoraDistribution) InstallPrerequisites(ctx context.Context, sudoPassw
 	}
 
 	f.log("Installing dnf-plugins-core...")
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhasePrerequisites,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhasePrerequisites,
 		Progress:    0.08,
 		Step:        "Installing dnf-plugins-core...",
 		IsComplete:  false,
@@ -192,10 +190,10 @@ func (f *FedoraDistribution) InstallPrerequisites(ctx context.Context, sudoPassw
 	return nil
 }
 
-func (f *FedoraDistribution) InstallPackages(ctx context.Context, dependencies []deps.Dependency, wm deps.WindowManager, sudoPassword string, reinstallFlags map[string]bool, progressChan chan<- installer.InstallProgressMsg) error {
+func (f *FedoraDistribution) InstallPackages(ctx context.Context, dependencies []deps.Dependency, wm deps.WindowManager, sudoPassword string, reinstallFlags map[string]bool, progressChan chan<- InstallProgressMsg) error {
 	// Phase 1: Check Prerequisites
-	progressChan <- installer.InstallProgressMsg{
-		Phase:      installer.PhasePrerequisites,
+	progressChan <- InstallProgressMsg{
+		Phase:      PhasePrerequisites,
 		Progress:   0.05,
 		Step:       "Checking system prerequisites...",
 		IsComplete: false,
@@ -210,8 +208,8 @@ func (f *FedoraDistribution) InstallPackages(ctx context.Context, dependencies [
 
 	// Phase 2: Enable COPR repositories
 	if len(coprPkgs) > 0 {
-		progressChan <- installer.InstallProgressMsg{
-			Phase:      installer.PhaseSystemPackages,
+		progressChan <- InstallProgressMsg{
+			Phase:      PhaseSystemPackages,
 			Progress:   0.15,
 			Step:       "Enabling COPR repositories...",
 			IsComplete: false,
@@ -224,8 +222,8 @@ func (f *FedoraDistribution) InstallPackages(ctx context.Context, dependencies [
 
 	// Phase 3: System Packages (DNF)
 	if len(dnfPkgs) > 0 {
-		progressChan <- installer.InstallProgressMsg{
-			Phase:      installer.PhaseSystemPackages,
+		progressChan <- InstallProgressMsg{
+			Phase:      PhaseSystemPackages,
 			Progress:   0.35,
 			Step:       fmt.Sprintf("Installing %d system packages...", len(dnfPkgs)),
 			IsComplete: false,
@@ -240,8 +238,8 @@ func (f *FedoraDistribution) InstallPackages(ctx context.Context, dependencies [
 	// Phase 4: COPR Packages
 	coprPkgNames := f.extractPackageNames(coprPkgs)
 	if len(coprPkgNames) > 0 {
-		progressChan <- installer.InstallProgressMsg{
-			Phase:      installer.PhaseAURPackages, // Reusing AUR phase for COPR
+		progressChan <- InstallProgressMsg{
+			Phase:      PhaseAURPackages, // Reusing AUR phase for COPR
 			Progress:   0.65,
 			Step:       fmt.Sprintf("Installing %d COPR packages...", len(coprPkgNames)),
 			IsComplete: false,
@@ -254,8 +252,8 @@ func (f *FedoraDistribution) InstallPackages(ctx context.Context, dependencies [
 
 	// Phase 5: Manual Builds
 	if len(manualPkgs) > 0 {
-		progressChan <- installer.InstallProgressMsg{
-			Phase:      installer.PhaseSystemPackages,
+		progressChan <- InstallProgressMsg{
+			Phase:      PhaseSystemPackages,
 			Progress:   0.85,
 			Step:       fmt.Sprintf("Building %d packages from source...", len(manualPkgs)),
 			IsComplete: false,
@@ -267,8 +265,8 @@ func (f *FedoraDistribution) InstallPackages(ctx context.Context, dependencies [
 	}
 
 	// Phase 6: Configuration
-	progressChan <- installer.InstallProgressMsg{
-		Phase:      installer.PhaseConfiguration,
+	progressChan <- InstallProgressMsg{
+		Phase:      PhaseConfiguration,
 		Progress:   0.90,
 		Step:       "Configuring system...",
 		IsComplete: false,
@@ -279,8 +277,8 @@ func (f *FedoraDistribution) InstallPackages(ctx context.Context, dependencies [
 	}
 
 	// Phase 7: Complete
-	progressChan <- installer.InstallProgressMsg{
-		Phase:      installer.PhaseComplete,
+	progressChan <- InstallProgressMsg{
+		Phase:      PhaseComplete,
 		Progress:   1.0,
 		Step:       "Installation complete!",
 		IsComplete: true,
@@ -330,14 +328,14 @@ func (f *FedoraDistribution) extractPackageNames(packages []PackageMapping) []st
 	return names
 }
 
-func (f *FedoraDistribution) enableCOPRRepos(ctx context.Context, coprPkgs []PackageMapping, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
+func (f *FedoraDistribution) enableCOPRRepos(ctx context.Context, coprPkgs []PackageMapping, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
 	enabledRepos := make(map[string]bool)
 
 	for _, pkg := range coprPkgs {
 		if pkg.RepoURL != "" && !enabledRepos[pkg.RepoURL] {
 			f.log(fmt.Sprintf("Enabling COPR repository: %s", pkg.RepoURL))
-			progressChan <- installer.InstallProgressMsg{
-				Phase:       installer.PhaseSystemPackages,
+			progressChan <- InstallProgressMsg{
+				Phase:       PhaseSystemPackages,
 				Progress:    0.20,
 				Step:        fmt.Sprintf("Enabling COPR repo %s...", pkg.RepoURL),
 				IsComplete:  false,
@@ -359,8 +357,8 @@ func (f *FedoraDistribution) enableCOPRRepos(ctx context.Context, coprPkgs []Pac
 			// Special handling for niri COPR repo - set priority=1
 			if pkg.RepoURL == "yalter/niri-git" {
 				f.log("Setting priority=1 for niri COPR repo...")
-				progressChan <- installer.InstallProgressMsg{
-					Phase:       installer.PhaseSystemPackages,
+				progressChan <- InstallProgressMsg{
+					Phase:       PhaseSystemPackages,
 					Progress:    0.22,
 					Step:        "Setting niri COPR repo priority...",
 					IsComplete:  false,
@@ -384,7 +382,7 @@ func (f *FedoraDistribution) enableCOPRRepos(ctx context.Context, coprPkgs []Pac
 	return nil
 }
 
-func (f *FedoraDistribution) installDNFPackages(ctx context.Context, packages []string, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
+func (f *FedoraDistribution) installDNFPackages(ctx context.Context, packages []string, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
 	if len(packages) == 0 {
 		return nil
 	}
@@ -394,8 +392,8 @@ func (f *FedoraDistribution) installDNFPackages(ctx context.Context, packages []
 	args := []string{"dnf", "install", "-y"}
 	args = append(args, packages...)
 
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhaseSystemPackages,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
 		Progress:    0.40,
 		Step:        "Installing system packages...",
 		IsComplete:  false,
@@ -405,10 +403,10 @@ func (f *FedoraDistribution) installDNFPackages(ctx context.Context, packages []
 
 	cmdStr := fmt.Sprintf("echo '%s' | sudo -S %s", sudoPassword, strings.Join(args, " "))
 	cmd := exec.CommandContext(ctx, "bash", "-c", cmdStr)
-	return f.runWithProgress(cmd, progressChan, installer.PhaseSystemPackages, 0.40, 0.60)
+	return f.runWithProgress(cmd, progressChan, PhaseSystemPackages, 0.40, 0.60)
 }
 
-func (f *FedoraDistribution) installCOPRPackages(ctx context.Context, packages []string, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
+func (f *FedoraDistribution) installCOPRPackages(ctx context.Context, packages []string, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
 	if len(packages) == 0 {
 		return nil
 	}
@@ -418,8 +416,8 @@ func (f *FedoraDistribution) installCOPRPackages(ctx context.Context, packages [
 	args := []string{"dnf", "install", "-y"}
 	args = append(args, packages...)
 
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhaseAURPackages,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseAURPackages,
 		Progress:    0.70,
 		Step:        "Installing COPR packages...",
 		IsComplete:  false,
@@ -429,5 +427,5 @@ func (f *FedoraDistribution) installCOPRPackages(ctx context.Context, packages [
 
 	cmdStr := fmt.Sprintf("echo '%s' | sudo -S %s", sudoPassword, strings.Join(args, " "))
 	cmd := exec.CommandContext(ctx, "bash", "-c", cmdStr)
-	return f.runWithProgress(cmd, progressChan, installer.PhaseAURPackages, 0.70, 0.85)
+	return f.runWithProgress(cmd, progressChan, PhaseAURPackages, 0.70, 0.85)
 }

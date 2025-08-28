@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/AvengeMedia/dankinstall/internal/deps"
-	"github.com/AvengeMedia/dankinstall/internal/installer"
 )
 
 // PackageManagerType defines the package manager a distro uses
@@ -22,13 +21,38 @@ const (
 type RepositoryType string
 
 const (
-	RepoTypeSystem  RepositoryType = "system"  // Standard system repo (pacman, dnf, apt)
-	RepoTypeAUR     RepositoryType = "aur"     // Arch User Repository
-	RepoTypeCOPR    RepositoryType = "copr"    // Fedora COPR
-	RepoTypePPA     RepositoryType = "ppa"     // Ubuntu PPA
-	RepoTypeFlake   RepositoryType = "flake"   // Nix flake
-	RepoTypeManual  RepositoryType = "manual"  // Manual build from source
+	RepoTypeSystem RepositoryType = "system" // Standard system repo (pacman, dnf, apt)
+	RepoTypeAUR    RepositoryType = "aur"    // Arch User Repository
+	RepoTypeCOPR   RepositoryType = "copr"   // Fedora COPR
+	RepoTypePPA    RepositoryType = "ppa"    // Ubuntu PPA
+	RepoTypeFlake  RepositoryType = "flake"  // Nix flake
+	RepoTypeManual RepositoryType = "manual" // Manual build from source
 )
+
+// InstallPhase represents the current phase of installation
+type InstallPhase int
+
+const (
+	PhasePrerequisites InstallPhase = iota
+	PhaseAURHelper
+	PhaseSystemPackages
+	PhaseAURPackages
+	PhaseCursorTheme
+	PhaseConfiguration
+	PhaseComplete
+)
+
+// InstallProgressMsg represents progress during package installation
+type InstallProgressMsg struct {
+	Phase       InstallPhase
+	Progress    float64
+	Step        string
+	IsComplete  bool
+	NeedsSudo   bool
+	CommandInfo string
+	LogOutput   string
+	Error       error
+}
 
 // PackageMapping defines how to install a package on a specific distro
 type PackageMapping struct {
@@ -50,13 +74,13 @@ type Distribution interface {
 	DetectDependenciesWithTerminal(ctx context.Context, wm deps.WindowManager, terminal deps.Terminal) ([]deps.Dependency, error)
 
 	// Package Installation
-	InstallPackages(ctx context.Context, dependencies []deps.Dependency, wm deps.WindowManager, sudoPassword string, reinstallFlags map[string]bool, progressChan chan<- installer.InstallProgressMsg) error
+	InstallPackages(ctx context.Context, dependencies []deps.Dependency, wm deps.WindowManager, sudoPassword string, reinstallFlags map[string]bool, progressChan chan<- InstallProgressMsg) error
 
 	// Package Mapping
 	GetPackageMapping(wm deps.WindowManager) map[string]PackageMapping
 
 	// Prerequisites
-	InstallPrerequisites(ctx context.Context, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error
+	InstallPrerequisites(ctx context.Context, sudoPassword string, progressChan chan<- InstallProgressMsg) error
 }
 
 // DistroConfig holds configuration for a distribution

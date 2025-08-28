@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/AvengeMedia/dankinstall/internal/deps"
-	"github.com/AvengeMedia/dankinstall/internal/installer"
 )
 
 func init() {
@@ -151,7 +150,6 @@ func (a *ArchDistribution) GetPackageMapping(wm deps.WindowManager) map[string]P
 		"font-inter":             {Name: "inter-font", Repository: RepoTypeSystem},
 	}
 
-	// Add window manager specific packages
 	switch wm {
 	case deps.WindowManagerHyprland:
 		packages["hyprland"] = PackageMapping{Name: "hyprland", Repository: RepoTypeSystem}
@@ -168,9 +166,9 @@ func (a *ArchDistribution) GetPackageMapping(wm deps.WindowManager) map[string]P
 	return packages
 }
 
-func (a *ArchDistribution) InstallPrerequisites(ctx context.Context, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
-	progressChan <- installer.InstallProgressMsg{
-		Phase:      installer.PhasePrerequisites,
+func (a *ArchDistribution) InstallPrerequisites(ctx context.Context, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
+	progressChan <- InstallProgressMsg{
+		Phase:      PhasePrerequisites,
 		Progress:   0.06,
 		Step:       "Checking base-devel...",
 		IsComplete: false,
@@ -180,8 +178,8 @@ func (a *ArchDistribution) InstallPrerequisites(ctx context.Context, sudoPasswor
 	checkCmd := exec.CommandContext(ctx, "pacman", "-Qq", "base-devel")
 	if err := checkCmd.Run(); err == nil {
 		a.log("base-devel already installed")
-		progressChan <- installer.InstallProgressMsg{
-			Phase:      installer.PhasePrerequisites,
+		progressChan <- InstallProgressMsg{
+			Phase:      PhasePrerequisites,
 			Progress:   0.10,
 			Step:       "base-devel already installed",
 			IsComplete: false,
@@ -191,8 +189,8 @@ func (a *ArchDistribution) InstallPrerequisites(ctx context.Context, sudoPasswor
 	}
 
 	a.log("Installing base-devel...")
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhasePrerequisites,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhasePrerequisites,
 		Progress:    0.08,
 		Step:        "Installing base-devel...",
 		IsComplete:  false,
@@ -202,12 +200,12 @@ func (a *ArchDistribution) InstallPrerequisites(ctx context.Context, sudoPasswor
 	}
 
 	cmd := exec.CommandContext(ctx, "bash", "-c", fmt.Sprintf("echo '%s' | sudo -S pacman -S --needed --noconfirm base-devel", sudoPassword))
-	if err := a.runWithProgress(cmd, progressChan, installer.PhasePrerequisites, 0.08, 0.10); err != nil {
+	if err := a.runWithProgress(cmd, progressChan, PhasePrerequisites, 0.08, 0.10); err != nil {
 		return fmt.Errorf("failed to install base-devel: %w", err)
 	}
 
-	progressChan <- installer.InstallProgressMsg{
-		Phase:      installer.PhasePrerequisites,
+	progressChan <- InstallProgressMsg{
+		Phase:      PhasePrerequisites,
 		Progress:   0.12,
 		Step:       "base-devel installation complete",
 		IsComplete: false,
@@ -217,10 +215,10 @@ func (a *ArchDistribution) InstallPrerequisites(ctx context.Context, sudoPasswor
 	return nil
 }
 
-func (a *ArchDistribution) InstallPackages(ctx context.Context, dependencies []deps.Dependency, wm deps.WindowManager, sudoPassword string, reinstallFlags map[string]bool, progressChan chan<- installer.InstallProgressMsg) error {
+func (a *ArchDistribution) InstallPackages(ctx context.Context, dependencies []deps.Dependency, wm deps.WindowManager, sudoPassword string, reinstallFlags map[string]bool, progressChan chan<- InstallProgressMsg) error {
 	// Phase 1: Check Prerequisites
-	progressChan <- installer.InstallProgressMsg{
-		Phase:      installer.PhasePrerequisites,
+	progressChan <- InstallProgressMsg{
+		Phase:      PhasePrerequisites,
 		Progress:   0.05,
 		Step:       "Checking system prerequisites...",
 		IsComplete: false,
@@ -235,8 +233,8 @@ func (a *ArchDistribution) InstallPackages(ctx context.Context, dependencies []d
 
 	// Phase 3: System Packages
 	if len(systemPkgs) > 0 {
-		progressChan <- installer.InstallProgressMsg{
-			Phase:      installer.PhaseSystemPackages,
+		progressChan <- InstallProgressMsg{
+			Phase:      PhaseSystemPackages,
 			Progress:   0.35,
 			Step:       fmt.Sprintf("Installing %d system packages...", len(systemPkgs)),
 			IsComplete: false,
@@ -250,8 +248,8 @@ func (a *ArchDistribution) InstallPackages(ctx context.Context, dependencies []d
 
 	// Phase 4: AUR Packages
 	if len(aurPkgs) > 0 {
-		progressChan <- installer.InstallProgressMsg{
-			Phase:      installer.PhaseAURPackages,
+		progressChan <- InstallProgressMsg{
+			Phase:      PhaseAURPackages,
 			Progress:   0.65,
 			Step:       fmt.Sprintf("Installing %d AUR packages...", len(aurPkgs)),
 			IsComplete: false,
@@ -264,8 +262,8 @@ func (a *ArchDistribution) InstallPackages(ctx context.Context, dependencies []d
 
 	// Phase 5: Manual Builds
 	if len(manualPkgs) > 0 {
-		progressChan <- installer.InstallProgressMsg{
-			Phase:      installer.PhaseSystemPackages,
+		progressChan <- InstallProgressMsg{
+			Phase:      PhaseSystemPackages,
 			Progress:   0.85,
 			Step:       fmt.Sprintf("Building %d packages from source...", len(manualPkgs)),
 			IsComplete: false,
@@ -277,8 +275,8 @@ func (a *ArchDistribution) InstallPackages(ctx context.Context, dependencies []d
 	}
 
 	// Phase 6: Configuration
-	progressChan <- installer.InstallProgressMsg{
-		Phase:      installer.PhaseConfiguration,
+	progressChan <- InstallProgressMsg{
+		Phase:      PhaseConfiguration,
 		Progress:   0.90,
 		Step:       "Configuring system...",
 		IsComplete: false,
@@ -289,8 +287,8 @@ func (a *ArchDistribution) InstallPackages(ctx context.Context, dependencies []d
 	}
 
 	// Phase 7: Complete
-	progressChan <- installer.InstallProgressMsg{
-		Phase:      installer.PhaseComplete,
+	progressChan <- InstallProgressMsg{
+		Phase:      PhaseComplete,
 		Progress:   1.0,
 		Step:       "Installation complete!",
 		IsComplete: true,
@@ -333,7 +331,7 @@ func (a *ArchDistribution) categorizePackages(dependencies []deps.Dependency, wm
 	return systemPkgs, aurPkgs, manualPkgs
 }
 
-func (a *ArchDistribution) installSystemPackages(ctx context.Context, packages []string, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
+func (a *ArchDistribution) installSystemPackages(ctx context.Context, packages []string, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
 	if len(packages) == 0 {
 		return nil
 	}
@@ -343,8 +341,8 @@ func (a *ArchDistribution) installSystemPackages(ctx context.Context, packages [
 	args := []string{"pacman", "-S", "--needed", "--noconfirm"}
 	args = append(args, packages...)
 
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhaseSystemPackages,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
 		Progress:    0.40,
 		Step:        "Installing system packages...",
 		IsComplete:  false,
@@ -354,17 +352,16 @@ func (a *ArchDistribution) installSystemPackages(ctx context.Context, packages [
 
 	cmdStr := fmt.Sprintf("echo '%s' | sudo -S %s", sudoPassword, strings.Join(args, " "))
 	cmd := exec.CommandContext(ctx, "bash", "-c", cmdStr)
-	return a.runWithProgress(cmd, progressChan, installer.PhaseSystemPackages, 0.40, 0.60)
+	return a.runWithProgress(cmd, progressChan, PhaseSystemPackages, 0.40, 0.60)
 }
 
-func (a *ArchDistribution) installAURPackages(ctx context.Context, packages []string, sudoPassword string, progressChan chan<- installer.InstallProgressMsg) error {
+func (a *ArchDistribution) installAURPackages(ctx context.Context, packages []string, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
 	if len(packages) == 0 {
 		return nil
 	}
 
 	a.log(fmt.Sprintf("Installing AUR packages manually: %s", strings.Join(packages, ", ")))
 
-	// Check if we need makepkg-git-lfs-proto for niri
 	hasNiri := false
 	for _, pkg := range packages {
 		if pkg == "niri-git" {
@@ -375,8 +372,8 @@ func (a *ArchDistribution) installAURPackages(ctx context.Context, packages []st
 
 	// If niri is in the list, install makepkg-git-lfs-proto first
 	if hasNiri {
-		progressChan <- installer.InstallProgressMsg{
-			Phase:       installer.PhaseAURPackages,
+		progressChan <- InstallProgressMsg{
+			Phase:       PhaseAURPackages,
 			Progress:    0.63,
 			Step:        "Installing makepkg-git-lfs-proto for niri...",
 			IsComplete:  false,
@@ -395,8 +392,8 @@ func (a *ArchDistribution) installAURPackages(ctx context.Context, packages []st
 	for i, pkg := range packages {
 		currentProgress := baseProgress + (float64(i) * progressStep)
 
-		progressChan <- installer.InstallProgressMsg{
-			Phase:       installer.PhaseAURPackages,
+		progressChan <- InstallProgressMsg{
+			Phase:       PhaseAURPackages,
 			Progress:    currentProgress,
 			Step:        fmt.Sprintf("Installing AUR package %s (%d/%d)...", pkg, i+1, len(packages)),
 			IsComplete:  false,
@@ -408,8 +405,8 @@ func (a *ArchDistribution) installAURPackages(ctx context.Context, packages []st
 		}
 	}
 
-	progressChan <- installer.InstallProgressMsg{
-		Phase:      installer.PhaseAURPackages,
+	progressChan <- InstallProgressMsg{
+		Phase:      PhaseAURPackages,
 		Progress:   0.80,
 		Step:       "All AUR packages installed successfully",
 		IsComplete: false,
@@ -419,8 +416,7 @@ func (a *ArchDistribution) installAURPackages(ctx context.Context, packages []st
 	return nil
 }
 
-func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sudoPassword string, progressChan chan<- installer.InstallProgressMsg, startProgress, endProgress float64) error {
-	// Create temporary directory for this package
+func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sudoPassword string, progressChan chan<- InstallProgressMsg, startProgress, endProgress float64) error {
 	tmpDir := fmt.Sprintf("/tmp/aur-build-%s", pkg)
 	if err := os.MkdirAll(tmpDir, 0755); err != nil {
 		return fmt.Errorf("failed to create temp directory: %w", err)
@@ -428,8 +424,8 @@ func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sud
 	defer os.RemoveAll(tmpDir)
 
 	// Clone the AUR package
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhaseAURPackages,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseAURPackages,
 		Progress:    startProgress + 0.1*(endProgress-startProgress),
 		Step:        fmt.Sprintf("Cloning %s from AUR...", pkg),
 		IsComplete:  false,
@@ -437,7 +433,7 @@ func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sud
 	}
 
 	cloneCmd := exec.CommandContext(ctx, "git", "clone", fmt.Sprintf("https://aur.archlinux.org/%s.git", pkg), filepath.Join(tmpDir, pkg))
-	if err := a.runWithProgress(cloneCmd, progressChan, installer.PhaseAURPackages, startProgress+0.1*(endProgress-startProgress), startProgress+0.2*(endProgress-startProgress)); err != nil {
+	if err := a.runWithProgress(cloneCmd, progressChan, PhaseAURPackages, startProgress+0.1*(endProgress-startProgress), startProgress+0.2*(endProgress-startProgress)); err != nil {
 		return fmt.Errorf("failed to clone %s: %w", pkg, err)
 	}
 
@@ -445,8 +441,8 @@ func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sud
 
 	// Special handling for niri-git: remove makepkg-git-lfs-proto references
 	if pkg == "niri-git" {
-		progressChan <- installer.InstallProgressMsg{
-			Phase:       installer.PhaseAURPackages,
+		progressChan <- InstallProgressMsg{
+			Phase:       PhaseAURPackages,
 			Progress:    startProgress + 0.2*(endProgress-startProgress),
 			Step:        "Patching niri-git PKGBUILD...",
 			IsComplete:  false,
@@ -469,8 +465,8 @@ func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sud
 	}
 
 	// Pre-install dependencies from .SRCINFO
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhaseAURPackages,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseAURPackages,
 		Progress:    startProgress + 0.3*(endProgress-startProgress),
 		Step:        fmt.Sprintf("Installing dependencies for %s...", pkg),
 		IsComplete:  false,
@@ -483,14 +479,13 @@ func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sud
 		fmt.Sprintf("deps=$(sed -n 's/.*depends = //p' '%s'); if [ ! -z \"$deps\" ]; then echo '%s' | sudo -S pacman -S --needed --noconfirm $deps; fi",
 			srcinfoPath, sudoPassword))
 
-	if err := a.runWithProgress(depsCmd, progressChan, installer.PhaseAURPackages, startProgress+0.3*(endProgress-startProgress), startProgress+0.4*(endProgress-startProgress)); err != nil {
+	if err := a.runWithProgress(depsCmd, progressChan, PhaseAURPackages, startProgress+0.3*(endProgress-startProgress), startProgress+0.4*(endProgress-startProgress)); err != nil {
 		// Log but don't fail - some deps might be optional or already installed
 		a.log(fmt.Sprintf("Warning: Some dependencies may have failed to install: %v", err))
 	}
 
-	// Build the package (without -s since we pre-installed deps)
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhaseAURPackages,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseAURPackages,
 		Progress:    startProgress + 0.4*(endProgress-startProgress),
 		Step:        fmt.Sprintf("Building %s...", pkg),
 		IsComplete:  false,
@@ -501,13 +496,13 @@ func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sud
 	buildCmd.Dir = packageDir
 	buildCmd.Env = append(os.Environ(), "PKGEXT=.pkg.tar") // Disable compression for speed
 
-	if err := a.runWithProgress(buildCmd, progressChan, installer.PhaseAURPackages, startProgress+0.4*(endProgress-startProgress), startProgress+0.7*(endProgress-startProgress)); err != nil {
+	if err := a.runWithProgress(buildCmd, progressChan, PhaseAURPackages, startProgress+0.4*(endProgress-startProgress), startProgress+0.7*(endProgress-startProgress)); err != nil {
 		return fmt.Errorf("failed to build %s: %w", pkg, err)
 	}
 
 	// Find built package file
-	progressChan <- installer.InstallProgressMsg{
-		Phase:       installer.PhaseAURPackages,
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseAURPackages,
 		Progress:    startProgress + 0.7*(endProgress-startProgress),
 		Step:        fmt.Sprintf("Installing %s...", pkg),
 		IsComplete:  false,
@@ -520,14 +515,13 @@ func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sud
 		return fmt.Errorf("no package files found after building %s", pkg)
 	}
 
-	// Install the built package
 	installArgs := []string{"pacman", "-U", "--noconfirm"}
 	installArgs = append(installArgs, files...)
 
 	cmdStr := fmt.Sprintf("echo '%s' | sudo -S %s", sudoPassword, strings.Join(installArgs, " "))
 	installCmd := exec.CommandContext(ctx, "bash", "-c", cmdStr)
 
-	if err := a.runWithProgress(installCmd, progressChan, installer.PhaseAURPackages, startProgress+0.7*(endProgress-startProgress), endProgress); err != nil {
+	if err := a.runWithProgress(installCmd, progressChan, PhaseAURPackages, startProgress+0.7*(endProgress-startProgress), endProgress); err != nil {
 		return fmt.Errorf("failed to install built package %s: %w", pkg, err)
 	}
 
