@@ -126,7 +126,7 @@ func (n *NixOSDistribution) GetPackageMapping(wm deps.WindowManager) map[string]
 		"cliphist":               {Name: "nixpkgs#cliphist", Repository: RepoTypeSystem},
 		"wl-clipboard":           {Name: "nixpkgs#wl-clipboard", Repository: RepoTypeSystem},
 		"xdg-desktop-portal-gtk": {Name: "nixpkgs#xdg-desktop-portal-gtk", Repository: RepoTypeSystem},
-		"mate-polkit":            {Name: "nixpkgs#mate-polkit", Repository: RepoTypeSystem},
+		"mate-polkit":            {Name: "nixpkgs#mate.mate-polkit", Repository: RepoTypeSystem},
 		"font-material-symbols":  {Name: "nixpkgs#material-symbols", Repository: RepoTypeSystem},
 		"font-firacode":          {Name: "nixpkgs#fira-code", Repository: RepoTypeSystem},
 		"font-inter":             {Name: "nixpkgs#inter", Repository: RepoTypeSystem},
