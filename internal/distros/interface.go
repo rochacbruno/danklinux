@@ -15,6 +15,7 @@ const (
 	PackageManagerDNF    PackageManagerType = "dnf"
 	PackageManagerAPT    PackageManagerType = "apt"
 	PackageManagerZypper PackageManagerType = "zypper"
+	PackageManagerNix    PackageManagerType = "nix"
 )
 
 // RepositoryType defines the type of repository for a package
@@ -25,6 +26,7 @@ const (
 	RepoTypeAUR     RepositoryType = "aur"     // Arch User Repository
 	RepoTypeCOPR    RepositoryType = "copr"    // Fedora COPR
 	RepoTypePPA     RepositoryType = "ppa"     // Ubuntu PPA
+	RepoTypeFlake   RepositoryType = "flake"   // Nix flake
 	RepoTypeManual  RepositoryType = "manual"  // Manual build from source
 )
 

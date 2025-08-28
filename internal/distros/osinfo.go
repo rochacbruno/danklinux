@@ -110,7 +110,7 @@ func GetDistroInfo(distroID string) (*DistroInfo, error) {
 // IsUnsupportedDistro checks if a distribution/version combination is supported
 func IsUnsupportedDistro(distroID, versionID string) bool {
 	switch distroID {
-	case "arch", "cachyos", "fedora", "nobara":
+	case "arch", "cachyos", "fedora", "nobara", "nixos":
 		return false // These are supported
 	case "ubuntu":
 		// Parse version (format: "24.04")
