@@ -1,0 +1,71 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: ./go.mod
+
+      - name: Build dankinstall
+        env:
+          GOOS: linux
+          CGO_ENABLED: 0
+          GOARCH: ${{ matrix.arch }}
+        run: |
+          cd cmd/dankinstall && go build -trimpath -ldflags "-s -w -X main.Version=${GITHUB_REF#refs/tags/}" -o ../../dankinstall-${{ matrix.arch }} && cd ../..
+          gzip -9 -k dankinstall-${{ matrix.arch }}
+          sha256sum dankinstall-${{ matrix.arch }}.gz > dankinstall-${{ matrix.arch }}.gz.sha256
+
+      - name: Build dms
+        env:
+          GOOS: linux
+          CGO_ENABLED: 0
+          GOARCH: ${{ matrix.arch }}
+        run: |
+          cd cmd/dms && go build -trimpath -ldflags "-s -w -X main.Version=${GITHUB_REF#refs/tags/}" -o ../../dms-${{ matrix.arch }} && cd ../..
+          gzip -9 -k dms-${{ matrix.arch }}
+          sha256sum dms-${{ matrix.arch }}.gz > dms-${{ matrix.arch }}.gz.sha256
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            dankinstall-amd64.gz
+            dankinstall-amd64.gz.sha256
+            dankinstall-arm64.gz
+            dankinstall-arm64.gz.sha256
+            dms-amd64.gz
+            dms-amd64.gz.sha256
+            dms-arm64.gz
+            dms-arm64.gz.sha256
+          body: |
+            ## Danklinux Release
+
+            This release includes binaries for:
+            - Linux AMD64
+            - Linux ARM64
+
+            ### Installation
+
+            ```bash
+            curl -fsSL https://raw.githubusercontent.com/AvengeMedia/danklinux/main/install.sh | sh
+            ```
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
