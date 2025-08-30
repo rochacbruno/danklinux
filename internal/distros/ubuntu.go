@@ -123,6 +123,7 @@ func (u *UbuntuDistribution) GetPackageMapping(wm deps.WindowManager) map[string
 		"font-inter":             {Name: "fonts-inter-variable", Repository: RepoTypeSystem},
 
 		// Manual builds (niri and quickshell likely not available in Ubuntu repos or PPAs)
+		"dms (DankMaterialShell)": {Name: "dms", Repository: RepoTypeManual, BuildFunc: "installDankMaterialShell"},
 		"niri":                  {Name: "niri", Repository: RepoTypeManual, BuildFunc: "installNiri"},
 		"quickshell":            {Name: "quickshell", Repository: RepoTypeManual, BuildFunc: "installQuickshell"},
 		"ghostty":               {Name: "ghostty", Repository: RepoTypeManual, BuildFunc: "installGhostty"},

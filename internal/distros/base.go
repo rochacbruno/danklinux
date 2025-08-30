@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 
@@ -469,30 +470,98 @@ func (b *BaseDistribution) runWithProgressStep(cmd *exec.Cmd, progressChan chan<
 	}
 }
 
-// Post-installation configuration
-func (b *BaseDistribution) postInstallConfig(ctx context.Context, _ deps.WindowManager, _ string, progressChan chan<- InstallProgressMsg) error {
-	// Clone DMS config if needed
-	dmsPath := filepath.Join(os.Getenv("HOME"), ".config/quickshell/dms")
-	if _, err := os.Stat(dmsPath); os.IsNotExist(err) {
-		progressChan <- InstallProgressMsg{
-			Phase:       PhaseConfiguration,
-			Progress:    0.90,
-			Step:        "Installing DankMaterialShell config...",
-			IsComplete:  false,
-			CommandInfo: "git clone https://github.com/AvengeMedia/DankMaterialShell.git ~/.config/quickshell/dms",
-		}
+// installDMSBinary installs the DMS binary from GitHub releases
+func (b *BaseDistribution) installDMSBinary(ctx context.Context, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
+	b.log("Installing/updating DMS binary...")
 
-		configDir := filepath.Dir(dmsPath)
-		if err := os.MkdirAll(configDir, 0755); err != nil {
-			return fmt.Errorf("failed to create quickshell config directory: %w", err)
-		}
-
-		cloneCmd := exec.CommandContext(ctx, "git", "clone",
-			"https://github.com/AvengeMedia/DankMaterialShell.git", dmsPath)
-		if err := cloneCmd.Run(); err != nil {
-			return fmt.Errorf("failed to clone DankMaterialShell: %w", err)
-		}
+	// Detect architecture
+	arch := runtime.GOARCH
+	switch arch {
+	case "amd64":
+	case "arm64":
+	default:
+		return fmt.Errorf("unsupported architecture for DMS: %s", arch)
 	}
 
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseConfiguration,
+		Progress:    0.80,
+		Step:        "Downloading DMS binary...",
+		IsComplete:  false,
+		CommandInfo: fmt.Sprintf("Downloading dms-%s.gz", arch),
+	}
+
+	// Get latest release version
+	latestVersionCmd := exec.CommandContext(ctx, "bash", "-c",
+		`curl -s https://api.github.com/repos/AvengeMedia/danklinux/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/'`)
+	versionOutput, err := latestVersionCmd.Output()
+	if err != nil {
+		return fmt.Errorf("failed to get latest DMS version: %w", err)
+	}
+	version := strings.TrimSpace(string(versionOutput))
+	if version == "" {
+		return fmt.Errorf("could not determine latest DMS version")
+	}
+
+	tmpDir := "/tmp/dms-install"
+	if err := os.MkdirAll(tmpDir, 0755); err != nil {
+		return fmt.Errorf("failed to create temp directory: %w", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Download the gzipped binary
+	downloadURL := fmt.Sprintf("https://github.com/AvengeMedia/danklinux/releases/download/%s/dms-%s.gz", version, arch)
+	gzPath := filepath.Join(tmpDir, "dms.gz")
+	
+	downloadCmd := exec.CommandContext(ctx, "curl", "-L", downloadURL, "-o", gzPath)
+	if err := downloadCmd.Run(); err != nil {
+		return fmt.Errorf("failed to download DMS binary: %w", err)
+	}
+
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseConfiguration,
+		Progress:    0.85,
+		Step:        "Extracting DMS binary...",
+		IsComplete:  false,
+		CommandInfo: "gunzip dms.gz",
+	}
+
+	// Extract the binary
+	extractCmd := exec.CommandContext(ctx, "gunzip", gzPath)
+	if err := extractCmd.Run(); err != nil {
+		return fmt.Errorf("failed to extract DMS binary: %w", err)
+	}
+
+	binaryPath := filepath.Join(tmpDir, "dms")
+
+	// Make it executable
+	chmodCmd := exec.CommandContext(ctx, "chmod", "+x", binaryPath)
+	if err := chmodCmd.Run(); err != nil {
+		return fmt.Errorf("failed to make DMS binary executable: %w", err)
+	}
+
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseConfiguration,
+		Progress:    0.88,
+		Step:        "Installing DMS to /usr/local/bin...",
+		IsComplete:  false,
+		NeedsSudo:   true,
+		CommandInfo: "sudo cp dms /usr/local/bin/",
+	}
+
+	// Install to /usr/local/bin
+	installCmd := exec.CommandContext(ctx, "bash", "-c",
+		fmt.Sprintf("echo '%s' | sudo -S cp %s /usr/local/bin/dms", sudoPassword, binaryPath))
+	if err := installCmd.Run(); err != nil {
+		return fmt.Errorf("failed to install DMS binary: %w", err)
+	}
+
+	b.log("DMS binary installed successfully")
+	return nil
+}
+
+// Post-installation configuration
+func (b *BaseDistribution) postInstallConfig(ctx context.Context, _ deps.WindowManager, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
+	// DMS installation is now handled in the package installer itself
 	return nil
 }

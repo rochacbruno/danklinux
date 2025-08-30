@@ -412,14 +412,14 @@ func (n *NixOSDistribution) installFlakePackages(ctx context.Context, packages [
 }
 
 func (n *NixOSDistribution) postInstallConfig(ctx context.Context, wm deps.WindowManager, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
-	// For NixOS, DMS is installed as a flake package, so we skip the git clone
-	// The flake installation handles placing the config files correctly
+	// For NixOS, DMS is installed as a flake package, so we skip both the binary installation and git clone
+	// The flake installation handles both the binary and config files correctly
 	progressChan <- InstallProgressMsg{
 		Phase:      PhaseConfiguration,
 		Progress:   0.95,
 		Step:       "NixOS configuration complete",
 		IsComplete: false,
-		LogOutput:  "DMS installed via flake - no additional configuration needed",
+		LogOutput:  "DMS installed via flake - binary and config handled by Nix",
 	}
 
 	return nil

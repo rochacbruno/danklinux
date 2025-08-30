@@ -24,6 +24,10 @@ func (m *ManualPackageInstaller) InstallManualPackages(ctx context.Context, pack
 
 	for _, pkg := range packages {
 		switch pkg {
+		case "dms (DankMaterialShell)", "dms":
+			if err := m.installDankMaterialShell(ctx, sudoPassword, progressChan); err != nil {
+				return fmt.Errorf("failed to install DankMaterialShell: %w", err)
+			}
 		case "dgop":
 			if err := m.installDgop(ctx, sudoPassword, progressChan); err != nil {
 				return fmt.Errorf("failed to install dgop: %w", err)
@@ -621,6 +625,59 @@ func (m *ManualPackageInstaller) installMatugen(ctx context.Context, _ string, p
 	}
 
 	m.log("matugen installed successfully from source")
+	return nil
+}
+
+func (m *ManualPackageInstaller) installDankMaterialShell(ctx context.Context, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
+	m.log("Installing DankMaterialShell (DMS)...")
+
+	// Always install/update the DMS binary
+	if err := m.installDMSBinary(ctx, sudoPassword, progressChan); err != nil {
+		m.logError("Failed to install DMS binary", err)
+	}
+
+	// Handle DMS config - clone if missing, pull if exists
+	dmsPath := filepath.Join(os.Getenv("HOME"), ".config/quickshell/dms")
+	if _, err := os.Stat(dmsPath); os.IsNotExist(err) {
+		// Config doesn't exist, clone it
+		progressChan <- InstallProgressMsg{
+			Phase:       PhaseSystemPackages,
+			Progress:    0.90,
+			Step:        "Cloning DankMaterialShell config...",
+			IsComplete:  false,
+			CommandInfo: "git clone https://github.com/AvengeMedia/DankMaterialShell.git ~/.config/quickshell/dms",
+		}
+
+		configDir := filepath.Dir(dmsPath)
+		if err := os.MkdirAll(configDir, 0755); err != nil {
+			return fmt.Errorf("failed to create quickshell config directory: %w", err)
+		}
+
+		cloneCmd := exec.CommandContext(ctx, "git", "clone",
+			"https://github.com/AvengeMedia/DankMaterialShell.git", dmsPath)
+		if err := cloneCmd.Run(); err != nil {
+			return fmt.Errorf("failed to clone DankMaterialShell: %w", err)
+		}
+		m.log("DankMaterialShell config cloned successfully")
+	} else {
+		// Config exists, update it
+		progressChan <- InstallProgressMsg{
+			Phase:       PhaseSystemPackages,
+			Progress:    0.90,
+			Step:        "Updating DankMaterialShell config...",
+			IsComplete:  false,
+			CommandInfo: "git pull in ~/.config/quickshell/dms",
+		}
+
+		pullCmd := exec.CommandContext(ctx, "git", "pull")
+		pullCmd.Dir = dmsPath
+		if err := pullCmd.Run(); err != nil {
+			m.logError("Failed to update DankMaterialShell config", err)
+		} else {
+			m.log("DankMaterialShell config updated successfully")
+		}
+	}
+
 	return nil
 }
 

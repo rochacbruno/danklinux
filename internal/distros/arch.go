@@ -135,6 +135,7 @@ func (a *ArchDistribution) packageInstalled(pkg string) bool {
 
 func (a *ArchDistribution) GetPackageMapping(wm deps.WindowManager) map[string]PackageMapping {
 	packages := map[string]PackageMapping{
+		"dms (DankMaterialShell)": {Name: "dms", Repository: RepoTypeManual, BuildFunc: "installDankMaterialShell"},
 		"git":                    {Name: "git", Repository: RepoTypeSystem},
 		"quickshell":             {Name: "quickshell", Repository: RepoTypeAUR},
 		"matugen":                {Name: "matugen-bin", Repository: RepoTypeAUR},

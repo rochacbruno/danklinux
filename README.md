@@ -19,6 +19,14 @@ A comprehensive installer and management tool for DankMaterialShell, a modern de
   - Process ipc commands
   - Run dank shell
 
+## Quickstart
+
+```bash
+curl -fsSL https://install.danklinux.com | sh
+```
+
+*Alternatively, download the latest [release](https://github.com/AvengeMedia/danklinux/releases)*
+
 ## Supported Distributions
 
 ### Arch Linux & Derivatives

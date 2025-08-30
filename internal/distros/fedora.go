@@ -131,6 +131,7 @@ func (f *FedoraDistribution) GetPackageMapping(wm deps.WindowManager) map[string
 		"cliphist":   {Name: "cliphist", Repository: RepoTypeCOPR, RepoURL: "alternateved/cliphist"},
 
 		// Manual builds
+		"dms (DankMaterialShell)": {Name: "dms", Repository: RepoTypeManual, BuildFunc: "installDankMaterialShell"},
 		"dgop":                  {Name: "dgop", Repository: RepoTypeManual, BuildFunc: "installDgop"},
 		"font-material-symbols": {Name: "font-material-symbols", Repository: RepoTypeManual, BuildFunc: "installMaterialSymbolsFont"},
 		"font-inter":            {Name: "font-inter", Repository: RepoTypeManual, BuildFunc: "installInterFont"},

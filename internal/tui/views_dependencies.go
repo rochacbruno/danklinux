@@ -42,7 +42,7 @@ func (m Model) viewDependencyReview() string {
 			var status string
 			var reinstallMarker string
 
-			isDMS := dep.Name == "dms" || dep.Name == "DankMaterialShell"
+			isDMS := dep.Name == "dms (DankMaterialShell)"
 			if m.reinstallItems[dep.Name] {
 				reinstallMarker = "🔄 "
 				status = m.styles.Warning.Render("Will reinstall")
@@ -128,9 +128,6 @@ func (m Model) updateDependencyReviewState(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if len(m.dependencies) > 0 {
 				depName := m.dependencies[m.selectedDep].Name
 
-				if depName == "dms" || depName == "DankMaterialShell" {
-					return m, m.listenForLogs()
-				}
 				if m.dependencies[m.selectedDep].Status == deps.StatusInstalled ||
 					m.dependencies[m.selectedDep].Status == deps.StatusNeedsReinstall {
 					m.reinstallItems[depName] = !m.reinstallItems[depName]
@@ -139,6 +136,9 @@ func (m Model) updateDependencyReviewState(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			m.state = StatePasswordPrompt
 			m.isLoading = false
+			return m, nil
+		case "esc":
+			m.state = StateSelectWindowManager
 			return m, nil
 		}
 	}

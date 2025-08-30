@@ -91,7 +91,7 @@ func (m Model) renderUpdateView() string {
 			var statusText, icon, reinstallMarker string
 			var style lipgloss.Style
 
-			isDMS := dep.Name == "dms (DankMaterialShell)" || dep.Name == "dms"
+			isDMS := dep.Name == "dms (DankMaterialShell)"
 
 			if m.updateToggles[dep.Name] {
 				reinstallMarker = "🔄 "

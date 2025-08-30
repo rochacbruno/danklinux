@@ -56,7 +56,7 @@ func NewModel(version string) Model {
 
 	updateToggles := make(map[string]bool)
 	for _, dep := range dependencies {
-		if dep.Name == "dms (DankMaterialShell)" || dep.Name == "dms" {
+		if dep.Name == "dms (DankMaterialShell)" {
 			updateToggles[dep.Name] = true
 			break
 		}
