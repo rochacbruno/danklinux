@@ -54,7 +54,11 @@ func runShellIPCCommand(args []string) {
 		os.Exit(1)
 	}
 
-	cmdArgs := append([]string{"-c", "dms", "ipc", "call"}, args...)
+	if args[0] != "call" {
+		args = append([]string{"call"}, args...)
+	}
+
+	cmdArgs := append([]string{"-c", "dms", "ipc"}, args...)
 	cmd := exec.Command("qs", cmdArgs...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
