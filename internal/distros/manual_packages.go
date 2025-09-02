@@ -329,6 +329,11 @@ func (m *ManualPackageInstaller) installNiri(ctx context.Context, sudoPassword s
 		return fmt.Errorf("failed to clone niri: %w", err)
 	}
 
+	checkoutCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "checkout", "v25.08")
+	if err := checkoutCmd.Run(); err != nil {
+		m.log(fmt.Sprintf("Warning: failed to checkout v25.08, using main: %v", err))
+	}
+
 	if !m.commandExists("cargo-deb") {
 		cargoDebInstallCmd := exec.CommandContext(ctx, "cargo", "install", "cargo-deb")
 		if err := m.runWithProgressStep(cargoDebInstallCmd, progressChan, PhaseSystemPackages, 0.3, 0.35, "Installing cargo-deb..."); err != nil {
@@ -471,6 +476,11 @@ func (m *ManualPackageInstaller) installHyprland(ctx context.Context, sudoPasswo
 	cloneCmd := exec.CommandContext(ctx, "git", "clone", "--recursive", "https://github.com/hyprwm/Hyprland.git", tmpDir)
 	if err := cloneCmd.Run(); err != nil {
 		return fmt.Errorf("failed to clone Hyprland: %w", err)
+	}
+
+	checkoutCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "checkout", "v0.50.1")
+	if err := checkoutCmd.Run(); err != nil {
+		m.log(fmt.Sprintf("Warning: failed to checkout v0.50.1, using main: %v", err))
 	}
 
 	buildCmd := exec.CommandContext(ctx, "make", "all")

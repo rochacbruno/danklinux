@@ -13,12 +13,21 @@ const (
 	StatusNeedsReinstall
 )
 
+type PackageVariant int
+
+const (
+	VariantStable PackageVariant = iota
+	VariantGit
+)
+
 type Dependency struct {
 	Name        string
 	Status      DependencyStatus
 	Version     string
 	Description string
 	Required    bool
+	Variant     PackageVariant
+	CanToggle   bool
 }
 
 type WindowManager int

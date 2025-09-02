@@ -246,6 +246,8 @@ func (b *BaseDistribution) detectQuickshell() deps.Dependency {
 			Status:      deps.StatusMissing,
 			Description: "QtQuick based desktop shell toolkit",
 			Required:    true,
+			Variant:     deps.VariantStable,
+			CanToggle:   true,
 		}
 	}
 
@@ -257,6 +259,8 @@ func (b *BaseDistribution) detectQuickshell() deps.Dependency {
 			Status:      deps.StatusNeedsReinstall,
 			Description: "QtQuick based desktop shell toolkit (version check failed)",
 			Required:    true,
+			Variant:     deps.VariantStable,
+			CanToggle:   true,
 		}
 	}
 
@@ -270,10 +274,17 @@ func (b *BaseDistribution) detectQuickshell() deps.Dependency {
 			Status:      deps.StatusNeedsReinstall,
 			Description: "QtQuick based desktop shell toolkit (unknown version)",
 			Required:    true,
+			Variant:     deps.VariantStable,
+			CanToggle:   true,
 		}
 	}
 
 	version := matches[1]
+	variant := deps.VariantStable
+	if strings.Contains(versionStr, "git") || strings.Contains(versionStr, "+") {
+		variant = deps.VariantGit
+	}
+	
 	if b.versionCompare(version, "0.2.0") >= 0 {
 		return deps.Dependency{
 			Name:        "quickshell",
@@ -281,12 +292,16 @@ func (b *BaseDistribution) detectQuickshell() deps.Dependency {
 			Version:     version,
 			Description: "QtQuick based desktop shell toolkit",
 			Required:    true,
+			Variant:     variant,
+			CanToggle:   true,
 		}
 	}
 
 	return deps.Dependency{
 		Name:        "quickshell",
 		Status:      deps.StatusNeedsUpdate,
+		Variant:     variant,
+		CanToggle:   true,
 		Version:     version,
 		Description: "QtQuick based desktop shell toolkit (needs 0.2.0+)",
 		Required:    true,
@@ -297,25 +312,63 @@ func (b *BaseDistribution) detectWindowManager(wm deps.WindowManager) deps.Depen
 	switch wm {
 	case deps.WindowManagerHyprland:
 		status := deps.StatusMissing
+		variant := deps.VariantStable
+		version := ""
+		
 		if b.commandExists("hyprland") || b.commandExists("Hyprland") {
 			status = deps.StatusInstalled
+			cmd := exec.Command("hyprctl", "version")
+			if output, err := cmd.Output(); err == nil {
+				outStr := string(output)
+				if strings.Contains(outStr, "git") || strings.Contains(outStr, "dirty") {
+					variant = deps.VariantGit
+				}
+				if versionRegex := regexp.MustCompile(`v(\d+\.\d+\.\d+)`); versionRegex.MatchString(outStr) {
+					matches := versionRegex.FindStringSubmatch(outStr)
+					if len(matches) > 1 {
+						version = matches[1]
+					}
+				}
+			}
 		}
 		return deps.Dependency{
 			Name:        "hyprland",
 			Status:      status,
+			Version:     version,
 			Description: "Dynamic tiling Wayland compositor",
 			Required:    true,
+			Variant:     variant,
+			CanToggle:   true,
 		}
 	case deps.WindowManagerNiri:
 		status := deps.StatusMissing
+		variant := deps.VariantStable
+		version := ""
+		
 		if b.commandExists("niri") {
 			status = deps.StatusInstalled
+			cmd := exec.Command("niri", "--version")
+			if output, err := cmd.Output(); err == nil {
+				outStr := string(output)
+				if strings.Contains(outStr, "git") || strings.Contains(outStr, "+") {
+					variant = deps.VariantGit
+				}
+				if versionRegex := regexp.MustCompile(`niri (\d+\.\d+)`); versionRegex.MatchString(outStr) {
+					matches := versionRegex.FindStringSubmatch(outStr)
+					if len(matches) > 1 {
+						version = matches[1]
+					}
+				}
+			}
 		}
 		return deps.Dependency{
 			Name:        "niri",
 			Status:      status,
+			Version:     version,
 			Description: "Scrollable-tiling Wayland compositor",
 			Required:    true,
+			Variant:     variant,
+			CanToggle:   true,
 		}
 	default:
 		return deps.Dependency{

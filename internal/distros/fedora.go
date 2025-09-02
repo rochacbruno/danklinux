@@ -114,6 +114,10 @@ func (f *FedoraDistribution) packageInstalled(pkg string) bool {
 }
 
 func (f *FedoraDistribution) GetPackageMapping(wm deps.WindowManager) map[string]PackageMapping {
+	return f.GetPackageMappingWithVariants(wm, make(map[string]deps.PackageVariant))
+}
+
+func (f *FedoraDistribution) GetPackageMappingWithVariants(wm deps.WindowManager, variants map[string]deps.PackageVariant) map[string]PackageMapping {
 	packages := map[string]PackageMapping{
 		// Standard DNF packages
 		"git":                    {Name: "git", Repository: RepoTypeSystem},
@@ -126,7 +130,7 @@ func (f *FedoraDistribution) GetPackageMapping(wm deps.WindowManager) map[string
 		"font-firacode":          {Name: "fira-code-fonts", Repository: RepoTypeSystem},
 
 		// COPR packages
-		"quickshell": {Name: "quickshell", Repository: RepoTypeCOPR, RepoURL: "errornointernet/quickshell"},
+		"quickshell": f.getQuickshellMapping(variants["quickshell"]),
 		"matugen":    {Name: "matugen", Repository: RepoTypeCOPR, RepoURL: "heus-sueh/packages"},
 		"cliphist":   {Name: "cliphist", Repository: RepoTypeCOPR, RepoURL: "alternateved/cliphist"},
 
@@ -139,18 +143,46 @@ func (f *FedoraDistribution) GetPackageMapping(wm deps.WindowManager) map[string
 
 	switch wm {
 	case deps.WindowManagerHyprland:
-		packages["hyprland"] = PackageMapping{Name: "hyprland", Repository: RepoTypeCOPR, RepoURL: "solopasha/hyprland"}
+		packages["hyprland"] = f.getHyprlandMapping(variants["hyprland"])
 		packages["grim"] = PackageMapping{Name: "grim", Repository: RepoTypeSystem}
 		packages["slurp"] = PackageMapping{Name: "slurp", Repository: RepoTypeSystem}
-		packages["hyprctl"] = PackageMapping{Name: "hyprland", Repository: RepoTypeCOPR, RepoURL: "solopasha/hyprland"}
-		packages["hyprpicker"] = PackageMapping{Name: "hyprpicker", Repository: RepoTypeCOPR, RepoURL: "solopasha/hyprland"}
+		packages["hyprctl"] = f.getHyprlandMapping(variants["hyprland"])
+		packages["hyprpicker"] = f.getHyprpickerMapping(variants["hyprland"])
 		packages["grimblast"] = PackageMapping{Name: "grimblast", Repository: RepoTypeManual, BuildFunc: "installGrimblast"}
 		packages["jq"] = PackageMapping{Name: "jq", Repository: RepoTypeSystem}
 	case deps.WindowManagerNiri:
-		packages["niri"] = PackageMapping{Name: "niri", Repository: RepoTypeCOPR, RepoURL: "yalter/niri-git"}
+		packages["niri"] = f.getNiriMapping(variants["niri"])
 	}
 
 	return packages
+}
+
+func (f *FedoraDistribution) getQuickshellMapping(variant deps.PackageVariant) PackageMapping {
+	if variant == deps.VariantGit {
+		return PackageMapping{Name: "quickshell-git", Repository: RepoTypeCOPR, RepoURL: "errornointernet/quickshell"}
+	}
+	return PackageMapping{Name: "quickshell", Repository: RepoTypeCOPR, RepoURL: "errornointernet/quickshell"}
+}
+
+func (f *FedoraDistribution) getHyprlandMapping(variant deps.PackageVariant) PackageMapping {
+	if variant == deps.VariantGit {
+		return PackageMapping{Name: "hyprland-git", Repository: RepoTypeCOPR, RepoURL: "solopasha/hyprland"}
+	}
+	return PackageMapping{Name: "hyprland", Repository: RepoTypeCOPR, RepoURL: "solopasha/hyprland"}
+}
+
+func (f *FedoraDistribution) getHyprpickerMapping(variant deps.PackageVariant) PackageMapping {
+	if variant == deps.VariantGit {
+		return PackageMapping{Name: "hyprpicker-git", Repository: RepoTypeCOPR, RepoURL: "solopasha/hyprland"}
+	}
+	return PackageMapping{Name: "hyprpicker", Repository: RepoTypeCOPR, RepoURL: "solopasha/hyprland"}
+}
+
+func (f *FedoraDistribution) getNiriMapping(variant deps.PackageVariant) PackageMapping {
+	if variant == deps.VariantGit {
+		return PackageMapping{Name: "niri-git", Repository: RepoTypeCOPR, RepoURL: "yalter/niri-git"}
+	}
+	return PackageMapping{Name: "niri", Repository: RepoTypeCOPR, RepoURL: "yalter/niri"}
 }
 
 func (f *FedoraDistribution) InstallPrerequisites(ctx context.Context, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
@@ -294,7 +326,12 @@ func (f *FedoraDistribution) categorizePackages(dependencies []deps.Dependency, 
 	coprPkgs := []PackageMapping{}
 	manualPkgs := []string{}
 
-	packageMap := f.GetPackageMapping(wm)
+	variantMap := make(map[string]deps.PackageVariant)
+	for _, dep := range dependencies {
+		variantMap[dep.Name] = dep.Variant
+	}
+
+	packageMap := f.GetPackageMappingWithVariants(wm, variantMap)
 
 	for _, dep := range dependencies {
 		// Skip installed packages unless marked for reinstall

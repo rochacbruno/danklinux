@@ -134,10 +134,14 @@ func (a *ArchDistribution) packageInstalled(pkg string) bool {
 }
 
 func (a *ArchDistribution) GetPackageMapping(wm deps.WindowManager) map[string]PackageMapping {
+	return a.GetPackageMappingWithVariants(wm, make(map[string]deps.PackageVariant))
+}
+
+func (a *ArchDistribution) GetPackageMappingWithVariants(wm deps.WindowManager, variants map[string]deps.PackageVariant) map[string]PackageMapping {
 	packages := map[string]PackageMapping{
 		"dms (DankMaterialShell)": {Name: "dms", Repository: RepoTypeManual, BuildFunc: "installDankMaterialShell"},
 		"git":                    {Name: "git", Repository: RepoTypeSystem},
-		"quickshell":             {Name: "quickshell", Repository: RepoTypeAUR},
+		"quickshell":             a.getQuickshellMapping(variants["quickshell"]),
 		"matugen":                {Name: "matugen-bin", Repository: RepoTypeAUR},
 		"dgop":                   {Name: "dgop", Repository: RepoTypeAUR},
 		"ghostty":                {Name: "ghostty", Repository: RepoTypeSystem},
@@ -153,18 +157,39 @@ func (a *ArchDistribution) GetPackageMapping(wm deps.WindowManager) map[string]P
 
 	switch wm {
 	case deps.WindowManagerHyprland:
-		packages["hyprland"] = PackageMapping{Name: "hyprland", Repository: RepoTypeSystem}
+		packages["hyprland"] = a.getHyprlandMapping(variants["hyprland"])
 		packages["grim"] = PackageMapping{Name: "grim", Repository: RepoTypeSystem}
 		packages["slurp"] = PackageMapping{Name: "slurp", Repository: RepoTypeSystem}
-		packages["hyprctl"] = PackageMapping{Name: "hyprland", Repository: RepoTypeSystem}
+		packages["hyprctl"] = a.getHyprlandMapping(variants["hyprland"])
 		packages["hyprpicker"] = PackageMapping{Name: "hyprpicker", Repository: RepoTypeSystem}
 		packages["grimblast"] = PackageMapping{Name: "grimblast", Repository: RepoTypeManual, BuildFunc: "installGrimblast"}
 		packages["jq"] = PackageMapping{Name: "jq", Repository: RepoTypeSystem}
 	case deps.WindowManagerNiri:
-		packages["niri"] = PackageMapping{Name: "niri-git", Repository: RepoTypeAUR}
+		packages["niri"] = a.getNiriMapping(variants["niri"])
 	}
 
 	return packages
+}
+
+func (a *ArchDistribution) getQuickshellMapping(variant deps.PackageVariant) PackageMapping {
+	if variant == deps.VariantGit {
+		return PackageMapping{Name: "quickshell-git", Repository: RepoTypeAUR}
+	}
+	return PackageMapping{Name: "quickshell", Repository: RepoTypeAUR}
+}
+
+func (a *ArchDistribution) getHyprlandMapping(variant deps.PackageVariant) PackageMapping {
+	if variant == deps.VariantGit {
+		return PackageMapping{Name: "hyprland-git", Repository: RepoTypeAUR}
+	}
+	return PackageMapping{Name: "hyprland", Repository: RepoTypeSystem}
+}
+
+func (a *ArchDistribution) getNiriMapping(variant deps.PackageVariant) PackageMapping {
+	if variant == deps.VariantGit {
+		return PackageMapping{Name: "niri-git", Repository: RepoTypeAUR}
+	}
+	return PackageMapping{Name: "niri", Repository: RepoTypeSystem}
 }
 
 func (a *ArchDistribution) InstallPrerequisites(ctx context.Context, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
@@ -304,7 +329,12 @@ func (a *ArchDistribution) categorizePackages(dependencies []deps.Dependency, wm
 	aurPkgs := []string{}
 	manualPkgs := []string{}
 
-	packageMap := a.GetPackageMapping(wm)
+	variantMap := make(map[string]deps.PackageVariant)
+	for _, dep := range dependencies {
+		variantMap[dep.Name] = dep.Variant
+	}
+
+	packageMap := a.GetPackageMappingWithVariants(wm, variantMap)
 
 	for _, dep := range dependencies {
 		// Skip installed packages unless marked for reinstall

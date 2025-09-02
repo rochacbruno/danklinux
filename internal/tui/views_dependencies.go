@@ -41,8 +41,14 @@ func (m Model) viewDependencyReview() string {
 		for i, dep := range m.dependencies {
 			var status string
 			var reinstallMarker string
+			var variantMarker string
 
 			isDMS := dep.Name == "dms (DankMaterialShell)"
+			
+			if dep.CanToggle && dep.Variant == deps.VariantGit {
+				variantMarker = "[git] "
+			}
+			
 			if m.reinstallItems[dep.Name] {
 				reinstallMarker = "🔄 "
 				status = m.styles.Warning.Render("Will reinstall")
@@ -73,13 +79,13 @@ func (m Model) viewDependencyReview() string {
 
 			var line string
 			if i == m.selectedDep {
-				line = fmt.Sprintf("▶ %s%-25s %s", reinstallMarker, dep.Name, status)
+				line = fmt.Sprintf("▶ %s%s%-25s %s", reinstallMarker, variantMarker, dep.Name, status)
 				if dep.Version != "" {
 					line += fmt.Sprintf(" (%s)", dep.Version)
 				}
 				line = m.styles.SelectedOption.Render(line)
 			} else {
-				line = fmt.Sprintf("  %s%-25s %s", reinstallMarker, dep.Name, status)
+				line = fmt.Sprintf("  %s%s%-25s %s", reinstallMarker, variantMarker, dep.Name, status)
 				if dep.Version != "" {
 					line += fmt.Sprintf(" (%s)", dep.Version)
 				}
@@ -92,7 +98,7 @@ func (m Model) viewDependencyReview() string {
 	}
 
 	b.WriteString("\n")
-	help := m.styles.Subtle.Render("↑/↓: Navigate, Space: Toggle reinstall (except required), Enter: Continue")
+	help := m.styles.Subtle.Render("↑/↓: Navigate, Space: Toggle reinstall, G: Toggle stable/git, Enter: Continue")
 	b.WriteString(help)
 
 	return b.String()
@@ -131,6 +137,14 @@ func (m Model) updateDependencyReviewState(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.dependencies[m.selectedDep].Status == deps.StatusInstalled ||
 					m.dependencies[m.selectedDep].Status == deps.StatusNeedsReinstall {
 					m.reinstallItems[depName] = !m.reinstallItems[depName]
+				}
+			}
+		case "g", "G":
+			if len(m.dependencies) > 0 && m.dependencies[m.selectedDep].CanToggle {
+				if m.dependencies[m.selectedDep].Variant == deps.VariantStable {
+					m.dependencies[m.selectedDep].Variant = deps.VariantGit
+				} else {
+					m.dependencies[m.selectedDep].Variant = deps.VariantStable
 				}
 			}
 		case "enter":
