@@ -33,7 +33,7 @@
         {
           dms-cli = pkgs.buildGoModule (finalAttrs: {
             pname = "dms-cli";
-            version = "0.0.1";
+            version = "0.0.2";
             src = ./.;
             vendorHash = "sha256-zLFlE/WdDDolzMfbQVmgtv0xsqp0+5JnLHc86zKay5c=";
 
