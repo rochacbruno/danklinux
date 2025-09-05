@@ -156,8 +156,8 @@ Main installer with interactive TUI for initial setup
 ### dms
 Management interface for DankMaterialShell:
 - `dms` - Interactive management TUI
-- `dms shell` - Start interactive shell
-- `dms shell -d` - Start shell as daemon
-- `dms shell ipc <command>` - Send IPC commands to running shell
-- `dms update` - Update DMS configuration
-- `dms about` - Show version and system information
+- `dms run` - Start interactive shell
+- `dms run -d` - Start shell as daemon
+- `dms restart` - Restart running DMS shell
+- `dms kill` - Kill running DMS shell processes
+- `dms ipc <command>` - Send IPC commands to running shell

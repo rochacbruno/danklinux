@@ -119,7 +119,7 @@ func runShellDaemon() {
 func runShellIPCCommand(args []string) {
 	if len(args) == 0 {
 		fmt.Println("Error: IPC command requires arguments")
-		fmt.Println("Usage: dms shell ipc <command> [args...]")
+		fmt.Println("Usage: dms ipc <command> [args...]")
 		os.Exit(1)
 	}
 
