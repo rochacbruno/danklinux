@@ -8,7 +8,13 @@ import (
 var Version = "dev"
 
 func init() {
-	shellCmd.Flags().BoolP("daemon", "d", false, "Run as daemon (background process)")
+	// Add flags
+	shellCmd.Flags().BoolP("daemon", "d", false, "Run in daemon mode")
+
+	// Add subcommands to shell
+	shellCmd.AddCommand(shellDaemonCmd)
+	shellCmd.AddCommand(shellRestartCmd)
+	shellCmd.AddCommand(shellKillCmd)
 	shellCmd.AddCommand(shellIPCCmd)
 
 	rootCmd.AddCommand(versionCmd, shellCmd)

@@ -36,6 +36,36 @@ var shellCmd = &cobra.Command{
 	},
 }
 
+var shellDaemonCmd = &cobra.Command{
+	Use:     "d",
+	Aliases: []string{"daemon"},
+	Short:   "Launch quickshell with DMS configuration in daemon mode",
+	Long:    "Launch quickshell with DMS configuration in daemon mode (qs -c dms &)",
+	Run: func(cmd *cobra.Command, args []string) {
+		runShellDaemon()
+	},
+}
+
+var shellRestartCmd = &cobra.Command{
+	Use:     "r",
+	Aliases: []string{"restart"},
+	Short:   "Restart quickshell with DMS configuration",
+	Long:    "Kill existing DMS shell processes and restart quickshell with DMS configuration",
+	Run: func(cmd *cobra.Command, args []string) {
+		restartShell()
+	},
+}
+
+var shellKillCmd = &cobra.Command{
+	Use:     "k",
+	Aliases: []string{"kill"},
+	Short:   "Kill running DMS shell processes",
+	Long:    "Kill all running quickshell processes with DMS configuration",
+	Run: func(cmd *cobra.Command, args []string) {
+		killShell()
+	},
+}
+
 var shellIPCCmd = &cobra.Command{
 	Use:   "ipc",
 	Short: "Send IPC commands to running DMS shell",
