@@ -140,19 +140,19 @@ func (a *ArchDistribution) GetPackageMapping(wm deps.WindowManager) map[string]P
 func (a *ArchDistribution) GetPackageMappingWithVariants(wm deps.WindowManager, variants map[string]deps.PackageVariant) map[string]PackageMapping {
 	packages := map[string]PackageMapping{
 		"dms (DankMaterialShell)": {Name: "dms", Repository: RepoTypeManual, BuildFunc: "installDankMaterialShell"},
-		"git":                    {Name: "git", Repository: RepoTypeSystem},
-		"quickshell":             a.getQuickshellMapping(variants["quickshell"]),
-		"matugen":                {Name: "matugen-bin", Repository: RepoTypeAUR},
-		"dgop":                   {Name: "dgop", Repository: RepoTypeAUR},
-		"ghostty":                {Name: "ghostty", Repository: RepoTypeSystem},
-		"alacritty":              {Name: "alacritty", Repository: RepoTypeSystem},
-		"cliphist":               {Name: "cliphist", Repository: RepoTypeSystem},
-		"wl-clipboard":           {Name: "wl-clipboard", Repository: RepoTypeSystem},
-		"xdg-desktop-portal-gtk": {Name: "xdg-desktop-portal-gtk", Repository: RepoTypeSystem},
-		"mate-polkit":            {Name: "mate-polkit", Repository: RepoTypeSystem},
-		"font-material-symbols":  {Name: "font-material-symbols", Repository: RepoTypeManual, BuildFunc: "installMaterialSymbolsFont"},
-		"font-firacode":          {Name: "ttf-fira-code", Repository: RepoTypeSystem},
-		"font-inter":             {Name: "inter-font", Repository: RepoTypeSystem},
+		"git":                     {Name: "git", Repository: RepoTypeSystem},
+		"quickshell":              a.getQuickshellMapping(variants["quickshell"]),
+		"matugen":                 {Name: "matugen-bin", Repository: RepoTypeAUR},
+		"dgop":                    {Name: "dgop", Repository: RepoTypeAUR},
+		"ghostty":                 {Name: "ghostty", Repository: RepoTypeSystem},
+		"alacritty":               {Name: "alacritty", Repository: RepoTypeSystem},
+		"cliphist":                {Name: "cliphist", Repository: RepoTypeSystem},
+		"wl-clipboard":            {Name: "wl-clipboard", Repository: RepoTypeSystem},
+		"xdg-desktop-portal-gtk":  {Name: "xdg-desktop-portal-gtk", Repository: RepoTypeSystem},
+		"mate-polkit":             {Name: "mate-polkit", Repository: RepoTypeSystem},
+		"font-material-symbols":   {Name: "font-material-symbols", Repository: RepoTypeManual, BuildFunc: "installMaterialSymbolsFont"},
+		"font-firacode":           {Name: "ttf-fira-code", Repository: RepoTypeSystem},
+		"font-inter":              {Name: "inter-font", Repository: RepoTypeSystem},
 	}
 
 	switch wm {
@@ -175,7 +175,7 @@ func (a *ArchDistribution) getQuickshellMapping(variant deps.PackageVariant) Pac
 	if variant == deps.VariantGit {
 		return PackageMapping{Name: "quickshell-git", Repository: RepoTypeAUR}
 	}
-	return PackageMapping{Name: "quickshell", Repository: RepoTypeAUR}
+	return PackageMapping{Name: "quickshell", Repository: RepoTypeSystem}
 }
 
 func (a *ArchDistribution) getHyprlandMapping(variant deps.PackageVariant) PackageMapping {
