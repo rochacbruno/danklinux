@@ -531,7 +531,7 @@ func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sud
 	depsCmd := exec.CommandContext(ctx, "bash", "-c",
 		fmt.Sprintf(`
 			echo "=== Installing runtime dependencies ==="
-			deps=$(awk '/^[[:space:]]*depends = / { print $3 }' "%s" | tr '\n' ' ')
+			deps=$(grep -E "^[[:space:]]*depends = " "%s" | sed 's/^[[:space:]]*depends = //' | tr '\n' ' ')
 			echo "Found deps: [$deps]"
 			if [ ! -z "$deps" ]; then
 				echo '%s' | sudo -S pacman -S --needed --noconfirm $deps
@@ -546,7 +546,7 @@ func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sud
 	makedepsCmd := exec.CommandContext(ctx, "bash", "-c",
 		fmt.Sprintf(`
 			echo "=== Installing make dependencies ==="
-			makedeps=$(awk '/^[[:space:]]*makedepends = / { print $3 }' "%s" | tr '\n' ' ')
+			makedeps=$(grep -E "^[[:space:]]*makedepends = " "%s" | sed 's/^[[:space:]]*makedepends = //' | tr '\n' ' ')
 			echo "Found makedeps: [$makedeps]"
 			if [ ! -z "$makedeps" ]; then
 				echo '%s' | sudo -S pacman -S --needed --noconfirm $makedeps
