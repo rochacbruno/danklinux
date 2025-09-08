@@ -225,18 +225,9 @@ func (m Model) updateInstallingPackagesState(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.isLoading = false
 			} else {
 				m.installationLogs = []string{}
-
-				needsConfigDeployment := m.anyPackagesNeedConfigDeployment()
-
-				if needsConfigDeployment {
-					m.state = StateConfigConfirmation
-					m.isLoading = true
-					return m, tea.Batch(m.spinner.Tick, m.checkExistingConfigurations())
-				} else {
-					m.state = StateInstallComplete
-					m.isLoading = false
-					return m, nil
-				}
+				m.state = StateConfigConfirmation
+				m.isLoading = true
+				return m, tea.Batch(m.spinner.Tick, m.checkExistingConfigurations())
 			}
 		}
 		return m, m.listenForPackageProgress()
@@ -245,9 +236,13 @@ func (m Model) updateInstallingPackagesState(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) updateInstallCompleteState(msg tea.Msg) (tea.Model, tea.Cmd) {
-	// Automatically transition to config deployment after installation
-	m.state = StateConfigConfirmation
-	return m, m.checkExistingConfigurations()
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+		switch keyMsg.String() {
+		case "enter":
+			return m, tea.Quit
+		}
+	}
+	return m, m.listenForLogs()
 }
 
 func (m Model) updateErrorState(msg tea.Msg) (tea.Model, tea.Cmd) {
