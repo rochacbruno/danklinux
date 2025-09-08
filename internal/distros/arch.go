@@ -524,24 +524,38 @@ func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sud
 		CommandInfo: "Installing package dependencies and makedepends",
 	}
 
-	// Extract and install dependencies and makedepends
+	// Install dependencies and makedepends explicitly
 	srcinfoPath := filepath.Join(packageDir, ".SRCINFO")
+	
+	// First install runtime dependencies
 	depsCmd := exec.CommandContext(ctx, "bash", "-c",
 		fmt.Sprintf(`
-			deps=$(grep -E "^\s*depends = " "%s" | sed "s/.*depends = //")
-			makedeps=$(grep -E "^\s*makedepends = " "%s" | sed "s/.*makedepends = //")
-			alldeps=$(echo "$deps $makedeps" | tr '\n' ' ' | xargs)
-			if [ ! -z "$alldeps" ]; then 
-				echo "Installing dependencies: $alldeps"
-				echo '%s' | sudo -S pacman -S --needed --noconfirm $alldeps
-			else
-				echo "No dependencies found to install"
+			echo "=== Installing runtime dependencies ==="
+			deps=$(awk '/^[[:space:]]*depends = / { print $3 }' "%s" | tr '\n' ' ')
+			echo "Found deps: [$deps]"
+			if [ ! -z "$deps" ]; then
+				echo '%s' | sudo -S pacman -S --needed --noconfirm $deps
 			fi
-		`, srcinfoPath, srcinfoPath, sudoPassword))
+		`, srcinfoPath, sudoPassword))
+	
+	if err := a.runWithProgress(depsCmd, progressChan, PhaseAURPackages, startProgress+0.3*(endProgress-startProgress), startProgress+0.35*(endProgress-startProgress)); err != nil {
+		a.log(fmt.Sprintf("Warning: Runtime dependencies failed: %v", err))
+	}
 
-	if err := a.runWithProgress(depsCmd, progressChan, PhaseAURPackages, startProgress+0.3*(endProgress-startProgress), startProgress+0.4*(endProgress-startProgress)); err != nil {
+	// Then install makedepends
+	makedepsCmd := exec.CommandContext(ctx, "bash", "-c",
+		fmt.Sprintf(`
+			echo "=== Installing make dependencies ==="
+			makedeps=$(awk '/^[[:space:]]*makedepends = / { print $3 }' "%s" | tr '\n' ' ')
+			echo "Found makedeps: [$makedeps]"
+			if [ ! -z "$makedeps" ]; then
+				echo '%s' | sudo -S pacman -S --needed --noconfirm $makedeps
+			fi
+		`, srcinfoPath, sudoPassword))
+
+	if err := a.runWithProgress(makedepsCmd, progressChan, PhaseAURPackages, startProgress+0.35*(endProgress-startProgress), startProgress+0.4*(endProgress-startProgress)); err != nil {
 		// Log but don't fail - some deps might be optional or already installed
-		a.log(fmt.Sprintf("Warning: Some dependencies may have failed to install: %v", err))
+		a.log(fmt.Sprintf("Warning: Make dependencies may have failed to install: %v", err))
 	}
 
 	progressChan <- InstallProgressMsg{
