@@ -424,33 +424,37 @@ func (a *ArchDistribution) installAURPackages(ctx context.Context, packages []st
 		}
 	}
 
-	// If quickshell is in the list, install google-breakpad first
+	// If quickshell is in the list, install google-breakpad first if not already installed
 	if hasQuickshell {
-		progressChan <- InstallProgressMsg{
-			Phase:       PhaseAURPackages,
-			Progress:    0.63,
-			Step:        "Installing google-breakpad for quickshell...",
-			IsComplete:  false,
-			CommandInfo: "Installing prerequisite AUR package for quickshell",
-		}
+		if !a.packageInstalled("google-breakpad") {
+			progressChan <- InstallProgressMsg{
+				Phase:       PhaseAURPackages,
+				Progress:    0.63,
+				Step:        "Installing google-breakpad for quickshell...",
+				IsComplete:  false,
+				CommandInfo: "Installing prerequisite AUR package for quickshell",
+			}
 
-		if err := a.installSingleAURPackage(ctx, "google-breakpad", sudoPassword, progressChan, 0.63, 0.65); err != nil {
-			return fmt.Errorf("failed to install google-breakpad prerequisite for quickshell: %w", err)
+			if err := a.installSingleAURPackage(ctx, "google-breakpad", sudoPassword, progressChan, 0.63, 0.65); err != nil {
+				return fmt.Errorf("failed to install google-breakpad prerequisite for quickshell: %w", err)
+			}
 		}
 	}
 
-	// If niri is in the list, install makepkg-git-lfs-proto first
+	// If niri is in the list, install makepkg-git-lfs-proto first if not already installed
 	if hasNiri {
-		progressChan <- InstallProgressMsg{
-			Phase:       PhaseAURPackages,
-			Progress:    0.63,
-			Step:        "Installing makepkg-git-lfs-proto for niri...",
-			IsComplete:  false,
-			CommandInfo: "Installing prerequisite for niri-git",
-		}
+		if !a.packageInstalled("makepkg-git-lfs-proto") {
+			progressChan <- InstallProgressMsg{
+				Phase:       PhaseAURPackages,
+				Progress:    0.65,
+				Step:        "Installing makepkg-git-lfs-proto for niri...",
+				IsComplete:  false,
+				CommandInfo: "Installing prerequisite for niri-git",
+			}
 
-		if err := a.installSingleAURPackage(ctx, "makepkg-git-lfs-proto", sudoPassword, progressChan, 0.65, 0.67); err != nil {
-			return fmt.Errorf("failed to install makepkg-git-lfs-proto prerequisite for niri: %w", err)
+			if err := a.installSingleAURPackage(ctx, "makepkg-git-lfs-proto", sudoPassword, progressChan, 0.65, 0.67); err != nil {
+				return fmt.Errorf("failed to install makepkg-git-lfs-proto prerequisite for niri: %w", err)
+			}
 		}
 	}
 
