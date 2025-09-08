@@ -87,7 +87,17 @@ func (m *ManualPackageInstaller) InstallManualPackages(ctx context.Context, pack
 func (m *ManualPackageInstaller) installDgop(ctx context.Context, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
 	m.log("Installing dgop from source...")
 
-	tmpDir := "/tmp/dgop-build"
+	homeDir := os.Getenv("HOME")
+	if homeDir == "" {
+		return fmt.Errorf("HOME environment variable not set")
+	}
+
+	cacheDir := filepath.Join(homeDir, ".cache", "dankinstall")
+	if err := os.MkdirAll(cacheDir, 0755); err != nil {
+		return fmt.Errorf("failed to create cache directory: %w", err)
+	}
+
+	tmpDir := filepath.Join(cacheDir, "dgop-build")
 	if err := os.MkdirAll(tmpDir, 0755); err != nil {
 		return fmt.Errorf("failed to create temp directory: %w", err)
 	}
@@ -109,6 +119,7 @@ func (m *ManualPackageInstaller) installDgop(ctx context.Context, sudoPassword s
 
 	buildCmd := exec.CommandContext(ctx, "make")
 	buildCmd.Dir = tmpDir
+	buildCmd.Env = append(os.Environ(), "TMPDIR="+cacheDir)
 	if err := m.runWithProgressStep(buildCmd, progressChan, PhaseSystemPackages, 0.4, 0.7, "Building dgop..."); err != nil {
 		return fmt.Errorf("failed to build dgop: %w", err)
 	}
@@ -145,7 +156,7 @@ func (m *ManualPackageInstaller) installGrimblast(ctx context.Context, sudoPassw
 	}
 
 	grimblastURL := "https://raw.githubusercontent.com/hyprwm/contrib/refs/heads/main/grimblast/grimblast"
-	tmpPath := "/tmp/grimblast"
+	tmpPath := filepath.Join(os.TempDir(), "grimblast")
 
 	downloadCmd := exec.CommandContext(ctx, "curl", "-L", "-o", tmpPath, grimblastURL)
 	if err := downloadCmd.Run(); err != nil {
@@ -269,7 +280,7 @@ func (m *ManualPackageInstaller) installInterFont(ctx context.Context, progressC
 	}
 
 	fontURL := "https://github.com/rsms/inter/releases/download/v4.0/Inter-4.0.zip"
-	zipPath := "/tmp/Inter.zip"
+	zipPath := filepath.Join(os.TempDir(), "Inter.zip")
 
 	downloadCmd := exec.CommandContext(ctx, "curl", "-L", fontURL, "-o", zipPath)
 	if err := downloadCmd.Run(); err != nil {
@@ -388,7 +399,17 @@ func (m *ManualPackageInstaller) installNiri(ctx context.Context, sudoPassword s
 func (m *ManualPackageInstaller) installQuickshell(ctx context.Context, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
 	m.log("Installing quickshell from source...")
 
-	tmpDir := "/tmp/quickshell-build"
+	homeDir := os.Getenv("HOME")
+	if homeDir == "" {
+		return fmt.Errorf("HOME environment variable not set")
+	}
+
+	cacheDir := filepath.Join(homeDir, ".cache", "dankinstall")
+	if err := os.MkdirAll(cacheDir, 0755); err != nil {
+		return fmt.Errorf("failed to create cache directory: %w", err)
+	}
+
+	tmpDir := filepath.Join(cacheDir, "quickshell-build")
 	if err := os.MkdirAll(tmpDir, 0755); err != nil {
 		return fmt.Errorf("failed to create temp directory: %w", err)
 	}
@@ -428,6 +449,7 @@ func (m *ManualPackageInstaller) installQuickshell(ctx context.Context, sudoPass
 		"-DSERVICE_GREETD=off",
 		"-DCMAKE_CXX_STANDARD=20")
 	configureCmd.Dir = tmpDir
+	configureCmd.Env = append(os.Environ(), "TMPDIR="+cacheDir)
 
 	output, err := configureCmd.CombinedOutput()
 	if err != nil {
@@ -447,6 +469,7 @@ func (m *ManualPackageInstaller) installQuickshell(ctx context.Context, sudoPass
 
 	buildCmd := exec.CommandContext(ctx, "cmake", "--build", "build")
 	buildCmd.Dir = tmpDir
+	buildCmd.Env = append(os.Environ(), "TMPDIR="+cacheDir)
 	if err := m.runWithProgressStep(buildCmd, progressChan, PhaseSystemPackages, 0.4, 0.8, "Building quickshell..."); err != nil {
 		return fmt.Errorf("failed to build quickshell: %w", err)
 	}
@@ -473,7 +496,17 @@ func (m *ManualPackageInstaller) installQuickshell(ctx context.Context, sudoPass
 func (m *ManualPackageInstaller) installHyprland(ctx context.Context, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
 	m.log("Installing Hyprland from source...")
 
-	tmpDir := "/tmp/hyprland-build"
+	homeDir := os.Getenv("HOME")
+	if homeDir == "" {
+		return fmt.Errorf("HOME environment variable not set")
+	}
+
+	cacheDir := filepath.Join(homeDir, ".cache", "dankinstall")
+	if err := os.MkdirAll(cacheDir, 0755); err != nil {
+		return fmt.Errorf("failed to create cache directory: %w", err)
+	}
+
+	tmpDir := filepath.Join(cacheDir, "hyprland-build")
 	if err := os.MkdirAll(tmpDir, 0755); err != nil {
 		return fmt.Errorf("failed to create temp directory: %w", err)
 	}
@@ -499,6 +532,7 @@ func (m *ManualPackageInstaller) installHyprland(ctx context.Context, sudoPasswo
 
 	buildCmd := exec.CommandContext(ctx, "make", "all")
 	buildCmd.Dir = tmpDir
+	buildCmd.Env = append(os.Environ(), "TMPDIR="+cacheDir)
 	if err := m.runWithProgressStep(buildCmd, progressChan, PhaseSystemPackages, 0.2, 0.8, "Building Hyprland..."); err != nil {
 		return fmt.Errorf("failed to build Hyprland: %w", err)
 	}
@@ -525,7 +559,17 @@ func (m *ManualPackageInstaller) installHyprland(ctx context.Context, sudoPasswo
 func (m *ManualPackageInstaller) installHyprpicker(ctx context.Context, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
 	m.log("Installing hyprpicker from source...")
 
-	tmpDir := "/tmp/hyprpicker-build"
+	homeDir := os.Getenv("HOME")
+	if homeDir == "" {
+		return fmt.Errorf("HOME environment variable not set")
+	}
+
+	cacheDir := filepath.Join(homeDir, ".cache", "dankinstall")
+	if err := os.MkdirAll(cacheDir, 0755); err != nil {
+		return fmt.Errorf("failed to create cache directory: %w", err)
+	}
+
+	tmpDir := filepath.Join(cacheDir, "hyprpicker-build")
 	if err := os.MkdirAll(tmpDir, 0755); err != nil {
 		return fmt.Errorf("failed to create temp directory: %w", err)
 	}
@@ -554,6 +598,7 @@ func (m *ManualPackageInstaller) installHyprpicker(ctx context.Context, sudoPass
 
 	buildCmd := exec.CommandContext(ctx, "make", "all")
 	buildCmd.Dir = tmpDir
+	buildCmd.Env = append(os.Environ(), "TMPDIR="+cacheDir)
 	if err := buildCmd.Run(); err != nil {
 		return fmt.Errorf("failed to build hyprpicker: %w", err)
 	}
@@ -580,7 +625,17 @@ func (m *ManualPackageInstaller) installHyprpicker(ctx context.Context, sudoPass
 func (m *ManualPackageInstaller) installGhostty(ctx context.Context, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
 	m.log("Installing Ghostty from source...")
 
-	tmpDir := "/tmp/ghostty-build"
+	homeDir := os.Getenv("HOME")
+	if homeDir == "" {
+		return fmt.Errorf("HOME environment variable not set")
+	}
+
+	cacheDir := filepath.Join(homeDir, ".cache", "dankinstall")
+	if err := os.MkdirAll(cacheDir, 0755); err != nil {
+		return fmt.Errorf("failed to create cache directory: %w", err)
+	}
+
+	tmpDir := filepath.Join(cacheDir, "ghostty-build")
 	if err := os.MkdirAll(tmpDir, 0755); err != nil {
 		return fmt.Errorf("failed to create temp directory: %w", err)
 	}
@@ -609,6 +664,7 @@ func (m *ManualPackageInstaller) installGhostty(ctx context.Context, sudoPasswor
 
 	buildCmd := exec.CommandContext(ctx, "zig", "build", "-Doptimize=ReleaseFast")
 	buildCmd.Dir = tmpDir
+	buildCmd.Env = append(os.Environ(), "TMPDIR="+cacheDir)
 	if err := buildCmd.Run(); err != nil {
 		return fmt.Errorf("failed to build Ghostty: %w", err)
 	}
