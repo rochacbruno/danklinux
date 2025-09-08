@@ -3,7 +3,9 @@ package distros
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/AvengeMedia/dankinstall/internal/deps"
@@ -613,8 +615,18 @@ func (u *UbuntuDistribution) installZig(ctx context.Context, sudoPassword string
 		return nil
 	}
 
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("failed to get user home directory: %w", err)
+	}
+	
+	cacheDir := filepath.Join(homeDir, ".cache", "dankinstall")
+	if err := os.MkdirAll(cacheDir, 0755); err != nil {
+		return fmt.Errorf("failed to create cache directory: %w", err)
+	}
+	
 	zigUrl := "https://ziglang.org/download/0.11.0/zig-linux-x86_64-0.11.0.tar.xz"
-	zigTmp := "/tmp/zig.tar.xz"
+	zigTmp := filepath.Join(cacheDir, "zig.tar.xz")
 
 	downloadCmd := exec.CommandContext(ctx, "curl", "-L", zigUrl, "-o", zigTmp)
 	if err := u.runWithProgress(downloadCmd, progressChan, PhaseSystemPackages, 0.84, 0.85); err != nil {

@@ -556,7 +556,11 @@ func (b *BaseDistribution) installDMSBinary(ctx context.Context, sudoPassword st
 		return fmt.Errorf("could not determine latest DMS version")
 	}
 
-	tmpDir := "/tmp/dms-install"
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("failed to get user home directory: %w", err)
+	}
+	tmpDir := filepath.Join(homeDir, ".cache", "dankinstall", "manual-builds")
 	if err := os.MkdirAll(tmpDir, 0755); err != nil {
 		return fmt.Errorf("failed to create temp directory: %w", err)
 	}
