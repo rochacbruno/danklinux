@@ -146,7 +146,7 @@ func (m Model) viewInstallComplete() string {
 	}
 
 	b.WriteString("\n")
-	info := m.styles.Normal.Render("Your system is ready! Log out and log back in to start using\nyour new desktop environment.\n\nPress Enter to exit.")
+	info := m.styles.Normal.Render("Your system is ready! Log out and log back in to start using\nyour new desktop environment.\nIf you do not have a greeter, login with \"niri-session\" or \"Hyprland\" \n\nPress Enter to exit.")
 	b.WriteString(info)
 
 	return b.String()

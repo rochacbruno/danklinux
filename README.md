@@ -29,6 +29,10 @@ curl -fsSL https://install.danklinux.com | sh
 
 ## Supported Distributions
 
+**Note on Greeter**: dankinstall does not install a greeter.
+- Start niri with `niri-session`, or Hyprland with `Hyprland`
+- If you want a greeter such as gdm, sddm, tuigreet - follow your distribution's guide.
+
 ### Arch Linux & Derivatives
 
 **Supported:** Arch, CachyOS, EndeavourOS, Manjaro
@@ -36,6 +40,9 @@ curl -fsSL https://install.danklinux.com | sh
 **Special Notes:**
 - Uses native `pacman` for system packages
 - AUR packages are built manually using `makepkg` (no AUR helper dependency)
+- **Recommendations**
+  - Use NetworkManager to manager networking
+  - If using archinstall, you can choose `minimal` for profile, and `NetworkManager` under networking.
 
 **Package Sources:**
 | Package | Source | Notes |
@@ -56,6 +63,7 @@ curl -fsSL https://install.danklinux.com | sh
 - Requires `dnf-plugins-core` for COPR repository support
 - Automatically enables required COPR repositories
 - All COPR repos are enabled with automatic acceptance
+- **Editions** dankinstall is tested on "Workstation Edition", but probably works fine on any fedora flavor. Report issues if anything doesn't work.
 
 **Package Sources:**
 | Package | Source | Notes |
