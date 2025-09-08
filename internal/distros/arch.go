@@ -78,6 +78,11 @@ func (a *ArchDistribution) DetectDependenciesWithTerminal(ctx context.Context, w
 		dependencies = append(dependencies, a.detectHyprlandTools()...)
 	}
 
+	// Niri-specific tools
+	if wm == deps.WindowManagerNiri {
+		dependencies = append(dependencies, a.detectXwaylandSatellite())
+	}
+
 	// Base detections (common across distros)
 	dependencies = append(dependencies, a.detectMatugen())
 	dependencies = append(dependencies, a.detectDgop())
@@ -166,6 +171,7 @@ func (a *ArchDistribution) GetPackageMappingWithVariants(wm deps.WindowManager, 
 		packages["jq"] = PackageMapping{Name: "jq", Repository: RepoTypeSystem}
 	case deps.WindowManagerNiri:
 		packages["niri"] = a.getNiriMapping(variants["niri"])
+		packages["xwayland-satellite"] = PackageMapping{Name: "xwayland-satellite", Repository: RepoTypeSystem}
 	}
 
 	return packages
@@ -190,6 +196,20 @@ func (a *ArchDistribution) getNiriMapping(variant deps.PackageVariant) PackageMa
 		return PackageMapping{Name: "niri-git", Repository: RepoTypeAUR}
 	}
 	return PackageMapping{Name: "niri", Repository: RepoTypeSystem}
+}
+
+func (a *ArchDistribution) detectXwaylandSatellite() deps.Dependency {
+	status := deps.StatusMissing
+	if a.commandExists("xwayland-satellite") {
+		status = deps.StatusInstalled
+	}
+
+	return deps.Dependency{
+		Name:        "xwayland-satellite",
+		Status:      status,
+		Description: "Xwayland support",
+		Required:    true,
+	}
 }
 
 func (a *ArchDistribution) InstallPrerequisites(ctx context.Context, sudoPassword string, progressChan chan<- InstallProgressMsg) error {

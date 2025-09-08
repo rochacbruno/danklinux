@@ -72,6 +72,10 @@ func (m *ManualPackageInstaller) InstallManualPackages(ctx context.Context, pack
 			if err := m.installCliphist(ctx, sudoPassword, progressChan); err != nil {
 				return fmt.Errorf("failed to install cliphist: %w", err)
 			}
+		case "xwayland-satellite":
+			if err := m.installXwaylandSatellite(ctx, sudoPassword, progressChan); err != nil {
+				return fmt.Errorf("failed to install xwayland-satellite: %w", err)
+			}
 		default:
 			m.log(fmt.Sprintf("Warning: No manual build method for %s", pkg))
 		}
@@ -734,5 +738,50 @@ func (m *ManualPackageInstaller) installCliphist(ctx context.Context, sudoPasswo
 	}
 
 	m.log("cliphist installed successfully from source")
+	return nil
+}
+
+func (m *ManualPackageInstaller) installXwaylandSatellite(ctx context.Context, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
+	m.log("Installing xwayland-satellite from source...")
+
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
+		Progress:    0.1,
+		Step:        "Installing xwayland-satellite via cargo...",
+		IsComplete:  false,
+		CommandInfo: "cargo install --git https://github.com/Supreeeme/xwayland-satellite --tag v0.7",
+	}
+
+	installCmd := exec.CommandContext(ctx, "cargo", "install", "--git", "https://github.com/Supreeeme/xwayland-satellite", "--tag", "v0.7")
+	if err := m.runWithProgressStep(installCmd, progressChan, PhaseSystemPackages, 0.1, 0.7, "Building xwayland-satellite..."); err != nil {
+		return fmt.Errorf("failed to install xwayland-satellite: %w", err)
+	}
+
+	homeDir := os.Getenv("HOME")
+	sourcePath := filepath.Join(homeDir, ".cargo", "bin", "xwayland-satellite")
+	targetPath := "/usr/local/bin/xwayland-satellite"
+
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
+		Progress:    0.7,
+		Step:        "Installing xwayland-satellite binary to system...",
+		IsComplete:  false,
+		NeedsSudo:   true,
+		CommandInfo: fmt.Sprintf("sudo cp %s %s", sourcePath, targetPath),
+	}
+
+	copyCmd := exec.CommandContext(ctx, "sudo", "-S", "cp", sourcePath, targetPath)
+	copyCmd.Stdin = strings.NewReader(sudoPassword + "\n")
+	if err := copyCmd.Run(); err != nil {
+		return fmt.Errorf("failed to copy xwayland-satellite to /usr/local/bin: %w", err)
+	}
+
+	chmodCmd := exec.CommandContext(ctx, "sudo", "-S", "chmod", "+x", targetPath)
+	chmodCmd.Stdin = strings.NewReader(sudoPassword + "\n")
+	if err := chmodCmd.Run(); err != nil {
+		return fmt.Errorf("failed to make xwayland-satellite executable: %w", err)
+	}
+
+	m.log("xwayland-satellite installed successfully from source")
 	return nil
 }

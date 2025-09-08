@@ -67,6 +67,11 @@ func (u *UbuntuDistribution) DetectDependenciesWithTerminal(ctx context.Context,
 		dependencies = append(dependencies, u.detectHyprlandTools()...)
 	}
 
+	// Niri-specific tools
+	if wm == deps.WindowManagerNiri {
+		dependencies = append(dependencies, u.detectXwaylandSatellite())
+	}
+
 	// Base detections (common across distros)
 	dependencies = append(dependencies, u.detectMatugen())
 	dependencies = append(dependencies, u.detectDgop())
@@ -100,6 +105,20 @@ func (u *UbuntuDistribution) detectPolkitAgent() deps.Dependency {
 		Name:        "mate-polkit",
 		Status:      status,
 		Description: "PolicyKit authentication agent",
+		Required:    true,
+	}
+}
+
+func (u *UbuntuDistribution) detectXwaylandSatellite() deps.Dependency {
+	status := deps.StatusMissing
+	if u.commandExists("xwayland-satellite") {
+		status = deps.StatusInstalled
+	}
+
+	return deps.Dependency{
+		Name:        "xwayland-satellite",
+		Status:      status,
+		Description: "Xwayland support",
 		Required:    true,
 	}
 }
@@ -145,6 +164,7 @@ func (u *UbuntuDistribution) GetPackageMapping(wm deps.WindowManager) map[string
 		packages["jq"] = PackageMapping{Name: "jq", Repository: RepoTypeSystem}
 	case deps.WindowManagerNiri:
 		packages["niri"] = PackageMapping{Name: "niri", Repository: RepoTypeManual, BuildFunc: "installNiri"}
+		packages["xwayland-satellite"] = PackageMapping{Name: "xwayland-satellite", Repository: RepoTypeManual, BuildFunc: "installXwaylandSatellite"}
 	}
 
 	return packages

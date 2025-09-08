@@ -65,6 +65,11 @@ func (n *NixOSDistribution) DetectDependenciesWithTerminal(ctx context.Context, 
 		dependencies = append(dependencies, n.detectHyprlandTools()...)
 	}
 
+	// Niri-specific tools
+	if wm == deps.WindowManagerNiri {
+		dependencies = append(dependencies, n.detectXwaylandSatellite())
+	}
+
 	// Base detections (common across distros)
 	dependencies = append(dependencies, n.detectMatugen())
 	dependencies = append(dependencies, n.detectDgop())
@@ -188,6 +193,20 @@ func (n *NixOSDistribution) detectHyprlandTools() []deps.Dependency {
 	return dependencies
 }
 
+func (n *NixOSDistribution) detectXwaylandSatellite() deps.Dependency {
+	status := deps.StatusMissing
+	if n.commandExists("xwayland-satellite") {
+		status = deps.StatusInstalled
+	}
+
+	return deps.Dependency{
+		Name:        "xwayland-satellite",
+		Status:      status,
+		Description: "Xwayland support",
+		Required:    true,
+	}
+}
+
 func (n *NixOSDistribution) detectPolkitAgent() deps.Dependency {
 	if n.packageInstalled("mate-polkit") {
 		return deps.Dependency{
@@ -245,7 +264,7 @@ func (n *NixOSDistribution) GetPackageMapping(wm deps.WindowManager) map[string]
 		packages["jq"] = PackageMapping{Name: "nixpkgs#jq", Repository: RepoTypeSystem}
 	case deps.WindowManagerNiri:
 		// Skip niri itself - should be installed system-wide
-		// No additional tools needed for niri
+		packages["xwayland-satellite"] = PackageMapping{Name: "github:Supreeeme/xwayland-satellite", Repository: RepoTypeFlake}
 	}
 
 	return packages

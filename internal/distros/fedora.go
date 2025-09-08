@@ -70,6 +70,11 @@ func (f *FedoraDistribution) DetectDependenciesWithTerminal(ctx context.Context,
 		dependencies = append(dependencies, f.detectHyprlandTools()...)
 	}
 
+	// Niri-specific tools
+	if wm == deps.WindowManagerNiri {
+		dependencies = append(dependencies, f.detectXwaylandSatellite())
+	}
+
 	// Base detections (common across distros)
 	dependencies = append(dependencies, f.detectMatugen())
 	dependencies = append(dependencies, f.detectDgop())
@@ -152,6 +157,7 @@ func (f *FedoraDistribution) GetPackageMappingWithVariants(wm deps.WindowManager
 		packages["jq"] = PackageMapping{Name: "jq", Repository: RepoTypeSystem}
 	case deps.WindowManagerNiri:
 		packages["niri"] = f.getNiriMapping(variants["niri"])
+		packages["xwayland-satellite"] = PackageMapping{Name: "xwayland-satellite", Repository: RepoTypeCOPR, RepoURL: "yalter/niri"}
 	}
 
 	return packages
@@ -183,6 +189,20 @@ func (f *FedoraDistribution) getNiriMapping(variant deps.PackageVariant) Package
 		return PackageMapping{Name: "niri-git", Repository: RepoTypeCOPR, RepoURL: "yalter/niri-git"}
 	}
 	return PackageMapping{Name: "niri", Repository: RepoTypeCOPR, RepoURL: "yalter/niri"}
+}
+
+func (f *FedoraDistribution) detectXwaylandSatellite() deps.Dependency {
+	status := deps.StatusMissing
+	if f.commandExists("xwayland-satellite") {
+		status = deps.StatusInstalled
+	}
+
+	return deps.Dependency{
+		Name:        "xwayland-satellite",
+		Status:      status,
+		Description: "Xwayland support",
+		Required:    true,
+	}
 }
 
 func (f *FedoraDistribution) InstallPrerequisites(ctx context.Context, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
