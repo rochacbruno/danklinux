@@ -141,13 +141,13 @@ func (m *ManualPackageInstaller) installGrimblast(ctx context.Context, sudoPassw
 		Progress:    0.1,
 		Step:        "Downloading grimblast script...",
 		IsComplete:  false,
-		CommandInfo: "wget grimblast script",
+		CommandInfo: "curl grimblast script",
 	}
 
 	grimblastURL := "https://raw.githubusercontent.com/hyprwm/contrib/refs/heads/main/grimblast/grimblast"
 	tmpPath := "/tmp/grimblast"
 
-	downloadCmd := exec.CommandContext(ctx, "wget", grimblastURL, "-O", tmpPath)
+	downloadCmd := exec.CommandContext(ctx, "curl", "-L", "-o", tmpPath, grimblastURL)
 	if err := downloadCmd.Run(); err != nil {
 		m.logError("failed to download grimblast", err)
 		return fmt.Errorf("failed to download grimblast: %w", err)
