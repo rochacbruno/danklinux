@@ -489,11 +489,20 @@ func (a *ArchDistribution) installAURPackages(ctx context.Context, packages []st
 }
 
 func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sudoPassword string, progressChan chan<- InstallProgressMsg, startProgress, endProgress float64) error {
-	tmpDir := fmt.Sprintf("/tmp/aur-build-%s", pkg)
-	if err := os.MkdirAll(tmpDir, 0755); err != nil {
-		return fmt.Errorf("failed to create temp directory: %w", err)
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("failed to get user home directory: %w", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	
+	buildDir := filepath.Join(homeDir, ".cache", "dankinstall", "aur-builds", pkg)
+	if err := os.MkdirAll(buildDir, 0755); err != nil {
+		return fmt.Errorf("failed to create build directory: %w", err)
+	}
+	defer func() {
+		if removeErr := os.RemoveAll(buildDir); removeErr != nil {
+			a.log(fmt.Sprintf("Warning: failed to cleanup build directory %s: %v", buildDir, removeErr))
+		}
+	}()
 
 	// Clone the AUR package
 	progressChan <- InstallProgressMsg{
@@ -504,12 +513,12 @@ func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sud
 		CommandInfo: fmt.Sprintf("git clone https://aur.archlinux.org/%s.git", pkg),
 	}
 
-	cloneCmd := exec.CommandContext(ctx, "git", "clone", fmt.Sprintf("https://aur.archlinux.org/%s.git", pkg), filepath.Join(tmpDir, pkg))
+	cloneCmd := exec.CommandContext(ctx, "git", "clone", fmt.Sprintf("https://aur.archlinux.org/%s.git", pkg), filepath.Join(buildDir, pkg))
 	if err := a.runWithProgress(cloneCmd, progressChan, PhaseAURPackages, startProgress+0.1*(endProgress-startProgress), startProgress+0.2*(endProgress-startProgress)); err != nil {
 		return fmt.Errorf("failed to clone %s: %w", pkg, err)
 	}
 
-	packageDir := filepath.Join(tmpDir, pkg)
+	packageDir := filepath.Join(buildDir, pkg)
 
 	if pkg == "niri-git" {
 		pkgbuildPath := filepath.Join(packageDir, "PKGBUILD")
