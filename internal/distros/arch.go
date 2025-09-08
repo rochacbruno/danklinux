@@ -543,7 +543,7 @@ func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sud
 		`, srcinfoPath, srcinfoPath, sudoPassword))
 	
 	if err := a.runWithProgress(depsCmd, progressChan, PhaseAURPackages, startProgress+0.3*(endProgress-startProgress), startProgress+0.35*(endProgress-startProgress)); err != nil {
-		a.log(fmt.Sprintf("Warning: Runtime dependencies failed: %v", err))
+		return fmt.Errorf("FAILED to install runtime dependencies for %s: %w", pkg, err)
 	}
 
 	// Then install makedepends
@@ -553,13 +553,25 @@ func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sud
 			makedeps=$(grep -E "^[[:space:]]*makedepends = " "%s" | sed 's/^[[:space:]]*makedepends = //' | tr '\n' ' ')
 			echo "Found makedeps: [$makedeps]"
 			if [ ! -z "$makedeps" ]; then
+				echo "Running: pacman -S --needed --noconfirm $makedeps"
 				echo '%s' | sudo -S pacman -S --needed --noconfirm $makedeps
+				echo "Make dependencies installation completed"
+			else
+				echo "No make dependencies to install"
 			fi
 		`, srcinfoPath, sudoPassword))
 
 	if err := a.runWithProgress(makedepsCmd, progressChan, PhaseAURPackages, startProgress+0.35*(endProgress-startProgress), startProgress+0.4*(endProgress-startProgress)); err != nil {
-		// Log but don't fail - some deps might be optional or already installed
-		a.log(fmt.Sprintf("Warning: Make dependencies may have failed to install: %v", err))
+		return fmt.Errorf("FAILED to install make dependencies for %s: %w", pkg, err)
+	}
+
+	// Wait a moment to ensure installations are complete
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseAURPackages,
+		Progress:    startProgress + 0.4*(endProgress-startProgress),
+		Step:        fmt.Sprintf("Dependencies installed, preparing to build %s...", pkg),
+		IsComplete:  false,
+		CommandInfo: "All dependencies should now be available",
 	}
 
 	progressChan <- InstallProgressMsg{
