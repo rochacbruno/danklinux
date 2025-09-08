@@ -688,7 +688,7 @@ func (m *ManualPackageInstaller) installGhostty(ctx context.Context, sudoPasswor
 	return nil
 }
 
-func (m *ManualPackageInstaller) installMatugen(ctx context.Context, _ string, progressChan chan<- InstallProgressMsg) error {
+func (m *ManualPackageInstaller) installMatugen(ctx context.Context, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
 	m.log("Installing matugen from source...")
 
 	progressChan <- InstallProgressMsg{
@@ -700,8 +700,34 @@ func (m *ManualPackageInstaller) installMatugen(ctx context.Context, _ string, p
 	}
 
 	installCmd := exec.CommandContext(ctx, "cargo", "install", "matugen")
-	if err := m.runWithProgress(installCmd, progressChan, PhaseSystemPackages, 0.1, 0.9); err != nil {
+	if err := m.runWithProgressStep(installCmd, progressChan, PhaseSystemPackages, 0.1, 0.7, "Building matugen..."); err != nil {
 		return fmt.Errorf("failed to install matugen: %w", err)
+	}
+
+	homeDir := os.Getenv("HOME")
+	sourcePath := filepath.Join(homeDir, ".cargo", "bin", "matugen")
+	targetPath := "/usr/local/bin/matugen"
+
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
+		Progress:    0.7,
+		Step:        "Installing matugen binary to system...",
+		IsComplete:  false,
+		NeedsSudo:   true,
+		CommandInfo: fmt.Sprintf("sudo cp %s %s", sourcePath, targetPath),
+	}
+
+	copyCmd := exec.CommandContext(ctx, "sudo", "-S", "cp", sourcePath, targetPath)
+	copyCmd.Stdin = strings.NewReader(sudoPassword + "\n")
+	if err := copyCmd.Run(); err != nil {
+		return fmt.Errorf("failed to copy matugen to /usr/local/bin: %w", err)
+	}
+
+	// Make it executable
+	chmodCmd := exec.CommandContext(ctx, "sudo", "-S", "chmod", "+x", targetPath)
+	chmodCmd.Stdin = strings.NewReader(sudoPassword + "\n")
+	if err := chmodCmd.Run(); err != nil {
+		return fmt.Errorf("failed to make matugen executable: %w", err)
 	}
 
 	m.log("matugen installed successfully from source")
