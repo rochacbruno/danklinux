@@ -23,7 +23,7 @@ A comprehensive installer and management tool for DankMaterialShell, a modern de
 
 ```bash
 curl -fsSL https://install.danklinux.com | sh
-```
+```u
 
 *Alternatively, download the latest [release](https://github.com/AvengeMedia/danklinux/releases)*
 
@@ -57,13 +57,14 @@ curl -fsSL https://install.danklinux.com | sh
 
 ### Fedora & Derivatives
 
-**Supported:** Fedora, Nobara
+**Supported:** Fedora, Nobara, Asahi
 
 **Special Notes:**
 - Requires `dnf-plugins-core` for COPR repository support
 - Automatically enables required COPR repositories
 - All COPR repos are enabled with automatic acceptance
 - **Editions** dankinstall is tested on "Workstation Edition", but probably works fine on any fedora flavor. Report issues if anything doesn't work.
+- [Fedora Asahi Remix](https://asahilinux.org/fedora/) hasn't been tested, but presumably it should work fine as all of the dependencies should provide arm64 variants.
 
 **Package Sources:**
 | Package | Source | Notes |
