@@ -532,16 +532,15 @@ func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sud
 		fmt.Sprintf(`
 			echo "=== Installing runtime dependencies ==="
 			echo "Checking .SRCINFO file: %s"
-			cat "%s" | grep -E "depends = " || echo "No depends lines found"
-			deps=$(grep "depends = " "%s" | sed 's/.*depends = //' | tr '\n' ' ' | sed 's/[[:space:]]*$//')
-			echo "Extracted deps: [$deps]"
+			deps=$(grep "depends = " "%s" | grep -v "makedepends" | sed 's/.*depends = //' | tr '\n' ' ' | sed 's/[[:space:]]*$//')
+			echo "Extracted runtime deps: [$deps]"
 			if [ ! -z "$deps" ] && [ "$deps" != " " ]; then
 				echo "Running: pacman -S --needed --noconfirm $deps"
 				echo '%s' | sudo -S pacman -S --needed --noconfirm $deps
 			else
 				echo "No runtime dependencies to install"
 			fi
-		`, srcinfoPath, srcinfoPath, srcinfoPath, sudoPassword))
+		`, srcinfoPath, srcinfoPath, sudoPassword))
 	
 	if err := a.runWithProgress(depsCmd, progressChan, PhaseAURPackages, startProgress+0.3*(endProgress-startProgress), startProgress+0.35*(endProgress-startProgress)); err != nil {
 		a.log(fmt.Sprintf("Warning: Runtime dependencies failed: %v", err))
