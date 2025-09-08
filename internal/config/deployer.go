@@ -80,47 +80,39 @@ func (cd *ConfigDeployer) DeployConfigurationsSelectiveWithReinstalls(ctx contex
 
 	switch wm {
 	case deps.WindowManagerNiri:
-		if wasPackageActuallyInstalled("niri") && shouldReplaceConfig("Niri") {
+		if shouldReplaceConfig("Niri") {
 			result, err := cd.deployNiriConfig(ctx, terminal)
 			results = append(results, result)
 			if err != nil {
 				return results, fmt.Errorf("failed to deploy Niri config: %w", err)
 			}
-		} else {
-			cd.log("Skipping Niri config deployment (not newly installed/reinstalled or marked to keep existing)")
 		}
 	case deps.WindowManagerHyprland:
-		if wasPackageActuallyInstalled("hyprland") && shouldReplaceConfig("Hyprland") {
+		if shouldReplaceConfig("Hyprland") {
 			result, err := cd.deployHyprlandConfig(ctx, terminal)
 			results = append(results, result)
 			if err != nil {
 				return results, fmt.Errorf("failed to deploy Hyprland config: %w", err)
 			}
-		} else {
-			cd.log("Skipping Hyprland config deployment (not newly installed/reinstalled or marked to keep existing)")
 		}
 	}
 
 	switch terminal {
 	case deps.TerminalGhostty:
-		if wasPackageActuallyInstalled("ghostty") && shouldReplaceConfig("Ghostty") {
+		if shouldReplaceConfig("Ghostty") {
 			ghosttyResult, err := cd.deployGhosttyConfig(ctx)
 			results = append(results, ghosttyResult)
 			if err != nil {
 				return results, fmt.Errorf("failed to deploy Ghostty config: %w", err)
 			}
-		} else {
-			cd.log("Skipping Ghostty config deployment (not newly installed/reinstalled or marked to keep existing)")
 		}
 	case deps.TerminalKitty:
-		if wasPackageActuallyInstalled("kitty") && shouldReplaceConfig("Kitty") {
+		if shouldReplaceConfig("Kitty") {
 			kittyResult, err := cd.deployKittyConfig(ctx)
 			results = append(results, kittyResult)
 			if err != nil {
 				return results, fmt.Errorf("failed to deploy Kitty config: %w", err)
 			}
-		} else {
-			cd.log("Skipping Kitty config deployment (not newly installed/reinstalled or marked to keep existing)")
 		}
 	}
 

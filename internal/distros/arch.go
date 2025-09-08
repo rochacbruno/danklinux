@@ -618,3 +618,4 @@ func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sud
 	a.log(fmt.Sprintf("Successfully installed AUR package: %s", pkg))
 	return nil
 }
+
