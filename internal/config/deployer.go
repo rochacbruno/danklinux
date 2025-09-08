@@ -53,23 +53,6 @@ func (cd *ConfigDeployer) DeployConfigurationsSelective(ctx context.Context, wm 
 func (cd *ConfigDeployer) DeployConfigurationsSelectiveWithReinstalls(ctx context.Context, wm deps.WindowManager, terminal deps.Terminal, installedDeps []deps.Dependency, replaceConfigs map[string]bool, reinstallItems map[string]bool) ([]DeploymentResult, error) {
 	var results []DeploymentResult
 
-	wasPackageActuallyInstalled := func(packageName string) bool {
-		if installedDeps == nil {
-			return true
-		}
-
-		if reinstallItems != nil && reinstallItems[packageName] {
-			return true
-		}
-
-		for _, dep := range installedDeps {
-			if dep.Name == packageName {
-				return dep.Status == deps.StatusMissing || dep.Status == deps.StatusNeedsUpdate
-			}
-		}
-		return false
-	}
-
 	shouldReplaceConfig := func(configType string) bool {
 		if replaceConfigs == nil {
 			return true
