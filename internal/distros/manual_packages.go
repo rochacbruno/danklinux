@@ -314,11 +314,19 @@ func (m *ManualPackageInstaller) installInterFont(ctx context.Context, progressC
 func (m *ManualPackageInstaller) installNiri(ctx context.Context, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
 	m.log("Installing niri from source...")
 
-	tmpDir := "/tmp/niri-build"
+	homeDir, _ := os.UserHomeDir()
+	buildDir := filepath.Join(homeDir, ".cache", "dankinstall", "niri-build")
+	tmpDir := filepath.Join(homeDir, ".cache", "dankinstall", "tmp")
+	if err := os.MkdirAll(buildDir, 0755); err != nil {
+		return fmt.Errorf("failed to create build directory: %w", err)
+	}
 	if err := os.MkdirAll(tmpDir, 0755); err != nil {
 		return fmt.Errorf("failed to create temp directory: %w", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() {
+		os.RemoveAll(buildDir)
+		os.RemoveAll(tmpDir)
+	}()
 
 	progressChan <- InstallProgressMsg{
 		Phase:       PhaseSystemPackages,
@@ -328,25 +336,27 @@ func (m *ManualPackageInstaller) installNiri(ctx context.Context, sudoPassword s
 		CommandInfo: "git clone https://github.com/YaLTeR/niri.git",
 	}
 
-	cloneCmd := exec.CommandContext(ctx, "git", "clone", "https://github.com/YaLTeR/niri.git", tmpDir)
+	cloneCmd := exec.CommandContext(ctx, "git", "clone", "https://github.com/YaLTeR/niri.git", buildDir)
 	if err := cloneCmd.Run(); err != nil {
 		return fmt.Errorf("failed to clone niri: %w", err)
 	}
 
-	checkoutCmd := exec.CommandContext(ctx, "git", "-C", tmpDir, "checkout", "v25.08")
+	checkoutCmd := exec.CommandContext(ctx, "git", "-C", buildDir, "checkout", "v25.08")
 	if err := checkoutCmd.Run(); err != nil {
 		m.log(fmt.Sprintf("Warning: failed to checkout v25.08, using main: %v", err))
 	}
 
 	if !m.commandExists("cargo-deb") {
 		cargoDebInstallCmd := exec.CommandContext(ctx, "cargo", "install", "cargo-deb")
+		cargoDebInstallCmd.Env = append(os.Environ(), "TMPDIR="+tmpDir)
 		if err := m.runWithProgressStep(cargoDebInstallCmd, progressChan, PhaseSystemPackages, 0.3, 0.35, "Installing cargo-deb..."); err != nil {
 			return fmt.Errorf("failed to install cargo-deb: %w", err)
 		}
 	}
 
 	buildDebCmd := exec.CommandContext(ctx, "cargo", "deb")
-	buildDebCmd.Dir = tmpDir
+	buildDebCmd.Dir = buildDir
+	buildDebCmd.Env = append(os.Environ(), "TMPDIR="+tmpDir)
 	if err := m.runWithProgressStep(buildDebCmd, progressChan, PhaseSystemPackages, 0.35, 0.95, "Building niri deb package..."); err != nil {
 		return fmt.Errorf("failed to build niri deb: %w", err)
 	}
@@ -361,7 +371,7 @@ func (m *ManualPackageInstaller) installNiri(ctx context.Context, sudoPassword s
 	}
 
 	installDebCmd := exec.CommandContext(ctx, "bash", "-c",
-		fmt.Sprintf("echo '%s' | sudo -S dpkg -i %s/target/debian/niri_*.deb", sudoPassword, tmpDir))
+		fmt.Sprintf("echo '%s' | sudo -S dpkg -i %s/target/debian/niri_*.deb", sudoPassword, buildDir))
 
 	output, err := installDebCmd.CombinedOutput()
 	if err != nil {
