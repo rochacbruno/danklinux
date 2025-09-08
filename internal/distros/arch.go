@@ -414,10 +414,28 @@ func (a *ArchDistribution) installAURPackages(ctx context.Context, packages []st
 	a.log(fmt.Sprintf("Installing AUR packages manually: %s", strings.Join(packages, ", ")))
 
 	hasNiri := false
+	hasQuickshell := false
 	for _, pkg := range packages {
 		if pkg == "niri-git" {
 			hasNiri = true
-			break
+		}
+		if pkg == "quickshell" || pkg == "quickshell-git" {
+			hasQuickshell = true
+		}
+	}
+
+	// If quickshell is in the list, install google-breakpad first
+	if hasQuickshell {
+		progressChan <- InstallProgressMsg{
+			Phase:       PhaseAURPackages,
+			Progress:    0.63,
+			Step:        "Installing google-breakpad for quickshell...",
+			IsComplete:  false,
+			CommandInfo: "Installing prerequisite AUR package for quickshell",
+		}
+
+		if err := a.installSingleAURPackage(ctx, "google-breakpad", sudoPassword, progressChan, 0.63, 0.65); err != nil {
+			return fmt.Errorf("failed to install google-breakpad prerequisite for quickshell: %w", err)
 		}
 	}
 
@@ -431,14 +449,13 @@ func (a *ArchDistribution) installAURPackages(ctx context.Context, packages []st
 			CommandInfo: "Installing prerequisite for niri-git",
 		}
 
-		if err := a.installSingleAURPackage(ctx, "makepkg-git-lfs-proto", sudoPassword, progressChan, 0.63, 0.65); err != nil {
-			// Log error but don't fail - it might already be installed
-			a.log(fmt.Sprintf("Warning: makepkg-git-lfs-proto installation failed: %v", err))
+		if err := a.installSingleAURPackage(ctx, "makepkg-git-lfs-proto", sudoPassword, progressChan, 0.65, 0.67); err != nil {
+			return fmt.Errorf("failed to install makepkg-git-lfs-proto prerequisite for niri: %w", err)
 		}
 	}
 
-	baseProgress := 0.65
-	progressStep := 0.15 / float64(len(packages))
+	baseProgress := 0.67
+	progressStep := 0.13 / float64(len(packages))
 
 	for i, pkg := range packages {
 		currentProgress := baseProgress + (float64(i) * progressStep)
@@ -490,28 +507,17 @@ func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sud
 
 	packageDir := filepath.Join(tmpDir, pkg)
 
-	// Special handling for niri-git: remove makepkg-git-lfs-proto references
 	if pkg == "niri-git" {
-		progressChan <- InstallProgressMsg{
-			Phase:       PhaseAURPackages,
-			Progress:    startProgress + 0.2*(endProgress-startProgress),
-			Step:        "Patching niri-git PKGBUILD...",
-			IsComplete:  false,
-			CommandInfo: "Removing makepkg-git-lfs-proto dependency",
-		}
-
-		// Remove from PKGBUILD
 		pkgbuildPath := filepath.Join(packageDir, "PKGBUILD")
 		sedCmd := exec.CommandContext(ctx, "sed", "-i", "s/makepkg-git-lfs-proto//g", pkgbuildPath)
 		if err := sedCmd.Run(); err != nil {
-			a.log(fmt.Sprintf("Warning: Failed to patch PKGBUILD: %v", err))
+			return fmt.Errorf("failed to patch PKGBUILD for niri-git: %w", err)
 		}
 
-		// Remove line from .SRCINFO
 		srcinfoPath := filepath.Join(packageDir, ".SRCINFO")
 		sedCmd2 := exec.CommandContext(ctx, "sed", "-i", "/makedepends = makepkg-git-lfs-proto/d", srcinfoPath)
 		if err := sedCmd2.Run(); err != nil {
-			a.log(fmt.Sprintf("Warning: Failed to patch .SRCINFO: %v", err))
+			return fmt.Errorf("failed to patch .SRCINFO for niri-git: %w", err)
 		}
 	}
 
@@ -527,37 +533,26 @@ func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sud
 	// Install dependencies and makedepends explicitly
 	srcinfoPath := filepath.Join(packageDir, ".SRCINFO")
 	
-	// First install runtime dependencies
 	depsCmd := exec.CommandContext(ctx, "bash", "-c",
 		fmt.Sprintf(`
-			echo "=== Installing runtime dependencies ==="
-			echo "Checking .SRCINFO file: %s"
 			deps=$(grep "depends = " "%s" | grep -v "makedepends" | sed 's/.*depends = //' | tr '\n' ' ' | sed 's/[[:space:]]*$//')
-			echo "Extracted runtime deps: [$deps]"
-			if [ ! -z "$deps" ] && [ "$deps" != " " ]; then
-				echo "Running: pacman -S --needed --noconfirm $deps"
-				echo '%s' | sudo -S pacman -S --needed --noconfirm $deps
-			else
-				echo "No runtime dependencies to install"
+			if [[ "%s" == *"quickshell"* ]]; then
+				deps=$(echo "$deps" | sed 's/google-breakpad//g' | sed 's/  / /g' | sed 's/^ *//g' | sed 's/ *$//g')
 			fi
-		`, srcinfoPath, srcinfoPath, sudoPassword))
+			if [ ! -z "$deps" ] && [ "$deps" != " " ]; then
+				echo '%s' | sudo -S pacman -S --needed --noconfirm $deps
+			fi
+		`, srcinfoPath, pkg, sudoPassword))
 	
 	if err := a.runWithProgress(depsCmd, progressChan, PhaseAURPackages, startProgress+0.3*(endProgress-startProgress), startProgress+0.35*(endProgress-startProgress)); err != nil {
 		return fmt.Errorf("FAILED to install runtime dependencies for %s: %w", pkg, err)
 	}
 
-	// Then install makedepends
 	makedepsCmd := exec.CommandContext(ctx, "bash", "-c",
 		fmt.Sprintf(`
-			echo "=== Installing make dependencies ==="
 			makedeps=$(grep -E "^[[:space:]]*makedepends = " "%s" | sed 's/^[[:space:]]*makedepends = //' | tr '\n' ' ')
-			echo "Found makedeps: [$makedeps]"
 			if [ ! -z "$makedeps" ]; then
-				echo "Running: pacman -S --needed --noconfirm $makedeps"
 				echo '%s' | sudo -S pacman -S --needed --noconfirm $makedeps
-				echo "Make dependencies installation completed"
-			else
-				echo "No make dependencies to install"
 			fi
 		`, srcinfoPath, sudoPassword))
 
@@ -565,14 +560,6 @@ func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sud
 		return fmt.Errorf("FAILED to install make dependencies for %s: %w", pkg, err)
 	}
 
-	// Wait a moment to ensure installations are complete
-	progressChan <- InstallProgressMsg{
-		Phase:       PhaseAURPackages,
-		Progress:    startProgress + 0.4*(endProgress-startProgress),
-		Step:        fmt.Sprintf("Dependencies installed, preparing to build %s...", pkg),
-		IsComplete:  false,
-		CommandInfo: "All dependencies should now be available",
-	}
 
 	progressChan <- InstallProgressMsg{
 		Phase:       PhaseAURPackages,
