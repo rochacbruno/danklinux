@@ -145,13 +145,13 @@ func (u *UbuntuDistribution) GetPackageMapping(wm deps.WindowManager) map[string
 
 		// Manual builds (niri and quickshell likely not available in Ubuntu repos or PPAs)
 		"dms (DankMaterialShell)": {Name: "dms", Repository: RepoTypeManual, BuildFunc: "installDankMaterialShell"},
-		"niri":                  {Name: "niri", Repository: RepoTypeManual, BuildFunc: "installNiri"},
-		"quickshell":            {Name: "quickshell", Repository: RepoTypeManual, BuildFunc: "installQuickshell"},
-		"ghostty":               {Name: "ghostty", Repository: RepoTypeManual, BuildFunc: "installGhostty"},
-		"matugen":               {Name: "matugen", Repository: RepoTypeManual, BuildFunc: "installMatugen"},
-		"dgop":                  {Name: "dgop", Repository: RepoTypeManual, BuildFunc: "installDgop"},
-		"cliphist":              {Name: "cliphist", Repository: RepoTypeManual, BuildFunc: "installCliphist"},
-		"font-material-symbols": {Name: "font-material-symbols", Repository: RepoTypeManual, BuildFunc: "installMaterialSymbolsFont"},
+		"niri":                    {Name: "niri", Repository: RepoTypeManual, BuildFunc: "installNiri"},
+		"quickshell":              {Name: "quickshell", Repository: RepoTypeManual, BuildFunc: "installQuickshell"},
+		"ghostty":                 {Name: "ghostty", Repository: RepoTypeManual, BuildFunc: "installGhostty"},
+		"matugen":                 {Name: "matugen", Repository: RepoTypeManual, BuildFunc: "installMatugen"},
+		"dgop":                    {Name: "dgop", Repository: RepoTypeManual, BuildFunc: "installDgop"},
+		"cliphist":                {Name: "cliphist", Repository: RepoTypeManual, BuildFunc: "installCliphist"},
+		"font-material-symbols":   {Name: "font-material-symbols", Repository: RepoTypeManual, BuildFunc: "installMaterialSymbolsFont"},
 	}
 
 	switch wm {
@@ -501,6 +501,7 @@ func (u *UbuntuDistribution) installBuildDependencies(ctx context.Context, manua
 			buildDeps["libgbm-dev"] = true
 			buildDeps["alacritty"] = true
 			buildDeps["fuzzel"] = true
+			buildDeps["libxcb-cursor-dev"] = true
 		case "quickshell":
 			buildDeps["qt6-base-dev"] = true
 			buildDeps["qt6-base-private-dev"] = true
@@ -619,12 +620,12 @@ func (u *UbuntuDistribution) installZig(ctx context.Context, sudoPassword string
 	if err != nil {
 		return fmt.Errorf("failed to get user home directory: %w", err)
 	}
-	
+
 	cacheDir := filepath.Join(homeDir, ".cache", "dankinstall")
 	if err := os.MkdirAll(cacheDir, 0755); err != nil {
 		return fmt.Errorf("failed to create cache directory: %w", err)
 	}
-	
+
 	zigUrl := "https://ziglang.org/download/0.11.0/zig-linux-x86_64-0.11.0.tar.xz"
 	zigTmp := filepath.Join(cacheDir, "zig.tar.xz")
 

@@ -144,7 +144,7 @@ func (a *ArchDistribution) GetPackageMapping(wm deps.WindowManager) map[string]P
 
 func (a *ArchDistribution) GetPackageMappingWithVariants(wm deps.WindowManager, variants map[string]deps.PackageVariant) map[string]PackageMapping {
 	packages := map[string]PackageMapping{
-		"dms (DankMaterialShell)": {Name: "dms", Repository: RepoTypeManual, BuildFunc: "installDankMaterialShell"},
+		"dms (DankMaterialShell)": {Name: "dms-shell-git", Repository: RepoTypeAUR},
 		"git":                     {Name: "git", Repository: RepoTypeSystem},
 		"quickshell":              a.getQuickshellMapping(variants["quickshell"]),
 		"matugen":                 {Name: "matugen-bin", Repository: RepoTypeAUR},
