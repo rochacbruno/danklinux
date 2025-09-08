@@ -245,13 +245,9 @@ func (m Model) updateInstallingPackagesState(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) updateInstallCompleteState(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if keyMsg, ok := msg.(tea.KeyMsg); ok {
-		switch keyMsg.String() {
-		case "enter":
-			return m, tea.Quit
-		}
-	}
-	return m, m.listenForLogs()
+	// Automatically transition to config deployment after installation
+	m.state = StateConfigConfirmation
+	return m, m.checkExistingConfigurations()
 }
 
 func (m Model) updateErrorState(msg tea.Msg) (tea.Model, tea.Cmd) {
