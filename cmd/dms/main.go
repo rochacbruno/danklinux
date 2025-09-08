@@ -12,7 +12,7 @@ func init() {
 	runCmd.Flags().BoolP("daemon", "d", false, "Run in daemon mode")
 
 	// Add commands to root
-	rootCmd.AddCommand(versionCmd, runCmd, restartCmd, killCmd, ipcCmd)
+	rootCmd.AddCommand(versionCmd, runCmd, restartCmd, killCmd, ipcCmd, updateCmd)
 	rootCmd.SetHelpTemplate(getHelpTemplate())
 }
 

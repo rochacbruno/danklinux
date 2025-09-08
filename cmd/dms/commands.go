@@ -3,7 +3,12 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"time"
 
+	"github.com/AvengeMedia/dankinstall/internal/distros"
 	"github.com/AvengeMedia/dankinstall/internal/dms"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
@@ -36,7 +41,6 @@ var runCmd = &cobra.Command{
 	},
 }
 
-
 var restartCmd = &cobra.Command{
 	Use:   "restart",
 	Short: "Restart quickshell with DMS configuration",
@@ -64,6 +68,15 @@ var ipcCmd = &cobra.Command{
 	},
 }
 
+var updateCmd = &cobra.Command{
+	Use:   "update",
+	Short: "Update DankMaterialShell to the latest version",
+	Long:  "Update DankMaterialShell to the latest version using the appropriate package manager for your distribution",
+	Run: func(cmd *cobra.Command, args []string) {
+		runUpdate()
+	},
+}
+
 func runInteractiveMode(cmd *cobra.Command, args []string) {
 	detector, err := dms.NewDetector()
 	if err != nil {
@@ -88,4 +101,120 @@ func runInteractiveMode(cmd *cobra.Command, args []string) {
 func runVersion(cmd *cobra.Command, args []string) {
 	printASCII()
 	fmt.Printf("DankLinux Manager v%s\n", Version)
+}
+
+func runUpdate() {
+	fmt.Println("Updating DankMaterialShell...")
+
+	// Detect the operating system
+	osInfo, err := distros.GetOSInfo()
+	if err != nil {
+		fmt.Printf("Error detecting OS: %v\n", err)
+		os.Exit(1)
+	}
+
+	var updateErr error
+	switch strings.ToLower(osInfo.Distribution.ID) {
+	case "arch", "cachyos", "endeavouros", "manjaro":
+		updateErr = updateArchLinux()
+	case "nixos":
+		updateErr = updateNixOS()
+	default:
+		updateErr = updateOtherDistros()
+	}
+
+	if updateErr != nil {
+		fmt.Printf("Error updating DMS: %v\n", updateErr)
+		os.Exit(1)
+	}
+
+	fmt.Println("Update complete! Restarting DMS...")
+	restartShell()
+}
+
+func updateArchLinux() error {
+	var updateCmd *exec.Cmd
+
+	if commandExists("yay") {
+		fmt.Println("Using yay to update dms-shell-git...")
+		updateCmd = exec.Command("yay", "-S", "--noconfirm", "dms-shell-git")
+	} else if commandExists("paru") {
+		fmt.Println("Using paru to update dms-shell-git...")
+		updateCmd = exec.Command("paru", "-S", "--noconfirm", "dms-shell-git")
+	} else {
+		// Install itself doesn't depend on an AUR helper, but it's the easiest way to do updates later
+		return fmt.Errorf("neither yay nor paru found - please install an AUR helper")
+	}
+
+	updateCmd.Stdout = os.Stdout
+	updateCmd.Stderr = os.Stderr
+	return updateCmd.Run()
+}
+
+func updateNixOS() error {
+	fmt.Println("Using nix profile upgrade to update DankMaterialShell...")
+	updateCmd := exec.Command("nix", "profile", "upgrade", "github:AvengeMedia/DankMaterialShell")
+	updateCmd.Stdout = os.Stdout
+	updateCmd.Stderr = os.Stderr
+	return updateCmd.Run()
+}
+
+// Manual update strategy is basically:
+// cd ~/.config/quickshell/dms
+// git fetch
+// git branch -M master master-<timestamp>
+// git checkout -b master origin/master
+// dms restart
+func updateOtherDistros() error {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("failed to get user home directory: %w", err)
+	}
+
+	dmsPath := filepath.Join(homeDir, ".config", "quickshell", "dms")
+
+	if _, err := os.Stat(dmsPath); os.IsNotExist(err) {
+		return fmt.Errorf("DMS configuration directory not found at %s", dmsPath)
+	}
+
+	fmt.Printf("Updating DMS configuration in %s...\n", dmsPath)
+
+	timestamp := time.Now().Format("20060102-150405")
+	backupBranch := fmt.Sprintf("master-%s", timestamp)
+
+	if err := os.Chdir(dmsPath); err != nil {
+		return fmt.Errorf("failed to change to DMS directory: %w", err)
+	}
+
+	fmt.Printf("Creating backup branch: %s\n", backupBranch)
+	backupCmd := exec.Command("git", "branch", "-M", "master", backupBranch)
+	backupCmd.Stdout = os.Stdout
+	backupCmd.Stderr = os.Stderr
+	if err := backupCmd.Run(); err != nil {
+		return fmt.Errorf("failed to create backup branch: %w", err)
+	}
+
+	fmt.Println("Fetching latest changes...")
+	fetchCmd := exec.Command("git", "fetch")
+	fetchCmd.Stdout = os.Stdout
+	fetchCmd.Stderr = os.Stderr
+	if err := fetchCmd.Run(); err != nil {
+		return fmt.Errorf("failed to fetch changes: %w", err)
+	}
+
+	fmt.Println("Checking out latest master branch...")
+	checkoutCmd := exec.Command("git", "checkout", "-b", "master", "origin/master")
+	checkoutCmd.Stdout = os.Stdout
+	checkoutCmd.Stderr = os.Stderr
+	if err := checkoutCmd.Run(); err != nil {
+		return fmt.Errorf("failed to checkout new master: %w", err)
+	}
+
+	fmt.Printf("Successfully updated DMS! Previous version backed up as branch '%s'\n", backupBranch)
+	return nil
+}
+
+func commandExists(cmd string) bool {
+	_, err := exec.LookPath(cmd)
+	return err == nil
 }
