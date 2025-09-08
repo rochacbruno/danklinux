@@ -527,8 +527,17 @@ func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sud
 	// Extract and install dependencies and makedepends
 	srcinfoPath := filepath.Join(packageDir, ".SRCINFO")
 	depsCmd := exec.CommandContext(ctx, "bash", "-c",
-		fmt.Sprintf("deps=$(sed -n 's/.*depends = //p' '%s'); makedeps=$(sed -n 's/.*makedepends = //p' '%s'); alldeps=\"$deps $makedeps\"; if [ ! -z \"$alldeps\" ]; then echo '%s' | sudo -S pacman -S --needed --noconfirm $alldeps; fi",
-			srcinfoPath, srcinfoPath, sudoPassword))
+		fmt.Sprintf(`
+			deps=$(grep -E "^\s*depends = " "%s" | sed "s/.*depends = //")
+			makedeps=$(grep -E "^\s*makedepends = " "%s" | sed "s/.*makedepends = //")
+			alldeps=$(echo "$deps $makedeps" | tr '\n' ' ' | xargs)
+			if [ ! -z "$alldeps" ]; then 
+				echo "Installing dependencies: $alldeps"
+				echo '%s' | sudo -S pacman -S --needed --noconfirm $alldeps
+			else
+				echo "No dependencies found to install"
+			fi
+		`, srcinfoPath, srcinfoPath, sudoPassword))
 
 	if err := a.runWithProgress(depsCmd, progressChan, PhaseAURPackages, startProgress+0.3*(endProgress-startProgress), startProgress+0.4*(endProgress-startProgress)); err != nil {
 		// Log but don't fail - some deps might be optional or already installed

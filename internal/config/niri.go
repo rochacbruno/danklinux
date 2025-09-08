@@ -112,7 +112,7 @@ overview {
 // See the binds section below for more spawn examples.
 // This line starts waybar, a commonly used bar for Wayland compositors.
 spawn-at-startup "bash" "-c" "wl-paste --watch cliphist store &"
-spawn-at-startup "qs" "-c" "dms"
+spawn-at-startup "dms" "run"
 spawn-at-startup "{{POLKIT_AGENT_PATH}}"
 environment {
   XDG_CURRENT_DESKTOP "niri"
@@ -222,40 +222,40 @@ binds {
     // === Application Launchers ===
     Mod+T hotkey-overlay-title="Open Terminal" { spawn "{{TERMINAL_COMMAND}}"; }
     Mod+Space hotkey-overlay-title="Application Launcher" { 
-        spawn "qs" "-c" "dms" "ipc" "call" "spotlight" "toggle"; 
+        spawn "dms" "ipc" "call" "spotlight" "toggle"; 
     }
     Mod+V hotkey-overlay-title="Clipboard Manager" { 
-        spawn "qs" "-c" "dms" "ipc" "call" "clipboard" "toggle"; 
+        spawn "dms" "ipc" "call" "clipboard" "toggle"; 
     }
     Mod+M hotkey-overlay-title="Task Manager" { 
-        spawn "qs" "-c" "dms" "ipc" "call" "processlist" "toggle"; 
+        spawn "dms" "ipc" "call" "processlist" "toggle"; 
     }
     Mod+Comma hotkey-overlay-title="Settings" { 
-        spawn "qs" "-c" "dms" "ipc" "call" "settings" "toggle"; 
+        spawn "dms" "ipc" "call" "settings" "toggle"; 
     }
-    Super+N hotkey-overlay-title="Notification Center" { spawn "qs" "-c" "dms" "ipc" "call" "notifications" "toggle"; }
+    Super+N hotkey-overlay-title="Notification Center" { spawn "dms" "ipc" "call" "notifications" "toggle"; }
     
     // === Security ===
     Super+Alt+L hotkey-overlay-title="Lock Screen" { 
-        spawn "qs" "-c" "dms" "ipc" "call" "lock" "lock"; 
+        spawn "dms" "ipc" "call" "lock" "lock"; 
     }
     Mod+Shift+E { quit; }
     Ctrl+Alt+Delete hotkey-overlay-title="Task Manager" { 
-        spawn "qs" "-c" "dms" "ipc" "call" "processlist" "toggle"; 
+        spawn "dms" "ipc" "call" "processlist" "toggle"; 
     }
     
     // === Audio Controls ===
     XF86AudioRaiseVolume allow-when-locked=true {
-        spawn "qs" "-c" "dms" "ipc" "call" "audio" "increment" "3";
+        spawn "dms" "ipc" "call" "audio" "increment" "3";
     }
     XF86AudioLowerVolume allow-when-locked=true {
-        spawn "qs" "-c" "dms" "ipc" "call" "audio" "decrement" "3";
+        spawn "dms" "ipc" "call" "audio" "decrement" "3";
     }
     XF86AudioMute allow-when-locked=true {
-        spawn "qs" "-c" "dms" "ipc" "call" "audio" "mute";
+        spawn "dms" "ipc" "call" "audio" "mute";
     }
     XF86AudioMicMute allow-when-locked=true {
-        spawn "qs" "-c" "dms" "ipc" "call" "audio" "micmute";
+        spawn "dms" "ipc" "call" "audio" "micmute";
     }
     
     XF86KbdBrightnessUp allow-when-locked=true {
@@ -266,10 +266,10 @@ binds {
     }
     // === Brightness Controls ===
     XF86MonBrightnessUp allow-when-locked=true {
-       spawn "qs" "-c" "dms" "ipc" "call" "brightness" "increment" "5" "";
+       spawn "dms" "ipc" "call" "brightness" "increment" "5" "";
     }
     XF86MonBrightnessDown allow-when-locked=true {
-       spawn "qs" "-c" "dms" "ipc" "call" "brightness" "decrement" "5" "";
+       spawn "dms" "ipc" "call" "brightness" "decrement" "5" "";
     }  
     
     // === Window Management ===

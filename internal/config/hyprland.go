@@ -20,7 +20,7 @@ env = QT_QPA_PLATFORMTHEME_QT6,gtk3
 # STARTUP APPS
 # ==================
 exec-once = bash -c "wl-paste --watch cliphist store &"
-exec-once = qs -c dms
+exec-once = dms run
 exec-once = {{POLKIT_AGENT_PATH}}
 
 # ==================
@@ -136,30 +136,30 @@ $mod = SUPER
 
 # === Application Launchers ===
 bind = $mod, T, exec, {{TERMINAL_COMMAND}}
-bind = $mod, space, exec, qs -c dms ipc call spotlight toggle
-bind = $mod, V, exec, qs -c dms ipc call clipboard toggle
-bind = $mod, M, exec, qs -c dms ipc call processlist toggle
-bind = $mod, comma, exec, qs -c dms ipc call settings toggle
-bind = SUPER, N, exec, qs -c dms ipc call notifications toggle
+bind = $mod, space, exec, dms ipc call spotlight toggle
+bind = $mod, V, exec, dms ipc call clipboard toggle
+bind = $mod, M, exec, dms ipc call processlist toggle
+bind = $mod, comma, exec, dms ipc call settings toggle
+bind = SUPER, N, exec, dms ipc call notifications toggle
 
 # === Security ===
-bind = SUPER ALT, L, exec, qs -c dms ipc call lock lock
+bind = SUPER ALT, L, exec, dms ipc call lock lock
 bind = $mod SHIFT, E, exit
-bind = CTRL ALT, Delete, exec, qs -c dms ipc call processlist toggle
+bind = CTRL ALT, Delete, exec, dms ipc call processlist toggle
 
 # === Audio Controls ===
-bindel = , XF86AudioRaiseVolume, exec, qs -c dms ipc call audio increment 3
-bindel = , XF86AudioLowerVolume, exec, qs -c dms ipc call audio decrement 3
-bindl = , XF86AudioMute, exec, qs -c dms ipc call audio mute
-bindl = , XF86AudioMicMute, exec, qs -c dms ipc call audio micmute
+bindel = , XF86AudioRaiseVolume, exec, dms ipc call audio increment 3
+bindel = , XF86AudioLowerVolume, exec, dms ipc call audio decrement 3
+bindl = , XF86AudioMute, exec, dms ipc call audio mute
+bindl = , XF86AudioMicMute, exec, dms ipc call audio micmute
 
 # === Keyboard Backlight ===
 bindel = , XF86KbdBrightnessUp, exec, kbdbrite.sh up
 bindel = , XF86KbdBrightnessDown, exec, kbdbrite.sh down
 
 # === Brightness Controls ===
-bindel = , XF86MonBrightnessUp, exec, qs -c dms ipc call brightness increment 5
-bindel = , XF86MonBrightnessDown, exec, qs -c dms ipc call brightness decrement 5
+bindel = , XF86MonBrightnessUp, exec, dms ipc call brightness increment 5
+bindel = , XF86MonBrightnessDown, exec, dms ipc call brightness decrement 5
 
 # === Window Management ===
 bind = $mod, Q, killactive
