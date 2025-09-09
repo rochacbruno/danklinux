@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bufio"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -10,6 +12,7 @@ import (
 
 	"github.com/AvengeMedia/dankinstall/internal/distros"
 	"github.com/AvengeMedia/dankinstall/internal/dms"
+	"github.com/AvengeMedia/dankinstall/internal/errdefs"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 )
@@ -104,8 +107,6 @@ func runVersion(cmd *cobra.Command, args []string) {
 }
 
 func runUpdate() {
-	fmt.Println("Updating DankMaterialShell...")
-
 	// Detect the operating system
 	osInfo, err := distros.GetOSInfo()
 	if err != nil {
@@ -124,6 +125,10 @@ func runUpdate() {
 	}
 
 	if updateErr != nil {
+		if errors.Is(updateErr, errdefs.ErrUpdateCancelled) {
+			fmt.Println("Update cancelled.")
+			return
+		}
 		fmt.Printf("Error updating DMS: %v\n", updateErr)
 		os.Exit(1)
 	}
@@ -133,30 +138,64 @@ func runUpdate() {
 }
 
 func updateArchLinux() error {
+	// Check if dms-shell-git is installed via pacman
+	if !isPackageInstalled("dms-shell-git") {
+		fmt.Println("Info: dms-shell-git package not found in installed packages.")
+		fmt.Println("Info: Falling back to git-based update method...")
+		return updateOtherDistros()
+	}
+
+	var helper string
 	var updateCmd *exec.Cmd
 
 	if commandExists("yay") {
-		fmt.Println("Using yay to update dms-shell-git...")
-		updateCmd = exec.Command("yay", "-S", "--noconfirm", "dms-shell-git")
+		helper = "yay"
+		updateCmd = exec.Command("yay", "-S", "dms-shell-git")
 	} else if commandExists("paru") {
-		fmt.Println("Using paru to update dms-shell-git...")
-		updateCmd = exec.Command("paru", "-S", "--noconfirm", "dms-shell-git")
+		helper = "paru"
+		updateCmd = exec.Command("paru", "-S", "dms-shell-git")
 	} else {
-		// Install itself doesn't depend on an AUR helper, but it's the easiest way to do updates later
-		return fmt.Errorf("neither yay nor paru found - please install an AUR helper")
+		fmt.Println("Error: Neither yay nor paru found - please install an AUR helper")
+		fmt.Println("Info: Falling back to git-based update method...")
+		return updateOtherDistros()
 	}
 
+	fmt.Printf("This will update DankMaterialShell using %s.\n", helper)
+	if !confirmUpdate() {
+		return errdefs.ErrUpdateCancelled
+	}
+
+	fmt.Printf("\nRunning: %s -S dms-shell-git\n", helper)
 	updateCmd.Stdout = os.Stdout
 	updateCmd.Stderr = os.Stderr
-	return updateCmd.Run()
+	err := updateCmd.Run()
+	if err != nil {
+		fmt.Printf("Error: Failed to update using %s: %v\n", helper, err)
+	}
+
+	fmt.Println("dms successfully updated")
+	return nil
 }
 
 func updateNixOS() error {
-	fmt.Println("Using nix profile upgrade to update DankMaterialShell...")
+	fmt.Println("This will update DankMaterialShell using nix profile.")
+	if !confirmUpdate() {
+		return errdefs.ErrUpdateCancelled
+	}
+
+	fmt.Println("\nRunning: nix profile upgrade github:AvengeMedia/DankMaterialShell")
 	updateCmd := exec.Command("nix", "profile", "upgrade", "github:AvengeMedia/DankMaterialShell")
 	updateCmd.Stdout = os.Stdout
 	updateCmd.Stderr = os.Stderr
-	return updateCmd.Run()
+	err := updateCmd.Run()
+	if err != nil {
+		fmt.Printf("Error: Failed to update using nix profile: %v\n", err)
+		fmt.Println("Falling back to git-based update method...")
+		return updateOtherDistros()
+	}
+
+	fmt.Println("dms successfully updated")
+	return nil
 }
 
 // Manual update strategy is basically:
@@ -177,16 +216,21 @@ func updateOtherDistros() error {
 		return fmt.Errorf("DMS configuration directory not found at %s", dmsPath)
 	}
 
-	fmt.Printf("Updating DMS configuration in %s...\n", dmsPath)
+	fmt.Printf("Found DMS configuration at %s\n", dmsPath)
+	fmt.Println("\nThis will update DankMaterialShell using git.")
+	fmt.Println("Your current configuration will be backed up to a timestamped branch.")
+	if !confirmUpdate() {
+		return errdefs.ErrUpdateCancelled
+	}
 
-	timestamp := time.Now().Format("20060102-150405")
-	backupBranch := fmt.Sprintf("master-%s", timestamp)
+	timestamp := time.Now().Unix()
+	backupBranch := fmt.Sprintf("master-%d", timestamp)
 
 	if err := os.Chdir(dmsPath); err != nil {
 		return fmt.Errorf("failed to change to DMS directory: %w", err)
 	}
 
-	fmt.Printf("Creating backup branch: %s\n", backupBranch)
+	fmt.Printf("\nCreating backup branch: %s\n", backupBranch)
 	backupCmd := exec.Command("git", "branch", "-M", "master", backupBranch)
 	backupCmd.Stdout = os.Stdout
 	backupCmd.Stderr = os.Stderr
@@ -210,11 +254,29 @@ func updateOtherDistros() error {
 		return fmt.Errorf("failed to checkout new master: %w", err)
 	}
 
-	fmt.Printf("Successfully updated DMS! Previous version backed up as branch '%s'\n", backupBranch)
+	fmt.Printf("dms successfully updated (previous version backed up as branch '%s')\n", backupBranch)
 	return nil
 }
 
 func commandExists(cmd string) bool {
 	_, err := exec.LookPath(cmd)
 	return err == nil
+}
+
+func isPackageInstalled(packageName string) bool {
+	cmd := exec.Command("pacman", "-Q", packageName)
+	err := cmd.Run()
+	return err == nil
+}
+
+func confirmUpdate() bool {
+	fmt.Print("Do you want to proceed with the update? (y/N): ")
+	reader := bufio.NewReader(os.Stdin)
+	response, err := reader.ReadString('\n')
+	if err != nil {
+		fmt.Printf("Error reading input: %v\n", err)
+		return false
+	}
+	response = strings.TrimSpace(strings.ToLower(response))
+	return response == "y" || response == "yes"
 }

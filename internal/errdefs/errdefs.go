@@ -7,6 +7,7 @@ const (
 	ErrTypeInvalidArchitecture
 	ErrTypeUnsupportedDistribution
 	ErrTypeUnsupportedVersion
+	ErrTypeUpdateCancelled
 	ErrTypeGeneric
 )
 
@@ -25,3 +26,5 @@ func NewCustomError(errType ErrorType, message string) error {
 		Message: message,
 	}
 }
+
+var ErrUpdateCancelled = NewCustomError(ErrTypeUpdateCancelled, "update cancelled by user")
