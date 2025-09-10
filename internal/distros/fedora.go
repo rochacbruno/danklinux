@@ -231,6 +231,14 @@ func (f *FedoraDistribution) InstallPrerequisites(ctx context.Context, sudoPassw
 		}
 	}
 
+	_, err := exec.LookPath("go")
+	if err != nil {
+		f.log("go not found in PATH, will install golang-bin")
+		missingPkgs = append(missingPkgs, "golang-bin")
+	} else {
+		f.log("go already available in PATH")
+	}
+
 	if len(missingPkgs) == 0 {
 		f.log("All prerequisites already installed")
 		return nil
