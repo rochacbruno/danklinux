@@ -637,6 +637,9 @@ func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sud
 	}
 
 	installArgs := []string{"pacman", "-U", "--noconfirm"}
+	if pkg == "dms-shell-git" {
+		installArgs = append(installArgs, "--nodeps")
+	}
 	installArgs = append(installArgs, files...)
 
 	cmdStr := fmt.Sprintf("echo '%s' | sudo -S %s", sudoPassword, strings.Join(installArgs, " "))
