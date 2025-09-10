@@ -636,13 +636,16 @@ func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sud
 		return fmt.Errorf("no package files found after building %s", pkg)
 	}
 
-	installArgs := []string{"pacman", "-U", "--noconfirm"}
+	var installArgs []string
 	if pkg == "dms-shell-git" {
-		installArgs = append(installArgs, "--nodeps")
+		installArgs = []string{"pacman", "-U", "--noconfirm", "--nodeps"}
+	} else {
+		installArgs = []string{"pacman", "-U", "--noconfirm"}
 	}
 	installArgs = append(installArgs, files...)
 
 	cmdStr := fmt.Sprintf("echo '%s' | sudo -S %s", sudoPassword, strings.Join(installArgs, " "))
+	a.log(fmt.Sprintf("DEBUG: Running install command for %s: %s", pkg, strings.Join(installArgs, " ")))
 	installCmd := exec.CommandContext(ctx, "bash", "-c", cmdStr)
 
 	if err := a.runWithProgress(installCmd, progressChan, PhaseAURPackages, startProgress+0.7*(endProgress-startProgress), endProgress); err != nil {
