@@ -205,40 +205,59 @@ func (f *FedoraDistribution) detectXwaylandSatellite() deps.Dependency {
 	}
 }
 
+func (f *FedoraDistribution) getPrerequisites() []string {
+	return []string{
+		"dnf-plugins-core",
+		"make",
+	}
+}
+
 func (f *FedoraDistribution) InstallPrerequisites(ctx context.Context, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
+	prerequisites := f.getPrerequisites()
+	var missingPkgs []string
+
 	progressChan <- InstallProgressMsg{
 		Phase:      PhasePrerequisites,
 		Progress:   0.06,
-		Step:       "Checking dnf-plugins-core...",
+		Step:       "Checking prerequisites...",
 		IsComplete: false,
-		LogOutput:  "Checking if dnf-plugins-core is installed",
+		LogOutput:  "Checking prerequisite packages",
 	}
 
-	checkCmd := exec.CommandContext(ctx, "rpm", "-q", "dnf-plugins-core")
-	if err := checkCmd.Run(); err == nil {
-		f.log("dnf-plugins-core already installed")
+	for _, pkg := range prerequisites {
+		checkCmd := exec.CommandContext(ctx, "rpm", "-q", pkg)
+		if err := checkCmd.Run(); err != nil {
+			missingPkgs = append(missingPkgs, pkg)
+		}
+	}
+
+	if len(missingPkgs) == 0 {
+		f.log("All prerequisites already installed")
 		return nil
 	}
 
-	f.log("Installing dnf-plugins-core...")
+	f.log(fmt.Sprintf("Installing prerequisites: %s", strings.Join(missingPkgs, ", ")))
 	progressChan <- InstallProgressMsg{
 		Phase:       PhasePrerequisites,
 		Progress:    0.08,
-		Step:        "Installing dnf-plugins-core...",
+		Step:        fmt.Sprintf("Installing %d prerequisites...", len(missingPkgs)),
 		IsComplete:  false,
 		NeedsSudo:   true,
-		CommandInfo: "sudo dnf install -y dnf-plugins-core",
-		LogOutput:   "Installing dnf-plugins-core for COPR support",
+		CommandInfo: fmt.Sprintf("sudo dnf install -y %s", strings.Join(missingPkgs, " ")),
+		LogOutput:   fmt.Sprintf("Installing prerequisites: %s", strings.Join(missingPkgs, ", ")),
 	}
 
-	cmd := exec.CommandContext(ctx, "bash", "-c", fmt.Sprintf("echo '%s' | sudo -S dnf install -y dnf-plugins-core 2>&1", sudoPassword))
+	args := []string{"dnf", "install", "-y"}
+	args = append(args, missingPkgs...)
+	cmdStr := fmt.Sprintf("echo '%s' | sudo -S %s", sudoPassword, strings.Join(args, " "))
+	cmd := exec.CommandContext(ctx, "bash", "-c", cmdStr)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		f.logError("failed to install dnf-plugins-core", err)
-		f.log(fmt.Sprintf("dnf-plugins-core command output: %s", string(output)))
-		return fmt.Errorf("failed to install dnf-plugins-core: %w", err)
+		f.logError("failed to install prerequisites", err)
+		f.log(fmt.Sprintf("Prerequisites command output: %s", string(output)))
+		return fmt.Errorf("failed to install prerequisites: %w", err)
 	}
-	f.log(fmt.Sprintf("dnf-plugins-core install output: %s", string(output)))
+	f.log(fmt.Sprintf("Prerequisites install output: %s", string(output)))
 
 	return nil
 }

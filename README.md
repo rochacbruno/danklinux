@@ -104,9 +104,11 @@ curl -fsSL https://install.danklinux.com | sh
 | Go compiler | PPA | `ppa:longsleep/golang-backports` |
 | DankMaterialShell | Manual | Git clone to `~/.config/quickshell/dms` |
 
-### NixOS
+### NixOS (Not Currently Support)
 
-**Supported:** NixOS
+**NixOS is not supported due to ongoing work in the DMS flake, it will be re-enabled in the future.**
+
+~~**Supported:** NixOS~~
 
 **Special Notes:**
 - Window managers (hyprland/niri) should be managed through `configuration.nix`, not the installer

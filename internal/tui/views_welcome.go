@@ -63,10 +63,13 @@ func (m Model) viewWelcome() string {
 				Render("⚠ UNSUPPORTED DISTRIBUTION")
 
 			var errorMsg string
-			if m.osInfo.Distribution.ID == "ubuntu" {
+			switch m.osInfo.Distribution.ID {
+			case "ubuntu":
 				errorMsg = fmt.Sprintf("Ubuntu %s is not supported.\n\nOnly Ubuntu 25.04+ is supported.\n\nPlease upgrade to Ubuntu 25.04 or later.", m.osInfo.VersionID)
-			} else {
-				errorMsg = fmt.Sprintf("%s is not supported.\n\nSupported distributions:\n• Arch Linux\n• CachyOS\n• Fedora\n• Ubuntu 25.04+", m.osInfo.PrettyName)
+			case "nixos":
+				errorMsg = fmt.Sprintf("NixOS is currently not supported, but there is a DankMaterialShell flake available.", m.osInfo.PrettyName)
+			default:
+				errorMsg = fmt.Sprintf("%s is not supported.\nFeel free to request on https://github.com/AvengeMedia/danklinux", m.osInfo.PrettyName)
 			}
 
 			errorMsgStyled := lipgloss.NewStyle().
