@@ -179,12 +179,11 @@ func (m Model) viewError() string {
 
 	// Show persistent installation logs
 	if len(m.installationLogs) > 0 {
-		logHeader := m.styles.Warning.Render("Installation Logs (last 15 lines):")
+		logHeader := m.styles.Warning.Render("Installation Logs (last 50 lines):")
 		b.WriteString(logHeader)
 		b.WriteString("\n")
 
-		// Show more lines in error state for better debugging
-		maxLines := 15
+		maxLines := 50
 		startIdx := 0
 		if len(m.installationLogs) > maxLines {
 			startIdx = len(m.installationLogs) - maxLines

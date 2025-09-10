@@ -458,10 +458,13 @@ func (a *ArchDistribution) installAURPackages(ctx context.Context, packages []st
 		}
 	}
 
-	baseProgress := 0.67
-	progressStep := 0.13 / float64(len(packages))
+	// Reorder packages to ensure dms-shell-git dependencies are installed first
+	orderedPackages := a.reorderAURPackages(packages)
 
-	for i, pkg := range packages {
+	baseProgress := 0.67
+	progressStep := 0.13 / float64(len(orderedPackages))
+
+	for i, pkg := range orderedPackages {
 		currentProgress := baseProgress + (float64(i) * progressStep)
 
 		progressChan <- InstallProgressMsg{
@@ -486,6 +489,38 @@ func (a *ArchDistribution) installAURPackages(ctx context.Context, packages []st
 	}
 
 	return nil
+}
+
+func (a *ArchDistribution) reorderAURPackages(packages []string) []string {
+	// Dependencies for dms-shell-git that need to be installed first
+	dmsDepencies := []string{"quickshell", "quickshell-git", "dgop", "ttf-material-symbols-variable-git"}
+	
+	var deps []string
+	var others []string
+	var dmsShell []string
+	
+	for _, pkg := range packages {
+		if pkg == "dms-shell-git" {
+			dmsShell = append(dmsShell, pkg)
+		} else {
+			isDep := false
+			for _, dep := range dmsDepencies {
+				if pkg == dep {
+					deps = append(deps, pkg)
+					isDep = true
+					break
+				}
+			}
+			if !isDep {
+				others = append(others, pkg)
+			}
+		}
+	}
+	
+	// Order: dependencies first, then other packages, then dms-shell-git last
+	result := append(deps, others...)
+	result = append(result, dmsShell...)
+	return result
 }
 
 func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sudoPassword string, progressChan chan<- InstallProgressMsg, startProgress, endProgress float64) error {
@@ -534,14 +569,15 @@ func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sud
 		}
 	}
 
+	// Remove problematic dependencies for dms-shell-git
 	if pkg == "dms-shell-git" {
 		srcinfoPath := filepath.Join(packageDir, ".SRCINFO")
 		depsToRemove := []string{
 			"depends = quickshell",
-			"depends = dgop",
+			"depends = dgop", 
 			"depends = ttf-material-symbols-variable-git",
 		}
-
+		
 		for _, dep := range depsToRemove {
 			sedCmd := exec.CommandContext(ctx, "sed", "-i", fmt.Sprintf("/%s/d", dep), srcinfoPath)
 			if err := sedCmd.Run(); err != nil {
@@ -556,6 +592,7 @@ func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sud
 	if err := optdepsCmd.Run(); err != nil {
 		return fmt.Errorf("failed to remove optdepends from .SRCINFO for %s: %w", pkg, err)
 	}
+
 
 	// Pre-install dependencies from .SRCINFO
 	progressChan <- InstallProgressMsg{
@@ -575,13 +612,10 @@ func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sud
 			if [[ "%s" == *"quickshell"* ]]; then
 				deps=$(echo "$deps" | sed 's/google-breakpad//g' | sed 's/  / /g' | sed 's/^ *//g' | sed 's/ *$//g')
 			fi
-			if [[ "%s" == *"dms-shell-git"* ]]; then
-				deps=""
-			fi
 			if [ ! -z "$deps" ] && [ "$deps" != " " ]; then
 				echo '%s' | sudo -S pacman -S --needed --noconfirm $deps
 			fi
-		`, srcinfoPath, pkg, pkg, sudoPassword))
+		`, srcinfoPath, pkg, sudoPassword))
 
 	if err := a.runWithProgress(depsCmd, progressChan, PhaseAURPackages, startProgress+0.3*(endProgress-startProgress), startProgress+0.35*(endProgress-startProgress)); err != nil {
 		return fmt.Errorf("FAILED to install runtime dependencies for %s: %w", pkg, err)
@@ -607,13 +641,7 @@ func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sud
 		CommandInfo: "makepkg --noconfirm",
 	}
 
-	var buildArgs []string
-	if pkg == "dms-shell-git" {
-		buildArgs = []string{"--noconfirm", "--nodeps"}
-	} else {
-		buildArgs = []string{"--noconfirm"}
-	}
-	buildCmd := exec.CommandContext(ctx, "makepkg", buildArgs...)
+	buildCmd := exec.CommandContext(ctx, "makepkg", "--noconfirm")
 	buildCmd.Dir = packageDir
 	buildCmd.Env = append(os.Environ(), "PKGEXT=.pkg.tar") // Disable compression for speed
 
@@ -636,16 +664,10 @@ func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sud
 		return fmt.Errorf("no package files found after building %s", pkg)
 	}
 
-	var installArgs []string
-	if pkg == "dms-shell-git" {
-		installArgs = []string{"pacman", "-U", "--noconfirm", "--nodeps"}
-	} else {
-		installArgs = []string{"pacman", "-U", "--noconfirm"}
-	}
+	installArgs := []string{"pacman", "-U", "--noconfirm"}
 	installArgs = append(installArgs, files...)
 
 	cmdStr := fmt.Sprintf("echo '%s' | sudo -S %s", sudoPassword, strings.Join(installArgs, " "))
-	a.log(fmt.Sprintf("DEBUG: Running install command for %s: %s", pkg, strings.Join(installArgs, " ")))
 	installCmd := exec.CommandContext(ctx, "bash", "-c", cmdStr)
 
 	if err := a.runWithProgress(installCmd, progressChan, PhaseAURPackages, startProgress+0.7*(endProgress-startProgress), endProgress); err != nil {
