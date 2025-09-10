@@ -550,6 +550,13 @@ func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sud
 		}
 	}
 
+	// Remove all optdepends from .SRCINFO for all packages
+	srcinfoPath := filepath.Join(packageDir, ".SRCINFO")
+	optdepsCmd := exec.CommandContext(ctx, "sed", "-i", "/^[[:space:]]*optdepends = /d", srcinfoPath)
+	if err := optdepsCmd.Run(); err != nil {
+		return fmt.Errorf("failed to remove optdepends from .SRCINFO for %s: %w", pkg, err)
+	}
+
 	// Pre-install dependencies from .SRCINFO
 	progressChan <- InstallProgressMsg{
 		Phase:       PhaseAURPackages,
