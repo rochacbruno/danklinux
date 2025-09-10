@@ -155,7 +155,7 @@ func (a *ArchDistribution) GetPackageMappingWithVariants(wm deps.WindowManager, 
 		"wl-clipboard":            {Name: "wl-clipboard", Repository: RepoTypeSystem},
 		"xdg-desktop-portal-gtk":  {Name: "xdg-desktop-portal-gtk", Repository: RepoTypeSystem},
 		"mate-polkit":             {Name: "mate-polkit", Repository: RepoTypeSystem},
-		"font-material-symbols":   {Name: "font-material-symbols", Repository: RepoTypeManual, BuildFunc: "installMaterialSymbolsFont"},
+		"font-material-symbols":   {Name: "ttf-material-symbols-variable-git", Repository: RepoTypeAUR},
 		"font-firacode":           {Name: "ttf-fira-code", Repository: RepoTypeSystem},
 		"font-inter":              {Name: "inter-font", Repository: RepoTypeSystem},
 	}
@@ -493,7 +493,7 @@ func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sud
 	if err != nil {
 		return fmt.Errorf("failed to get user home directory: %w", err)
 	}
-	
+
 	buildDir := filepath.Join(homeDir, ".cache", "dankinstall", "aur-builds", pkg)
 	if err := os.MkdirAll(buildDir, 0755); err != nil {
 		return fmt.Errorf("failed to create build directory: %w", err)
@@ -545,18 +545,21 @@ func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sud
 
 	// Install dependencies and makedepends explicitly
 	srcinfoPath := filepath.Join(packageDir, ".SRCINFO")
-	
+
 	depsCmd := exec.CommandContext(ctx, "bash", "-c",
 		fmt.Sprintf(`
 			deps=$(grep "depends = " "%s" | grep -v "makedepends" | sed 's/.*depends = //' | tr '\n' ' ' | sed 's/[[:space:]]*$//')
 			if [[ "%s" == *"quickshell"* ]]; then
 				deps=$(echo "$deps" | sed 's/google-breakpad//g' | sed 's/  / /g' | sed 's/^ *//g' | sed 's/ *$//g')
 			fi
+			if [[ "%s" == *"dms-shell-git"* ]]; then
+				deps=""
+			fi
 			if [ ! -z "$deps" ] && [ "$deps" != " " ]; then
 				echo '%s' | sudo -S pacman -S --needed --noconfirm $deps
 			fi
-		`, srcinfoPath, pkg, sudoPassword))
-	
+		`, srcinfoPath, pkg, pkg, sudoPassword))
+
 	if err := a.runWithProgress(depsCmd, progressChan, PhaseAURPackages, startProgress+0.3*(endProgress-startProgress), startProgress+0.35*(endProgress-startProgress)); err != nil {
 		return fmt.Errorf("FAILED to install runtime dependencies for %s: %w", pkg, err)
 	}
@@ -572,7 +575,6 @@ func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sud
 	if err := a.runWithProgress(makedepsCmd, progressChan, PhaseAURPackages, startProgress+0.35*(endProgress-startProgress), startProgress+0.4*(endProgress-startProgress)); err != nil {
 		return fmt.Errorf("FAILED to install make dependencies for %s: %w", pkg, err)
 	}
-
 
 	progressChan <- InstallProgressMsg{
 		Phase:       PhaseAURPackages,
@@ -618,4 +620,3 @@ func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sud
 	a.log(fmt.Sprintf("Successfully installed AUR package: %s", pkg))
 	return nil
 }
-
