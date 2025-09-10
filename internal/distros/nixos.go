@@ -264,7 +264,7 @@ func (n *NixOSDistribution) GetPackageMapping(wm deps.WindowManager) map[string]
 		packages["jq"] = PackageMapping{Name: "nixpkgs#jq", Repository: RepoTypeSystem}
 	case deps.WindowManagerNiri:
 		// Skip niri itself - should be installed system-wide
-		packages["xwayland-satellite"] = PackageMapping{Name: "github:Supreeeme/xwayland-satellite", Repository: RepoTypeFlake}
+		packages["xwayland-satellite"] = PackageMapping{Name: "nixpkgs#xwayland-satellite", Repository: RepoTypeFlake}
 	}
 
 	return packages
