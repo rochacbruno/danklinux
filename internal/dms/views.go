@@ -153,37 +153,6 @@ func (m Model) renderUpdateView() string {
 	return b.String()
 }
 
-func (m Model) renderInstallWMView() string {
-	var b strings.Builder
-
-	b.WriteString(m.renderBanner())
-	b.WriteString("\n")
-
-	headerStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#FFFFFF")).
-		Bold(true).
-		MarginBottom(1)
-
-	b.WriteString(headerStyle.Render("Installing Window Manager..."))
-	b.WriteString("\n\n")
-
-	normalStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#FFFFFF"))
-
-	b.WriteString(normalStyle.Render("Installation in progress..."))
-	b.WriteString("\n")
-	b.WriteString(normalStyle.Render("This will install the selected window manager and its dependencies."))
-	b.WriteString("\n\n")
-
-	instructionStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#888888")).
-		MarginTop(1)
-
-	instructions := "Please wait... Press Esc to cancel"
-	b.WriteString(instructionStyle.Render(instructions))
-
-	return b.String()
-}
 
 func (m Model) renderShellView() string {
 	var b strings.Builder

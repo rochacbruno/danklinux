@@ -11,7 +11,6 @@ type AppState int
 const (
 	StateMainMenu AppState = iota
 	StateUpdate
-	StateInstallWM
 	StateShell
 	StateAbout
 )
@@ -90,14 +89,6 @@ func (m *Model) buildMenuItems() []MenuItem {
 		items = append(items, MenuItem{Label: "Start Shell (Daemon)", Action: StateShell})
 	}
 
-	// Window manager installation
-	if !m.niriInstalled {
-		items = append(items, MenuItem{Label: "Install Niri", Action: StateInstallWM})
-	}
-
-	if !m.hyprlandInstalled {
-		items = append(items, MenuItem{Label: "Install Hyprland", Action: StateInstallWM})
-	}
 
 	items = append(items, MenuItem{Label: "About", Action: StateAbout})
 
@@ -125,8 +116,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateMainMenu(msg)
 		case StateUpdate:
 			return m.updateUpdateView(msg)
-		case StateInstallWM:
-			return m.updateInstallWMView(msg)
 		case StateShell:
 			return m.updateShellView(msg)
 		case StateAbout:
@@ -143,8 +132,6 @@ func (m Model) View() string {
 		return m.renderMainMenu()
 	case StateUpdate:
 		return m.renderUpdateView()
-	case StateInstallWM:
-		return m.renderInstallWMView()
 	case StateShell:
 		return m.renderShellView()
 	case StateAbout:

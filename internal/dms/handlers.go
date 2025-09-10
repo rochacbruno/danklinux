@@ -27,15 +27,6 @@ func (m Model) updateMainMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			case StateUpdate:
 				m.state = StateUpdate
 				m.selectedUpdateDep = 0
-			case StateInstallWM:
-				// Handle window manager installation based on label
-				if selectedLabel == "Install Niri" {
-					m.state = StateInstallWM
-					// TODO: Set flag to install Niri
-				} else if selectedLabel == "Install Hyprland" {
-					m.state = StateInstallWM
-					// TODO: Set flag to install Hyprland
-				}
 			case StateShell:
 				// Handle shell management based on label
 				if selectedLabel == "Terminate Shell" {
@@ -89,18 +80,6 @@ func (m Model) updateUpdateView(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m Model) updateInstallWMView(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
-	case "ctrl+c", "q":
-		return m, tea.Quit
-	case "esc":
-		m.state = StateMainMenu
-	default:
-		// TODO: Handle installation progress or return to menu when done
-		m.state = StateMainMenu
-	}
-	return m, nil
-}
 
 func (m Model) updateShellView(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {

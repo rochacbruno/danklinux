@@ -534,6 +534,22 @@ func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sud
 		}
 	}
 
+	if pkg == "dms-shell-git" {
+		srcinfoPath := filepath.Join(packageDir, ".SRCINFO")
+		depsToRemove := []string{
+			"depends = quickshell",
+			"depends = dgop",
+			"depends = ttf-material-symbols-variable-git",
+		}
+		
+		for _, dep := range depsToRemove {
+			sedCmd := exec.CommandContext(ctx, "sed", "-i", fmt.Sprintf("/%s/d", dep), srcinfoPath)
+			if err := sedCmd.Run(); err != nil {
+				return fmt.Errorf("failed to remove dependency %s from .SRCINFO for dms-shell-git: %w", dep, err)
+			}
+		}
+	}
+
 	// Pre-install dependencies from .SRCINFO
 	progressChan <- InstallProgressMsg{
 		Phase:       PhaseAURPackages,
@@ -552,13 +568,10 @@ func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sud
 			if [[ "%s" == *"quickshell"* ]]; then
 				deps=$(echo "$deps" | sed 's/google-breakpad//g' | sed 's/  / /g' | sed 's/^ *//g' | sed 's/ *$//g')
 			fi
-			if [[ "%s" == *"dms-shell-git"* ]]; then
-				deps=""
-			fi
 			if [ ! -z "$deps" ] && [ "$deps" != " " ]; then
 				echo '%s' | sudo -S pacman -S --needed --noconfirm $deps
 			fi
-		`, srcinfoPath, pkg, pkg, sudoPassword))
+		`, srcinfoPath, pkg, sudoPassword))
 
 	if err := a.runWithProgress(depsCmd, progressChan, PhaseAURPackages, startProgress+0.3*(endProgress-startProgress), startProgress+0.35*(endProgress-startProgress)); err != nil {
 		return fmt.Errorf("FAILED to install runtime dependencies for %s: %w", pkg, err)
