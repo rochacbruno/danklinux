@@ -541,7 +541,7 @@ func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sud
 			"depends = dgop",
 			"depends = ttf-material-symbols-variable-git",
 		}
-		
+
 		for _, dep := range depsToRemove {
 			sedCmd := exec.CommandContext(ctx, "sed", "-i", fmt.Sprintf("/%s/d", dep), srcinfoPath)
 			if err := sedCmd.Run(); err != nil {
@@ -567,7 +567,7 @@ func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sud
 	}
 
 	// Install dependencies and makedepends explicitly
-	srcinfoPath := filepath.Join(packageDir, ".SRCINFO")
+	srcinfoPath = filepath.Join(packageDir, ".SRCINFO")
 
 	depsCmd := exec.CommandContext(ctx, "bash", "-c",
 		fmt.Sprintf(`
