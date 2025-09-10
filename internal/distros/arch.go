@@ -607,7 +607,13 @@ func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sud
 		CommandInfo: "makepkg --noconfirm",
 	}
 
-	buildCmd := exec.CommandContext(ctx, "makepkg", "--noconfirm")
+	var buildArgs []string
+	if pkg == "dms-shell-git" {
+		buildArgs = []string{"--noconfirm", "--nodeps"}
+	} else {
+		buildArgs = []string{"--noconfirm"}
+	}
+	buildCmd := exec.CommandContext(ctx, "makepkg", buildArgs...)
 	buildCmd.Dir = packageDir
 	buildCmd.Env = append(os.Environ(), "PKGEXT=.pkg.tar") // Disable compression for speed
 
