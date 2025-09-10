@@ -23,7 +23,7 @@ A comprehensive installer and management tool for DankMaterialShell, a modern de
 
 ```bash
 curl -fsSL https://install.danklinux.com | sh
-```u
+```
 
 *Alternatively, download the latest [release](https://github.com/AvengeMedia/danklinux/releases)*
 
