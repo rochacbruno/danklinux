@@ -155,7 +155,7 @@ func (a *ArchDistribution) GetPackageMappingWithVariants(wm deps.WindowManager, 
 		"wl-clipboard":            {Name: "wl-clipboard", Repository: RepoTypeSystem},
 		"xdg-desktop-portal-gtk":  {Name: "xdg-desktop-portal-gtk", Repository: RepoTypeSystem},
 		"mate-polkit":             {Name: "mate-polkit", Repository: RepoTypeSystem},
-		"font-material-symbols":   {Name: "ttf-material-symbols-variable-git", Repository: RepoTypeAUR},
+		"font-material-symbols":   {Name: "material-symbols-git", Repository: RepoTypeAUR},
 		"font-firacode":           {Name: "ttf-fira-code", Repository: RepoTypeSystem},
 		"font-inter":              {Name: "inter-font", Repository: RepoTypeSystem},
 	}
@@ -494,11 +494,11 @@ func (a *ArchDistribution) installAURPackages(ctx context.Context, packages []st
 func (a *ArchDistribution) reorderAURPackages(packages []string) []string {
 	// Dependencies for dms-shell-git that need to be installed first
 	dmsDepencies := []string{"quickshell", "quickshell-git", "dgop", "ttf-material-symbols-variable-git"}
-	
+
 	var deps []string
 	var others []string
 	var dmsShell []string
-	
+
 	for _, pkg := range packages {
 		if pkg == "dms-shell-git" {
 			dmsShell = append(dmsShell, pkg)
@@ -516,7 +516,7 @@ func (a *ArchDistribution) reorderAURPackages(packages []string) []string {
 			}
 		}
 	}
-	
+
 	// Order: dependencies first, then other packages, then dms-shell-git last
 	result := append(deps, others...)
 	result = append(result, dmsShell...)
@@ -574,10 +574,10 @@ func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sud
 		srcinfoPath := filepath.Join(packageDir, ".SRCINFO")
 		depsToRemove := []string{
 			"depends = quickshell",
-			"depends = dgop", 
+			"depends = dgop",
 			"depends = ttf-material-symbols-variable-git",
 		}
-		
+
 		for _, dep := range depsToRemove {
 			sedCmd := exec.CommandContext(ctx, "sed", "-i", fmt.Sprintf("/%s/d", dep), srcinfoPath)
 			if err := sedCmd.Run(); err != nil {
@@ -592,7 +592,6 @@ func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sud
 	if err := optdepsCmd.Run(); err != nil {
 		return fmt.Errorf("failed to remove optdepends from .SRCINFO for %s: %w", pkg, err)
 	}
-
 
 	// Pre-install dependencies from .SRCINFO
 	progressChan <- InstallProgressMsg{
