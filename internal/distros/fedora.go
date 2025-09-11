@@ -209,6 +209,7 @@ func (f *FedoraDistribution) getPrerequisites() []string {
 	return []string{
 		"dnf-plugins-core",
 		"make",
+		"unzip",
 	}
 }
 
