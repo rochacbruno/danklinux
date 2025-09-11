@@ -41,7 +41,7 @@ curl -fsSL https://install.danklinux.com | sh
 - Uses native `pacman` for system packages
 - AUR packages are built manually using `makepkg` (no AUR helper dependency)
 - **Recommendations**
-  - Use NetworkManager to manager networking
+  - Use NetworkManager to manage networking
   - If using archinstall, you can choose `minimal` for profile, and `NetworkManager` under networking.
 
 **Package Sources:**
@@ -51,7 +51,7 @@ curl -fsSL https://install.danklinux.com | sh
 | quickshell | AUR | Built from source |
 | matugen | AUR (`matugen-bin`) | Pre-compiled binary |
 | dgop | AUR | Built from source |
-| niri | AUR (`niri-git`) | Git development version |
+| niri | Official repos (`niri`) | Latest niri |
 | hyprland | Official repos | Available in Extra repository |
 | DankMaterialShell | Manual | Git clone to `~/.config/quickshell/dms` |
 
@@ -76,7 +76,7 @@ curl -fsSL https://install.danklinux.com | sh
 | cliphist | COPR | `alternateved/cliphist` |
 | ghostty | COPR | `alternateved/ghostty` |
 | hyprland | COPR | `solopasha/hyprland` |
-| niri | COPR | `yalter/niri-git` (priority=1) |
+| niri | COPR | `yalter/niri` |
 | DankMaterialShell | Manual | Git clone to `~/.config/quickshell/dms` |
 
 ### Ubuntu
@@ -106,7 +106,8 @@ curl -fsSL https://install.danklinux.com | sh
 
 ### NixOS (Not Currently Support)
 
-**NixOS is not supported due to ongoing work in the DMS flake, it will be re-enabled in the future.**
+**NixOS is not supported atm due to the flake needing some adjustments for defaults/Hyprland, it will be re-enabled in the future.**
+**You can install the [dms](https://github.com/AvengeMedia/DankMaterialShell) flake manually still and get most of what you need for this setup**
 
 ~~**Supported:** NixOS~~
 
