@@ -296,7 +296,7 @@ func (m *ManualPackageInstaller) installInterFont(ctx context.Context, progressC
 		CommandInfo: "unzip InterVariable.ttf InterVariable-Italic.ttf",
 	}
 
-	extractCmd := exec.CommandContext(ctx, "unzip", "-j", zipPath, "InterVariable.ttf", "InterVariable-Italic.ttf", "-d", fontsDir)
+	extractCmd := exec.CommandContext(ctx, "unzip", "-j", "-o", zipPath, "InterVariable.ttf", "InterVariable-Italic.ttf", "-d", fontsDir)
 	if err := extractCmd.Run(); err != nil {
 		m.logError("failed to extract Inter font files", err)
 		return fmt.Errorf("failed to extract Inter font files: %w", err)
