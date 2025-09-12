@@ -71,7 +71,7 @@ curl -fsSL https://install.danklinux.com | sh
 |---------|---------|-------|
 | System packages | Official repos | Via `dnf` |
 | quickshell | COPR | `errornointernet/quickshell` |
-| matugen | COPR | `heus-sueh/packages` |
+| matugen | COPR | `solopasha/hyprland` |
 | dgop | Manual | Built from source with Go |
 | cliphist | COPR | `alternateved/cliphist` |
 | ghostty | COPR | `alternateved/ghostty` |

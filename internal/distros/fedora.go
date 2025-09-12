@@ -16,6 +16,9 @@ func init() {
 	Register("nobara", "#0B57A4", func(config DistroConfig, logChan chan<- string) Distribution {
 		return NewFedoraDistribution(config, logChan)
 	})
+	Register("fedora-asahi-remix", "#0B57A4", func(config DistroConfig, logChan chan<- string) Distribution {
+		return NewFedoraDistribution(config, logChan)
+	})
 }
 
 type FedoraDistribution struct {
@@ -136,7 +139,7 @@ func (f *FedoraDistribution) GetPackageMappingWithVariants(wm deps.WindowManager
 
 		// COPR packages
 		"quickshell": f.getQuickshellMapping(variants["quickshell"]),
-		"matugen":    {Name: "matugen", Repository: RepoTypeCOPR, RepoURL: "heus-sueh/packages"},
+		"matugen":    {Name: "matugen", Repository: RepoTypeCOPR, RepoURL: "solopasha/hyprland"},
 		"cliphist":   {Name: "cliphist", Repository: RepoTypeCOPR, RepoURL: "alternateved/cliphist"},
 
 		// Manual builds
