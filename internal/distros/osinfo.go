@@ -83,7 +83,7 @@ func GetOSInfo() (*OSInfo, error) {
 // IsUnsupportedDistro checks if a distribution/version combination is supported
 func IsUnsupportedDistro(distroID, versionID string) bool {
 	switch distroID {
-	case "arch", "cachyos", "endeavouros", "manjaro", "fedora", "nobara":
+	case "arch", "cachyos", "endeavouros", "manjaro", "fedora", "fedora-asahi-remix", "nobara":
 		return false // These are supported
 	case "ubuntu":
 		parts := strings.Split(versionID, ".")
