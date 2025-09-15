@@ -141,10 +141,11 @@ bind = $mod, space, exec, dms ipc call spotlight toggle
 bind = $mod, V, exec, dms ipc call clipboard toggle
 bind = $mod, M, exec, dms ipc call processlist toggle
 bind = $mod, comma, exec, dms ipc call settings toggle
-bind = SUPER, N, exec, dms ipc call notifications toggle
+bind = $mod, N, exec, dms ipc call notifications toggle
+bind = $mod, SHIFT, N, exec, dms ipc call notepad toggle
 
 # === Security ===
-bind = SUPER ALT, L, exec, dms ipc call lock lock
+bind = $mod ALT, L, exec, dms ipc call lock lock
 bind = $mod SHIFT, E, exit
 bind = CTRL ALT, Delete, exec, dms ipc call processlist toggle
 
