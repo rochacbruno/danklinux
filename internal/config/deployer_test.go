@@ -478,12 +478,11 @@ general {
 
 func TestNiriConfigStructure(t *testing.T) {
 	// Verify the embedded Niri config has expected sections
-	assert.Contains(t, NiriConfig, "cursor {")
 	assert.Contains(t, NiriConfig, "input {")
 	assert.Contains(t, NiriConfig, "layout {")
 	assert.Contains(t, NiriConfig, "binds {")
 	assert.Contains(t, NiriConfig, "{{POLKIT_AGENT_PATH}}")
-	assert.Contains(t, NiriConfig, `spawn "ghostty"`)
+	assert.Contains(t, NiriConfig, `spawn "{{TERMINAL_COMMAND}}"`)
 }
 
 func TestHyprlandConfigStructure(t *testing.T) {
@@ -495,9 +494,9 @@ func TestHyprlandConfigStructure(t *testing.T) {
 	assert.Contains(t, HyprlandConfig, "# KEYBINDINGS")
 	assert.Contains(t, HyprlandConfig, "{{POLKIT_AGENT_PATH}}")
 	assert.Contains(t, HyprlandConfig, "{{TERMINAL_COMMAND}}")
-	assert.Contains(t, HyprlandConfig, "exec-once = qs -c dms")
+	assert.Contains(t, HyprlandConfig, "exec-once = dms run")
 	assert.Contains(t, HyprlandConfig, "bind = $mod, T, exec,")
-	assert.Contains(t, HyprlandConfig, "bind = $mod, space, exec, qs -c dms ipc call spotlight toggle")
+	assert.Contains(t, HyprlandConfig, "bind = $mod, space, exec, dms ipc call spotlight toggle")
 	assert.Contains(t, HyprlandConfig, "windowrulev2 = noborder, class:^(com\\.mitchellh\\.ghostty)$")
 }
 

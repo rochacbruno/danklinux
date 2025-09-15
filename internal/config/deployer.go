@@ -155,8 +155,8 @@ func (cd *ConfigDeployer) deployNiriConfig(ctx context.Context, terminal deps.Te
 		terminalCommand = "ghostty" // fallback to ghostty
 	}
 
-	newConfig := strings.Replace(NiriConfig, "{{POLKIT_AGENT_PATH}}", polkitPath, 1)
-	newConfig = strings.Replace(newConfig, "{{TERMINAL_COMMAND}}", terminalCommand, 1)
+	newConfig := strings.ReplaceAll(NiriConfig, "{{POLKIT_AGENT_PATH}}", polkitPath)
+	newConfig = strings.ReplaceAll(newConfig, "{{TERMINAL_COMMAND}}", terminalCommand)
 
 	// If there was an existing config, merge the output sections
 	if existingConfig != "" {
@@ -377,8 +377,8 @@ func (cd *ConfigDeployer) deployHyprlandConfig(ctx context.Context, terminal dep
 		terminalCommand = "ghostty" // fallback to ghostty
 	}
 
-	newConfig := strings.Replace(HyprlandConfig, "{{POLKIT_AGENT_PATH}}", polkitPath, 1)
-	newConfig = strings.Replace(newConfig, "{{TERMINAL_COMMAND}}", terminalCommand, 1)
+	newConfig := strings.ReplaceAll(HyprlandConfig, "{{POLKIT_AGENT_PATH}}", polkitPath)
+	newConfig = strings.ReplaceAll(newConfig, "{{TERMINAL_COMMAND}}", terminalCommand)
 
 	// If there was an existing config, merge the monitor sections
 	if existingConfig != "" {
