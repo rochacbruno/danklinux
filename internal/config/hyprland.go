@@ -262,6 +262,14 @@ bind = $mod, bracketright, layoutmsg, preselect r
 bind = $mod, R, layoutmsg, togglesplit
 bind = $mod CTRL, F, resizeactive, exact 100%
 
+# === Move/resize windows with mainMod + LMB/RMB and dragging ===
+bindmd = $mod, mouse:272, Move window, movewindow
+bindmd = $mod, mouse:273, Resize window, resizewindow
+
+# === Move/resize windows with mainMod + LMB/RMB and dragging ===
+bindd = $mod, code:20, Expand window left, resizeactive, -100 0
+bindd = $mod, code:21, Shrink window left, resizeactive, 100 0
+
 # === Manual Sizing ===
 binde = $mod, minus, resizeactive, -10% 0
 binde = $mod, equal, resizeactive, 10% 0
