@@ -216,7 +216,7 @@ window-rule {
 }
 binds {
     // === System & Overview ===
-    Super+D { spawn "niri" "msg" "action" "toggle-overview"; }
+    Mod+D { spawn "niri" "msg" "action" "toggle-overview"; }
     Mod+O repeat=false { toggle-overview; }
     Mod+Shift+Slash { show-hotkey-overlay; }
     
@@ -234,10 +234,11 @@ binds {
     Mod+Comma hotkey-overlay-title="Settings" { 
         spawn "dms" "ipc" "call" "settings" "toggle"; 
     }
-    Super+N hotkey-overlay-title="Notification Center" { spawn "dms" "ipc" "call" "notifications" "toggle"; }
+    Mod+N hotkey-overlay-title="Notification Center" { spawn "dms" "ipc" "call" "notifications" "toggle"; }
+    Mod+Shift+N hotkey-overlay-title="Notepad" { spawn "dms" "ipc" "call" "notepad" "toggle"; }
     
     // === Security ===
-    Super+Alt+L hotkey-overlay-title="Lock Screen" { 
+    Mod+Alt+L hotkey-overlay-title="Lock Screen" { 
         spawn "dms" "ipc" "call" "lock" "lock"; 
     }
     Mod+Shift+E { quit; }
