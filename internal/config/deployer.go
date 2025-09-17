@@ -262,19 +262,32 @@ func (cd *ConfigDeployer) deployKittyConfig(ctx context.Context) (DeploymentResu
 }
 
 // detectPolkitAgent tries to find the polkit authentication agent on the system
+// Prioritizes mate-polkit paths since that's what we install
 func (cd *ConfigDeployer) detectPolkitAgent() (string, error) {
-	possiblePaths := []string{
+	// Prioritize mate-polkit paths first
+	matePaths := []string{
 		"/usr/lib/mate-polkit/polkit-mate-authentication-agent-1",
 		"/usr/libexec/mate-polkit/polkit-mate-authentication-agent-1",
 		"/usr/lib/polkit-mate/polkit-mate-authentication-agent-1",
 		"/usr/lib/x86_64-linux-gnu/mate-polkit/polkit-mate-authentication-agent-1",
+	}
+
+	for _, path := range matePaths {
+		if _, err := os.Stat(path); err == nil {
+			cd.log(fmt.Sprintf("Found mate-polkit agent at: %s", path))
+			return path, nil
+		}
+	}
+
+	// Fallback to other polkit agents if mate-polkit is not found
+	fallbackPaths := []string{
 		"/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1",
 		"/usr/libexec/polkit-gnome-authentication-agent-1",
 	}
 
-	for _, path := range possiblePaths {
+	for _, path := range fallbackPaths {
 		if _, err := os.Stat(path); err == nil {
-			cd.log(fmt.Sprintf("Found polkit agent at: %s", path))
+			cd.log(fmt.Sprintf("Found fallback polkit agent at: %s", path))
 			return path, nil
 		}
 	}

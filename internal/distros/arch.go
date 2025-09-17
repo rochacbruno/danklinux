@@ -107,26 +107,14 @@ func (a *ArchDistribution) detectXDGPortal() deps.Dependency {
 }
 
 func (a *ArchDistribution) detectPolkitAgent() deps.Dependency {
-	polkitPaths := []string{
-		"/usr/lib/mate-polkit/polkit-mate-authentication-agent-1",
-		"/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1",
-		"/usr/lib/polkit-kde-authentication-agent-1",
-	}
-
-	for _, path := range polkitPaths {
-		if _, err := os.Stat(path); err == nil {
-			return deps.Dependency{
-				Name:        "polkit-agent",
-				Status:      deps.StatusInstalled,
-				Description: "PolicyKit authentication agent",
-				Required:    true,
-			}
-		}
+	status := deps.StatusMissing
+	if a.packageInstalled("mate-polkit") {
+		status = deps.StatusInstalled
 	}
 
 	return deps.Dependency{
 		Name:        "mate-polkit",
-		Status:      deps.StatusMissing,
+		Status:      status,
 		Description: "PolicyKit authentication agent",
 		Required:    true,
 	}

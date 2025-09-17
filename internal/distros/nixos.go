@@ -208,18 +208,14 @@ func (n *NixOSDistribution) detectXwaylandSatellite() deps.Dependency {
 }
 
 func (n *NixOSDistribution) detectPolkitAgent() deps.Dependency {
+	status := deps.StatusMissing
 	if n.packageInstalled("mate-polkit") {
-		return deps.Dependency{
-			Name:        "polkit-agent",
-			Status:      deps.StatusInstalled,
-			Description: "PolicyKit authentication agent",
-			Required:    true,
-		}
+		status = deps.StatusInstalled
 	}
 
 	return deps.Dependency{
 		Name:        "mate-polkit",
-		Status:      deps.StatusMissing,
+		Status:      status,
 		Description: "PolicyKit authentication agent",
 		Required:    true,
 	}
