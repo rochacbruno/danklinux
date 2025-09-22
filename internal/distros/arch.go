@@ -15,6 +15,9 @@ func init() {
 	Register("arch", "#1793D1", func(config DistroConfig, logChan chan<- string) Distribution {
 		return NewArchDistribution(config, logChan)
 	})
+	Register("archcraft", "#1793D1", func(config DistroConfig, logChan chan<- string) Distribution {
+		return NewArchDistribution(config, logChan)
+	})
 	Register("cachyos", "#08A283", func(config DistroConfig, logChan chan<- string) Distribution {
 		return NewArchDistribution(config, logChan)
 	})
@@ -518,12 +521,12 @@ func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sud
 	}
 
 	buildDir := filepath.Join(homeDir, ".cache", "dankinstall", "aur-builds", pkg)
-	
+
 	// Clean up any existing cache first
 	if err := os.RemoveAll(buildDir); err != nil {
 		a.log(fmt.Sprintf("Warning: failed to clean existing cache for %s: %v", pkg, err))
 	}
-	
+
 	if err := os.MkdirAll(buildDir, 0755); err != nil {
 		return fmt.Errorf("failed to create build directory: %w", err)
 	}

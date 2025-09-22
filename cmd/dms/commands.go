@@ -82,8 +82,12 @@ var updateCmd = &cobra.Command{
 
 func runInteractiveMode(cmd *cobra.Command, args []string) {
 	detector, err := dms.NewDetector()
-	if err != nil {
+	if err != nil && !errors.Is(err, &distros.UnsupportedDistributionError{}) {
 		fmt.Printf("Error initializing DMS detector: %v\n", err)
+		os.Exit(1)
+	} else if (errors.Is(err, &distros.UnsupportedDistributionError{})) {
+		fmt.Println("Interactive mode is not supported on this distribution.")
+		fmt.Println("Please run 'dms --help' for available commands.")
 		os.Exit(1)
 	}
 
