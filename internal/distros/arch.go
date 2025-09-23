@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/AvengeMedia/dankinstall/internal/deps"
@@ -138,7 +139,7 @@ func (a *ArchDistribution) GetPackageMappingWithVariants(wm deps.WindowManager, 
 		"dms (DankMaterialShell)": {Name: "dms-shell-git", Repository: RepoTypeAUR},
 		"git":                     {Name: "git", Repository: RepoTypeSystem},
 		"quickshell":              a.getQuickshellMapping(variants["quickshell"]),
-		"matugen":                 {Name: "matugen-bin", Repository: RepoTypeAUR},
+		"matugen":                 a.getMatugenMapping(variants["matugen"]),
 		"dgop":                    {Name: "dgop", Repository: RepoTypeAUR},
 		"ghostty":                 {Name: "ghostty", Repository: RepoTypeSystem},
 		"alacritty":               {Name: "alacritty", Repository: RepoTypeSystem},
@@ -187,6 +188,19 @@ func (a *ArchDistribution) getNiriMapping(variant deps.PackageVariant) PackageMa
 		return PackageMapping{Name: "niri-git", Repository: RepoTypeAUR}
 	}
 	return PackageMapping{Name: "niri", Repository: RepoTypeSystem}
+}
+
+func (a *ArchDistribution) getMatugenMapping(variant deps.PackageVariant) PackageMapping {
+	// Force git variant on ARM64 architecture
+	if runtime.GOARCH == "arm64" {
+		return PackageMapping{Name: "matugen-git", Repository: RepoTypeAUR}
+	}
+
+	// Use variant selection for other architectures
+	if variant == deps.VariantGit {
+		return PackageMapping{Name: "matugen-git", Repository: RepoTypeAUR}
+	}
+	return PackageMapping{Name: "matugen-bin", Repository: RepoTypeAUR}
 }
 
 func (a *ArchDistribution) detectXwaylandSatellite() deps.Dependency {
@@ -415,20 +429,18 @@ func (a *ArchDistribution) installAURPackages(ctx context.Context, packages []st
 		}
 	}
 
-	// If quickshell is in the list, install google-breakpad first if not already installed
+	// If quickshell is in the list, always reinstall google-breakpad first
 	if hasQuickshell {
-		if !a.packageInstalled("google-breakpad") {
-			progressChan <- InstallProgressMsg{
-				Phase:       PhaseAURPackages,
-				Progress:    0.63,
-				Step:        "Installing google-breakpad for quickshell...",
-				IsComplete:  false,
-				CommandInfo: "Installing prerequisite AUR package for quickshell",
-			}
+		progressChan <- InstallProgressMsg{
+			Phase:       PhaseAURPackages,
+			Progress:    0.63,
+			Step:        "Reinstalling google-breakpad for quickshell...",
+			IsComplete:  false,
+			CommandInfo: "Reinstalling prerequisite AUR package for quickshell",
+		}
 
-			if err := a.installSingleAURPackage(ctx, "google-breakpad", sudoPassword, progressChan, 0.63, 0.65); err != nil {
-				return fmt.Errorf("failed to install google-breakpad prerequisite for quickshell: %w", err)
-			}
+		if err := a.installSingleAURPackage(ctx, "google-breakpad", sudoPassword, progressChan, 0.63, 0.65); err != nil {
+			return fmt.Errorf("failed to reinstall google-breakpad prerequisite for quickshell: %w", err)
 		}
 	}
 
