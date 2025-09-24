@@ -25,7 +25,7 @@ copy-on-select = true
 confirm-close-surface = false
 
 # Disable annoying copied to clipboard
-app-notifications = no-clipboard-copy
+app-notifications = no-clipboard-copy,no-config-reload
 
 # Key bindings for common actions
 #keybind = ctrl+c=copy_to_clipboard
