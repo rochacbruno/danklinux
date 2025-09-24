@@ -24,6 +24,9 @@ mouse-hide-while-typing = true
 copy-on-select = true
 confirm-close-surface = false
 
+# Disable annoying copied to clipboard
+app-notifications = no-clipboard-copy
+
 # Key bindings for common actions
 #keybind = ctrl+c=copy_to_clipboard
 #keybind = ctrl+v=paste_from_clipboard
