@@ -8,6 +8,13 @@ const NiriConfig = `// This config is in the KDL format: https://kdl.dev
 config-notification {
     disable-failed
 }
+
+gestures {
+    hot-corners {
+        off
+    }
+}
+
 // Input device configuration.
 // Find the full list of options on the wiki:
 // https://github.com/YaLTeR/niri/wiki/Configuration:-Input
