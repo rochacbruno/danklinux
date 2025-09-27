@@ -36,8 +36,8 @@ input {
 # GENERAL LAYOUT
 # ==================
 general {
-    gaps_in = 4
-    gaps_out = 4
+    gaps_in = 5
+    gaps_out = 5
     border_size = 0  # off in niri
     
     col.active_border = rgba(707070ff)
