@@ -119,12 +119,25 @@ func (m Model) validatePassword(password string) tea.Cmd {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		// Use a more reliable command that will definitely fail with wrong password
-		cmdStr := fmt.Sprintf("echo '%s' | sudo -S -v", password)
-		cmd := exec.CommandContext(ctx, "bash", "-c", cmdStr)
+		// Use a more reliable method that properly handles special characters
+		// Instead of using shell command with echo, we'll write directly to stdin
+		cmd := exec.CommandContext(ctx, "sudo", "-S", "-v")
+		
+		// Get stdin pipe and write password to it
+		stdin, err := cmd.StdinPipe()
+		if err != nil {
+			return passwordValidMsg{password: "", valid: false}
+		}
+		
+		// Write password followed by newline
+		go func() {
+			defer stdin.Close()
+			fmt.Fprintf(stdin, "%s\n", password)
+		}()
 
 		// Capture both stdout and stderr to see what's happening
 		output, err := cmd.CombinedOutput()
+		outputStr := string(output)
 
 		if err != nil {
 			if ctx.Err() == context.DeadlineExceeded {
@@ -132,7 +145,6 @@ func (m Model) validatePassword(password string) tea.Cmd {
 				return passwordValidMsg{password: "", valid: false}
 			}
 
-			outputStr := string(output)
 			if strings.Contains(outputStr, "Sorry, try again") ||
 				strings.Contains(outputStr, "incorrect password") ||
 				strings.Contains(outputStr, "authentication failure") {
