@@ -15,6 +15,10 @@ type Detector struct {
 	distribution distros.Distribution
 }
 
+func (d *Detector) GetDistribution() distros.Distribution {
+	return d.distribution
+}
+
 func NewDetector() (*Detector, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {

@@ -1,0 +1,108 @@
+BINARY_NAME=dms
+BINARY_NAME_INSTALL=dankinstall
+SOURCE_DIR=cmd/dms
+SOURCE_DIR_INSTALL=cmd/dankinstall
+BUILD_DIR=bin
+INSTALL_DIR=/usr/local/bin
+
+GO=go
+GOFLAGS=-ldflags="-s -w"
+
+# Version and build info
+VERSION=$(shell git describe --tags --always 2>/dev/null || echo "dev")
+BUILD_TIME=$(shell date -u '+%Y-%m-%d_%H:%M:%S')
+COMMIT=$(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+
+BUILD_LDFLAGS=-ldflags="-s -w -X main.Version=$(VERSION) -X main.buildTime=$(BUILD_TIME) -X main.commit=$(COMMIT)"
+
+.PHONY: all build dankinstall clean install uninstall test fmt vet deps help
+
+# Default target
+all: build
+
+# Build the main binary (dms)
+build:
+	@echo "Building $(BINARY_NAME)..."
+	@mkdir -p $(BUILD_DIR)
+	CGO_ENABLED=0 $(GO) build $(BUILD_LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) $(SOURCE_DIR)/*.go
+	@echo "Build complete: $(BUILD_DIR)/$(BINARY_NAME)"
+
+dankinstall:
+	@echo "Building $(BINARY_NAME_INSTALL)..."
+	@mkdir -p $(BUILD_DIR)
+	CGO_ENABLED=0 $(GO) build $(BUILD_LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME_INSTALL) $(SOURCE_DIR_INSTALL)/*.go
+	@echo "Build complete: $(BUILD_DIR)/$(BINARY_NAME_INSTALL)"
+
+build-all: build dankinstall
+
+install: build-all
+	@echo "Installing $(BINARY_NAME) to $(INSTALL_DIR)..."
+	@cp $(BUILD_DIR)/$(BINARY_NAME) $(INSTALL_DIR)/$(BINARY_NAME)
+	@chmod +x $(INSTALL_DIR)/$(BINARY_NAME)
+	@echo "Installing $(BINARY_NAME_INSTALL) to $(INSTALL_DIR)..."
+	@cp $(BUILD_DIR)/$(BINARY_NAME_INSTALL) $(INSTALL_DIR)/$(BINARY_NAME_INSTALL)
+	@chmod +x $(INSTALL_DIR)/$(BINARY_NAME_INSTALL)
+	@echo "Installation complete"
+
+uninstall:
+	@echo "Uninstalling $(BINARY_NAME) from $(INSTALL_DIR)..."
+	@rm -f $(INSTALL_DIR)/$(BINARY_NAME)
+	@echo "Uninstalling $(BINARY_NAME_INSTALL) from $(INSTALL_DIR)..."
+	@rm -f $(INSTALL_DIR)/$(BINARY_NAME_INSTALL)
+	@echo "Uninstall complete"
+
+clean:
+	@echo "Cleaning build artifacts..."
+	@rm -rf $(BUILD_DIR)
+	@echo "Clean complete"
+
+test:
+	@echo "Running tests..."
+	$(GO) test -v ./...
+
+fmt:
+	@echo "Formatting Go code..."
+	$(GO) fmt ./...
+
+vet:
+	@echo "Running go vet..."
+	$(GO) vet ./...
+
+deps:
+	@echo "Updating dependencies..."
+	$(GO) mod tidy
+	$(GO) mod download
+
+dev:
+	@echo "Building $(BINARY_NAME) for development..."
+	@mkdir -p $(BUILD_DIR)
+	$(GO) build -o $(BUILD_DIR)/$(BINARY_NAME) $(SOURCE_DIR)/*.go
+	@echo "Development build complete: $(BUILD_DIR)/$(BINARY_NAME)"
+
+check-go:
+	@echo "Checking Go version..."
+	@go version | grep -E "go1\.(2[2-9]|[3-9][0-9])" > /dev/null || (echo "ERROR: Go 1.22 or higher required" && exit 1)
+	@echo "Go version OK"
+
+version: check-go
+	@echo "Version: $(VERSION)"
+	@echo "Build Time: $(BUILD_TIME)"
+	@echo "Commit: $(COMMIT)"
+
+help:
+	@echo "Available targets:"
+	@echo "  all        - Build the main binary (dms) (default)"
+	@echo "  build      - Build the main binary (dms)"
+	@echo "  dankinstall - Build dankinstall binary"
+	@echo "  build-all  - Build both binaries"
+	@echo "  install    - Install both binaries to $(INSTALL_DIR)"
+	@echo "  uninstall  - Remove binaries from $(INSTALL_DIR)"
+	@echo "  clean      - Clean build artifacts"
+	@echo "  test       - Run tests"
+	@echo "  fmt        - Format Go code"
+	@echo "  vet        - Run go vet"
+	@echo "  deps       - Update dependencies"
+	@echo "  dev        - Build with debug info"
+	@echo "  check-go   - Check Go version compatibility"
+	@echo "  version    - Show version information"
+	@echo "  help       - Show this help message"

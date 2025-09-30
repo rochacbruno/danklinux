@@ -11,6 +11,8 @@ type AppState int
 const (
 	StateMainMenu AppState = iota
 	StateUpdate
+	StateUpdatePassword
+	StateUpdateProgress
 	StateShell
 	StateAbout
 )
@@ -30,6 +32,13 @@ type Model struct {
 	updateDeps        []DependencyInfo
 	selectedUpdateDep int
 	updateToggles     map[string]bool
+
+	updateProgressChan chan updateProgressMsg
+	updateProgress     updateProgressMsg
+	updateLogs         []string
+	sudoPassword       string
+	passwordInput      string
+	passwordError      string
 
 	// Window manager states
 	hyprlandInstalled bool
@@ -62,15 +71,16 @@ func NewModel(version string) Model {
 	}
 
 	m := Model{
-		version:           version,
-		detector:          detector,
-		dependencies:      dependencies,
-		state:             StateMainMenu,
-		selectedItem:      0,
-		updateToggles:     updateToggles,
-		updateDeps:        dependencies,
-		hyprlandInstalled: hyprlandInstalled,
-		niriInstalled:     niriInstalled,
+		version:            version,
+		detector:           detector,
+		dependencies:       dependencies,
+		state:              StateMainMenu,
+		selectedItem:       0,
+		updateToggles:      updateToggles,
+		updateDeps:         dependencies,
+		updateProgressChan: make(chan updateProgressMsg, 100),
+		hyprlandInstalled:  hyprlandInstalled,
+		niriInstalled:      niriInstalled,
 	}
 
 	m.menuItems = m.buildMenuItems()
@@ -110,12 +120,48 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+	case updateProgressMsg:
+		m.updateProgress = msg
+		if msg.logOutput != "" {
+			m.updateLogs = append(m.updateLogs, msg.logOutput)
+		}
+		return m, m.waitForProgress()
+	case updateCompleteMsg:
+		m.updateProgress.complete = true
+		m.updateProgress.err = msg.err
+		m.dependencies = m.detector.GetInstalledComponents()
+		m.updateDeps = m.dependencies
+		m.menuItems = m.buildMenuItems()
+
+		// Restart shell if update was successful and shell is running
+		if msg.err == nil && m.isShellRunning() {
+			restartShell()
+		}
+		return m, nil
+	case passwordValidMsg:
+		if msg.valid {
+			m.sudoPassword = msg.password
+			m.passwordInput = ""
+			m.passwordError = ""
+			m.state = StateUpdateProgress
+			m.updateProgress = updateProgressMsg{progress: 0.0, step: "Starting update..."}
+			m.updateLogs = []string{}
+			return m, tea.Batch(m.performUpdate(), m.waitForProgress())
+		} else {
+			m.passwordError = "Incorrect password. Please try again."
+			m.passwordInput = ""
+		}
+		return m, nil
 	case tea.KeyMsg:
 		switch m.state {
 		case StateMainMenu:
 			return m.updateMainMenu(msg)
 		case StateUpdate:
 			return m.updateUpdateView(msg)
+		case StateUpdatePassword:
+			return m.updatePasswordView(msg)
+		case StateUpdateProgress:
+			return m.updateProgressView(msg)
 		case StateShell:
 			return m.updateShellView(msg)
 		case StateAbout:
@@ -126,12 +172,39 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+type updateProgressMsg struct {
+	progress  float64
+	step      string
+	complete  bool
+	err       error
+	logOutput string
+}
+
+type updateCompleteMsg struct {
+	err error
+}
+
+type passwordValidMsg struct {
+	password string
+	valid    bool
+}
+
+func (m Model) waitForProgress() tea.Cmd {
+	return func() tea.Msg {
+		return <-m.updateProgressChan
+	}
+}
+
 func (m Model) View() string {
 	switch m.state {
 	case StateMainMenu:
 		return m.renderMainMenu()
 	case StateUpdate:
 		return m.renderUpdateView()
+	case StateUpdatePassword:
+		return m.renderPasswordView()
+	case StateUpdateProgress:
+		return m.renderProgressView()
 	case StateShell:
 		return m.renderShellView()
 	case StateAbout:

@@ -61,6 +61,8 @@ func (m Model) renderUpdateView() string {
 		MarginBottom(1)
 
 	b.WriteString(headerStyle.Render("Update Dependencies"))
+	b.WriteString("\n")
+
 
 	if len(m.updateDeps) == 0 {
 		b.WriteString("Loading dependencies...\n")
@@ -291,4 +293,156 @@ func (m Model) categorizeDependencies() map[string][]DependencyInfo {
 	}
 
 	return categories
+}
+
+func (m Model) renderPasswordView() string {
+	var b strings.Builder
+
+	b.WriteString(m.renderBanner())
+	b.WriteString("\n")
+
+	headerStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#FFFFFF")).
+		Bold(true).
+		MarginBottom(1)
+
+	b.WriteString(headerStyle.Render("Sudo Authentication"))
+	b.WriteString("\n\n")
+
+	normalStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#FFFFFF"))
+
+	b.WriteString(normalStyle.Render("Package installation requires sudo privileges."))
+	b.WriteString("\n")
+	b.WriteString(normalStyle.Render("Please enter your password to continue:"))
+	b.WriteString("\n\n")
+
+	// Password input (masked)
+	inputStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#00D4AA"))
+
+	maskedPassword := strings.Repeat("*", len(m.passwordInput))
+	b.WriteString(inputStyle.Render("Password: " + maskedPassword))
+	b.WriteString("\n")
+
+	// Show error if any
+	if m.passwordError != "" {
+		errorStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FF0000"))
+		b.WriteString(errorStyle.Render("✗ " + m.passwordError))
+		b.WriteString("\n")
+	}
+
+	b.WriteString("\n")
+	instructionStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#888888")).
+		MarginTop(1)
+
+	instructions := "Enter: Continue, Esc: Back, Ctrl+C: Cancel"
+	b.WriteString(instructionStyle.Render(instructions))
+
+	return b.String()
+}
+
+func (m Model) renderProgressView() string {
+	var b strings.Builder
+
+	b.WriteString(m.renderBanner())
+	b.WriteString("\n")
+
+	headerStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#FFFFFF")).
+		Bold(true).
+		MarginBottom(1)
+
+	b.WriteString(headerStyle.Render("Updating Packages"))
+	b.WriteString("\n\n")
+
+	if !m.updateProgress.complete {
+		progressStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#00D4AA"))
+
+		b.WriteString(progressStyle.Render(m.updateProgress.step))
+		b.WriteString("\n\n")
+
+		progressBar := fmt.Sprintf("[%s%s] %.0f%%",
+			strings.Repeat("█", int(m.updateProgress.progress*30)),
+			strings.Repeat("░", 30-int(m.updateProgress.progress*30)),
+			m.updateProgress.progress*100)
+		b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFFFF")).Render(progressBar))
+		b.WriteString("\n")
+
+		// Show live logs
+		if len(m.updateLogs) > 0 {
+			b.WriteString("\n")
+			logHeader := lipgloss.NewStyle().Foreground(lipgloss.Color("#888888")).Render("Live Output:")
+			b.WriteString(logHeader)
+			b.WriteString("\n")
+
+			// Show last 8 lines
+			maxLines := 8
+			startIdx := 0
+			if len(m.updateLogs) > maxLines {
+				startIdx = len(m.updateLogs) - maxLines
+			}
+
+			logStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#888888"))
+			for i := startIdx; i < len(m.updateLogs); i++ {
+				if m.updateLogs[i] != "" {
+					b.WriteString(logStyle.Render("  " + m.updateLogs[i]))
+					b.WriteString("\n")
+				}
+			}
+		}
+	}
+
+	if m.updateProgress.err != nil {
+		errorStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FF0000"))
+
+		b.WriteString("\n")
+		b.WriteString(errorStyle.Render(fmt.Sprintf("✗ Update failed: %v", m.updateProgress.err)))
+		b.WriteString("\n\n")
+
+		instructionStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#888888"))
+		b.WriteString(instructionStyle.Render("Press Esc to go back"))
+	} else if m.updateProgress.complete {
+		successStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#00D4AA"))
+
+		b.WriteString("\n")
+		b.WriteString(successStyle.Render("✓ Update complete!"))
+		b.WriteString("\n\n")
+
+		instructionStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#888888"))
+		b.WriteString(instructionStyle.Render("Press Esc to return to main menu"))
+	}
+
+	return b.String()
+}
+
+// getFilteredDeps returns the list of dependencies in display order (filtered)
+func (m Model) getFilteredDeps() []DependencyInfo {
+	categories := m.categorizeDependencies()
+	var filtered []DependencyInfo
+
+	for _, category := range []string{"Shell", "Shared Components", "Hyprland Components", "Niri Components"} {
+		deps, exists := categories[category]
+		if exists {
+			filtered = append(filtered, deps...)
+		}
+	}
+
+	return filtered
+}
+
+// getDepAtVisualIndex returns the dependency at the given visual index
+func (m Model) getDepAtVisualIndex(index int) *DependencyInfo {
+	filtered := m.getFilteredDeps()
+	if index >= 0 && index < len(filtered) {
+		return &filtered[index]
+	}
+	return nil
 }

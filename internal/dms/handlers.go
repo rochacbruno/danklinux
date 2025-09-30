@@ -1,8 +1,14 @@
 package dms
 
 import (
+	"context"
+	"fmt"
 	"os/exec"
+	"strings"
+	"time"
 
+	"github.com/AvengeMedia/dankinstall/internal/deps"
+	"github.com/AvengeMedia/dankinstall/internal/distros"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -55,6 +61,9 @@ func (m Model) updateMainMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) updateUpdateView(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	filteredDeps := m.getFilteredDeps()
+	maxIndex := len(filteredDeps) - 1
+
 	switch msg.String() {
 	case "ctrl+c", "q":
 		return m, tea.Quit
@@ -65,16 +74,30 @@ func (m Model) updateUpdateView(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.selectedUpdateDep--
 		}
 	case "down", "j":
-		if m.selectedUpdateDep < len(m.updateDeps)-1 {
+		if m.selectedUpdateDep < maxIndex {
 			m.selectedUpdateDep++
 		}
 	case " ":
-		if len(m.updateDeps) > 0 {
-			depName := m.updateDeps[m.selectedUpdateDep].Name
-			m.updateToggles[depName] = !m.updateToggles[depName]
+		if dep := m.getDepAtVisualIndex(m.selectedUpdateDep); dep != nil {
+			m.updateToggles[dep.Name] = !m.updateToggles[dep.Name]
 		}
 	case "enter":
-		// TODO: Implement update logic
+		hasSelected := false
+		for _, toggle := range m.updateToggles {
+			if toggle {
+				hasSelected = true
+				break
+			}
+		}
+
+		if !hasSelected {
+			m.state = StateMainMenu
+			return m, nil
+		}
+
+		m.state = StateUpdatePassword
+		m.passwordInput = ""
+		m.passwordError = ""
 		return m, nil
 	}
 	return m, nil
@@ -114,4 +137,149 @@ func terminateShell() {
 func startShellDaemon() {
 	cmd := exec.Command("qs", "-c", "dms")
 	cmd.Start()
+}
+
+func restartShell() {
+	terminateShell()
+	time.Sleep(500 * time.Millisecond)
+	startShellDaemon()
+}
+
+func (m Model) updatePasswordView(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "ctrl+c", "q":
+		return m, tea.Quit
+	case "esc":
+		m.state = StateUpdate
+		m.passwordInput = ""
+		m.passwordError = ""
+		return m, nil
+	case "enter":
+		if m.passwordInput == "" {
+			return m, nil
+		}
+		return m, m.validatePassword(m.passwordInput)
+	case "backspace":
+		if len(m.passwordInput) > 0 {
+			m.passwordInput = m.passwordInput[:len(m.passwordInput)-1]
+		}
+	default:
+		if len(msg.String()) == 1 && msg.String()[0] >= 32 && msg.String()[0] <= 126 {
+			m.passwordInput += msg.String()
+		}
+	}
+	return m, nil
+}
+
+func (m Model) updateProgressView(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "ctrl+c", "q":
+		return m, tea.Quit
+	case "esc":
+		if m.updateProgress.complete {
+			m.state = StateMainMenu
+			m.updateProgress = updateProgressMsg{}
+			m.updateLogs = []string{}
+		}
+	}
+	return m, nil
+}
+
+func (m Model) validatePassword(password string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		cmd := exec.CommandContext(ctx, "sudo", "-S", "-v")
+		stdin, err := cmd.StdinPipe()
+		if err != nil {
+			return passwordValidMsg{password: "", valid: false}
+		}
+
+		go func() {
+			defer stdin.Close()
+			fmt.Fprintf(stdin, "%s\n", password)
+		}()
+
+		output, err := cmd.CombinedOutput()
+		outputStr := string(output)
+
+		if err != nil {
+			if strings.Contains(outputStr, "Sorry, try again") ||
+				strings.Contains(outputStr, "incorrect password") ||
+				strings.Contains(outputStr, "authentication failure") {
+				return passwordValidMsg{password: "", valid: false}
+			}
+			return passwordValidMsg{password: "", valid: false}
+		}
+
+		return passwordValidMsg{password: password, valid: true}
+	}
+}
+
+func (m Model) performUpdate() tea.Cmd {
+	var depsToUpdate []deps.Dependency
+
+	for _, depInfo := range m.updateDeps {
+		if m.updateToggles[depInfo.Name] {
+			depsToUpdate = append(depsToUpdate, deps.Dependency{
+				Name:        depInfo.Name,
+				Status:      depInfo.Status,
+				Description: depInfo.Description,
+				Required:    depInfo.Required,
+			})
+		}
+	}
+
+	if len(depsToUpdate) == 0 {
+		return func() tea.Msg {
+			return updateCompleteMsg{err: nil}
+		}
+	}
+
+	wm := deps.WindowManagerHyprland
+	if m.niriInstalled {
+		wm = deps.WindowManagerNiri
+	}
+
+	sudoPassword := m.sudoPassword
+	reinstallFlags := make(map[string]bool)
+	for name, toggled := range m.updateToggles {
+		if toggled {
+			reinstallFlags[name] = true
+		}
+	}
+
+	distribution := m.detector.GetDistribution()
+	progressChan := m.updateProgressChan
+
+	return func() tea.Msg {
+		installerChan := make(chan distros.InstallProgressMsg, 100)
+
+		go func() {
+			ctx := context.Background()
+			err := distribution.InstallPackages(ctx, depsToUpdate, wm, sudoPassword, reinstallFlags, installerChan)
+			close(installerChan)
+
+			if err != nil {
+				progressChan <- updateProgressMsg{complete: true, err: err}
+			} else {
+				progressChan <- updateProgressMsg{complete: true}
+			}
+		}()
+
+		go func() {
+			for msg := range installerChan {
+				progressChan <- updateProgressMsg{
+					progress:  msg.Progress,
+					step:      msg.Step,
+					complete:  msg.IsComplete,
+					err:       msg.Error,
+					logOutput: msg.LogOutput,
+				}
+			}
+		}()
+
+		return nil
+	}
 }
