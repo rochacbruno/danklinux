@@ -7,7 +7,7 @@ import (
 )
 
 func installGreeter() error {
-	fmt.Println("=== DMS Greeter Installation ===\n")
+	fmt.Println("=== DMS Greeter Installation ===")
 
 	logFunc := func(msg string) {
 		fmt.Println(msg)
