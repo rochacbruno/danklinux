@@ -182,6 +182,24 @@ func CopyGreeterFiles(dmsPath, compositor string, logFunc func(string), sudoPass
 		return fmt.Errorf("failed to make script executable: %w", err)
 	}
 
+	// Set SELinux context on Fedora
+	osInfo, err := distros.GetOSInfo()
+	if err == nil {
+		if config, exists := distros.Registry[osInfo.Distribution.ID]; exists && config.Family == distros.FamilyFedora {
+			if err := runSudoCmd(sudoPassword, "semanage", "fcontext", "-a", "-t", "bin_t", scriptDst); err != nil {
+				logFunc(fmt.Sprintf("⚠ Warning: Failed to set SELinux fcontext: %v", err))
+			} else {
+				logFunc("✓ Set SELinux fcontext for start-dms.sh")
+			}
+
+			if err := runSudoCmd(sudoPassword, "restorecon", "-v", scriptDst); err != nil {
+				logFunc(fmt.Sprintf("⚠ Warning: Failed to restore SELinux context: %v", err))
+			} else {
+				logFunc("✓ Restored SELinux context for start-dms.sh")
+			}
+		}
+	}
+
 	sedCmd := fmt.Sprintf("s|_DMS_PATH_|%s|g", dmsPath)
 	if err := runSudoCmd(sudoPassword, "sed", "-i", sedCmd, configDst); err != nil {
 		return fmt.Errorf("failed to update DMS path in config: %w", err)
@@ -192,15 +210,26 @@ func CopyGreeterFiles(dmsPath, compositor string, logFunc func(string), sudoPass
 }
 
 // SyncDMSConfigs creates symlinks to sync DMS configs to greetd
-func SyncDMSConfigs(logFunc func(string), sudoPassword string) error {
+func SyncDMSConfigs(dmsPath string, logFunc func(string), sudoPassword string) error {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return fmt.Errorf("failed to get user home directory: %w", err)
 	}
 
-	greeterUser, err := getGreeterUser()
-	if err != nil {
-		return fmt.Errorf("failed to get greeter user: %w", err)
+	// Determine if DMS is in a home directory or system directory
+	var greeterUser string
+	if strings.HasPrefix(dmsPath, "/home/") || strings.HasPrefix(dmsPath, homeDir) {
+		// DMS is in a home directory, use the actual user
+		greeterUser = os.Getenv("USER")
+		if greeterUser == "" {
+			greeterUser = os.Getenv("LOGNAME")
+		}
+		if greeterUser == "" {
+			return fmt.Errorf("failed to determine current user")
+		}
+	} else {
+		// DMS is in system directory, use greeter user
+		greeterUser = "greeter"
 	}
 
 	if err := runSudoCmd(sudoPassword, "mkdir", "-p", "/etc/greetd/.dms"); err != nil {
@@ -210,7 +239,7 @@ func SyncDMSConfigs(logFunc func(string), sudoPassword string) error {
 	if err := runSudoCmd(sudoPassword, "chown", "-R", greeterUser, "/etc/greetd/.dms"); err != nil {
 		return fmt.Errorf("failed to chown /etc/greetd/.dms: %w", err)
 	}
-	logFunc("✓ Created /etc/greetd/.dms directory")
+	logFunc(fmt.Sprintf("✓ Created /etc/greetd/.dms directory (owner: %s)", greeterUser))
 
 	symlinks := []struct {
 		source string
@@ -264,7 +293,7 @@ func SyncDMSConfigs(logFunc func(string), sudoPassword string) error {
 }
 
 // ConfigureGreetd configures the greetd config.toml file
-func ConfigureGreetd(logFunc func(string), sudoPassword string) error {
+func ConfigureGreetd(dmsPath string, logFunc func(string), sudoPassword string) error {
 	configPath := "/etc/greetd/config.toml"
 
 	if _, err := os.Stat(configPath); err == nil {
@@ -273,6 +302,21 @@ func ConfigureGreetd(logFunc func(string), sudoPassword string) error {
 			return fmt.Errorf("failed to backup config: %w", err)
 		}
 		logFunc(fmt.Sprintf("✓ Backed up existing config to %s", backupPath))
+	}
+
+	// Determine the correct user based on DMS path
+	homeDir, _ := os.UserHomeDir()
+	var greeterUser string
+	if strings.HasPrefix(dmsPath, "/home/") || strings.HasPrefix(dmsPath, homeDir) {
+		greeterUser = os.Getenv("USER")
+		if greeterUser == "" {
+			greeterUser = os.Getenv("LOGNAME")
+		}
+		if greeterUser == "" {
+			return fmt.Errorf("failed to determine current user")
+		}
+	} else {
+		greeterUser = "greeter"
 	}
 
 	var configContent string
@@ -298,8 +342,14 @@ user = "greeter"
 	var newLines []string
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
+		// Remove old command lines
 		if !strings.HasPrefix(trimmed, "command =") && !strings.HasPrefix(trimmed, "command=") {
-			newLines = append(newLines, line)
+			// Update user line if needed
+			if strings.HasPrefix(trimmed, "user =") || strings.HasPrefix(trimmed, "user=") {
+				newLines = append(newLines, fmt.Sprintf(`user = "%s"`, greeterUser))
+			} else {
+				newLines = append(newLines, line)
+			}
 		}
 	}
 
@@ -338,7 +388,7 @@ user = "greeter"
 		return fmt.Errorf("failed to move config to /etc/greetd: %w", err)
 	}
 
-	logFunc("✓ Updated greetd configuration")
+	logFunc(fmt.Sprintf("✓ Updated greetd configuration (user: %s)", greeterUser))
 	return nil
 }
 
@@ -361,30 +411,6 @@ func runSudoCmd(sudoPassword string, command string, args ...string) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
-}
-
-func getGreeterUser() (string, error) {
-	configPath := "/etc/greetd/config.toml"
-
-	data, err := os.ReadFile(configPath)
-	if err != nil {
-		return "greeter", nil
-	}
-
-	lines := strings.Split(string(data), "\n")
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		if strings.HasPrefix(trimmed, "user =") || strings.HasPrefix(trimmed, "user=") {
-			parts := strings.SplitN(trimmed, "=", 2)
-			if len(parts) == 2 {
-				user := strings.TrimSpace(parts[1])
-				user = strings.Trim(user, `"'`)
-				return user, nil
-			}
-		}
-	}
-
-	return "greeter", nil
 }
 
 func commandExists(cmd string) bool {

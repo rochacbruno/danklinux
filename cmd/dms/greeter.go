@@ -54,13 +54,13 @@ func installGreeter() error {
 
 	// Step 5: Configure greetd
 	fmt.Println("\nConfiguring greetd...")
-	if err := greeter.ConfigureGreetd(logFunc, ""); err != nil {
+	if err := greeter.ConfigureGreetd(dmsPath, logFunc, ""); err != nil {
 		return err
 	}
 
 	// Step 6: Sync DMS configs
 	fmt.Println("\nSynchronizing DMS configurations...")
-	if err := greeter.SyncDMSConfigs(logFunc, ""); err != nil {
+	if err := greeter.SyncDMSConfigs(dmsPath, logFunc, ""); err != nil {
 		return err
 	}
 

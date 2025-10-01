@@ -470,13 +470,13 @@ func performGreeterInstallSteps(progressChan chan greeterProgressMsg, logFunc fu
 
 	// Step 5: Configure greetd
 	progressChan <- greeterProgressMsg{step: "Configuring greetd..."}
-	if err := greeter.ConfigureGreetd(logFunc, sudoPassword); err != nil {
+	if err := greeter.ConfigureGreetd(dmsPath, logFunc, sudoPassword); err != nil {
 		return err
 	}
 
 	// Step 6: Sync DMS configs
 	progressChan <- greeterProgressMsg{step: "Synchronizing DMS configurations..."}
-	if err := greeter.SyncDMSConfigs(logFunc, sudoPassword); err != nil {
+	if err := greeter.SyncDMSConfigs(dmsPath, logFunc, sudoPassword); err != nil {
 		return err
 	}
 
