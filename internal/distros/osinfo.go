@@ -82,10 +82,11 @@ func GetOSInfo() (*OSInfo, error) {
 
 // IsUnsupportedDistro checks if a distribution/version combination is supported
 func IsUnsupportedDistro(distroID, versionID string) bool {
-	switch distroID {
-	case "arch", "archarm", "archcraft", "cachyos", "endeavouros", "manjaro", "fedora", "fedora-asahi-remix", "nobara":
-		return false // These are supported
-	case "ubuntu":
+	if !IsDistroSupported(distroID) {
+		return true
+	}
+
+	if distroID == "ubuntu" {
 		parts := strings.Split(versionID, ".")
 		if len(parts) >= 2 {
 			major, err1 := strconv.Atoi(parts[0])
@@ -95,8 +96,8 @@ func IsUnsupportedDistro(distroID, versionID string) bool {
 				return major < 25 || (major == 25 && minor < 4)
 			}
 		}
-		return true // Unknown Ubuntu version format
-	default:
-		return true // Unsupported distro
+		return true
 	}
+
+	return false
 }

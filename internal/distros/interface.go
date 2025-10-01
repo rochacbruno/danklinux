@@ -6,6 +6,16 @@ import (
 	"github.com/AvengeMedia/dankinstall/internal/deps"
 )
 
+// DistroFamily represents a family of related distributions
+type DistroFamily string
+
+const (
+	FamilyArch   DistroFamily = "arch"
+	FamilyFedora DistroFamily = "fedora"
+	FamilyUbuntu DistroFamily = "ubuntu"
+	FamilyNix    DistroFamily = "nix"
+)
+
 // PackageManagerType defines the package manager a distro uses
 type PackageManagerType string
 
@@ -67,6 +77,7 @@ type Distribution interface {
 	// Metadata
 	GetID() string
 	GetColorHex() string
+	GetFamily() DistroFamily
 	GetPackageManager() PackageManagerType
 
 	// Dependency Detection
@@ -87,6 +98,7 @@ type Distribution interface {
 type DistroConfig struct {
 	ID          string
 	ColorHex    string
+	Family      DistroFamily
 	Constructor func(config DistroConfig, logChan chan<- string) Distribution
 }
 
@@ -94,12 +106,28 @@ type DistroConfig struct {
 var Registry = make(map[string]DistroConfig)
 
 // Register adds a distribution to the registry
-func Register(id, colorHex string, constructor func(config DistroConfig, logChan chan<- string) Distribution) {
+func Register(id, colorHex string, family DistroFamily, constructor func(config DistroConfig, logChan chan<- string) Distribution) {
 	Registry[id] = DistroConfig{
 		ID:          id,
 		ColorHex:    colorHex,
+		Family:      family,
 		Constructor: constructor,
 	}
+}
+
+// GetSupportedDistros returns a list of all supported distribution IDs
+func GetSupportedDistros() []string {
+	ids := make([]string, 0, len(Registry))
+	for id := range Registry {
+		ids = append(ids, id)
+	}
+	return ids
+}
+
+// IsDistroSupported checks if a distribution ID is supported
+func IsDistroSupported(id string) bool {
+	_, exists := Registry[id]
+	return exists
 }
 
 // NewDistribution creates a distribution instance by ID

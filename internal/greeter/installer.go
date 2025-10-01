@@ -88,11 +88,16 @@ func EnsureGreetdInstalled(logFunc func(string), sudoPassword string) error {
 		return fmt.Errorf("failed to detect OS: %w", err)
 	}
 
+	config, exists := distros.Registry[osInfo.Distribution.ID]
+	if !exists {
+		return fmt.Errorf("unsupported distribution for automatic greetd installation: %s", osInfo.Distribution.ID)
+	}
+
 	ctx := context.Background()
 	var installCmd *exec.Cmd
 
-	switch strings.ToLower(osInfo.Distribution.ID) {
-	case "arch", "cachyos", "endeavouros", "manjaro":
+	switch config.Family {
+	case distros.FamilyArch:
 		if sudoPassword != "" {
 			installCmd = exec.CommandContext(ctx, "bash", "-c",
 				fmt.Sprintf("echo '%s' | sudo -S pacman -S --needed --noconfirm greetd", sudoPassword))
@@ -100,7 +105,7 @@ func EnsureGreetdInstalled(logFunc func(string), sudoPassword string) error {
 			installCmd = exec.CommandContext(ctx, "sudo", "pacman", "-S", "--needed", "--noconfirm", "greetd")
 		}
 
-	case "fedora":
+	case distros.FamilyFedora:
 		if sudoPassword != "" {
 			installCmd = exec.CommandContext(ctx, "bash", "-c",
 				fmt.Sprintf("echo '%s' | sudo -S dnf install -y greetd", sudoPassword))
@@ -108,7 +113,7 @@ func EnsureGreetdInstalled(logFunc func(string), sudoPassword string) error {
 			installCmd = exec.CommandContext(ctx, "sudo", "dnf", "install", "-y", "greetd")
 		}
 
-	case "ubuntu", "debian":
+	case distros.FamilyUbuntu:
 		if sudoPassword != "" {
 			installCmd = exec.CommandContext(ctx, "bash", "-c",
 				fmt.Sprintf("echo '%s' | sudo -S apt-get install -y greetd", sudoPassword))
@@ -116,19 +121,11 @@ func EnsureGreetdInstalled(logFunc func(string), sudoPassword string) error {
 			installCmd = exec.CommandContext(ctx, "sudo", "apt-get", "install", "-y", "greetd")
 		}
 
-	case "opensuse", "opensuse-tumbleweed", "opensuse-leap":
-		if sudoPassword != "" {
-			installCmd = exec.CommandContext(ctx, "bash", "-c",
-				fmt.Sprintf("echo '%s' | sudo -S zypper install -y greetd", sudoPassword))
-		} else {
-			installCmd = exec.CommandContext(ctx, "sudo", "zypper", "install", "-y", "greetd")
-		}
-
-	case "nixos":
+	case distros.FamilyNix:
 		return fmt.Errorf("on NixOS, please add greetd to your configuration.nix")
 
 	default:
-		return fmt.Errorf("unsupported distribution for automatic greetd installation: %s", osInfo.Distribution.ID)
+		return fmt.Errorf("unsupported distribution family for automatic greetd installation: %s", config.Family)
 	}
 
 	installCmd.Stdout = os.Stdout

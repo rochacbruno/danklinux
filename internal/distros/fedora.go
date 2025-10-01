@@ -10,13 +10,13 @@ import (
 )
 
 func init() {
-	Register("fedora", "#0B57A4", func(config DistroConfig, logChan chan<- string) Distribution {
+	Register("fedora", "#0B57A4", FamilyFedora, func(config DistroConfig, logChan chan<- string) Distribution {
 		return NewFedoraDistribution(config, logChan)
 	})
-	Register("nobara", "#0B57A4", func(config DistroConfig, logChan chan<- string) Distribution {
+	Register("nobara", "#0B57A4", FamilyFedora, func(config DistroConfig, logChan chan<- string) Distribution {
 		return NewFedoraDistribution(config, logChan)
 	})
-	Register("fedora-asahi-remix", "#0B57A4", func(config DistroConfig, logChan chan<- string) Distribution {
+	Register("fedora-asahi-remix", "#0B57A4", FamilyFedora, func(config DistroConfig, logChan chan<- string) Distribution {
 		return NewFedoraDistribution(config, logChan)
 	})
 }
@@ -42,6 +42,10 @@ func (f *FedoraDistribution) GetID() string {
 
 func (f *FedoraDistribution) GetColorHex() string {
 	return f.config.ColorHex
+}
+
+func (f *FedoraDistribution) GetFamily() DistroFamily {
+	return f.config.Family
 }
 
 func (f *FedoraDistribution) GetPackageManager() PackageManagerType {

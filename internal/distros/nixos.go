@@ -10,7 +10,7 @@ import (
 )
 
 func init() {
-	Register("nixos", "#7EBAE4", func(config DistroConfig, logChan chan<- string) Distribution {
+	Register("nixos", "#7EBAE4", FamilyNix, func(config DistroConfig, logChan chan<- string) Distribution {
 		return NewNixOSDistribution(config, logChan)
 	})
 }
@@ -34,6 +34,10 @@ func (n *NixOSDistribution) GetID() string {
 
 func (n *NixOSDistribution) GetColorHex() string {
 	return n.config.ColorHex
+}
+
+func (n *NixOSDistribution) GetFamily() DistroFamily {
+	return n.config.Family
 }
 
 func (n *NixOSDistribution) GetPackageManager() PackageManagerType {

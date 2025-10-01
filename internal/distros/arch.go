@@ -13,22 +13,22 @@ import (
 )
 
 func init() {
-	Register("arch", "#1793D1", func(config DistroConfig, logChan chan<- string) Distribution {
+	Register("arch", "#1793D1", FamilyArch, func(config DistroConfig, logChan chan<- string) Distribution {
 		return NewArchDistribution(config, logChan)
 	})
-	Register("archarm", "#1793D1", func(config DistroConfig, logChan chan<- string) Distribution {
+	Register("archarm", "#1793D1", FamilyArch, func(config DistroConfig, logChan chan<- string) Distribution {
 		return NewArchDistribution(config, logChan)
 	})
-	Register("archcraft", "#1793D1", func(config DistroConfig, logChan chan<- string) Distribution {
+	Register("archcraft", "#1793D1", FamilyArch, func(config DistroConfig, logChan chan<- string) Distribution {
 		return NewArchDistribution(config, logChan)
 	})
-	Register("cachyos", "#08A283", func(config DistroConfig, logChan chan<- string) Distribution {
+	Register("cachyos", "#08A283", FamilyArch, func(config DistroConfig, logChan chan<- string) Distribution {
 		return NewArchDistribution(config, logChan)
 	})
-	Register("endeavouros", "#7F3FBF", func(config DistroConfig, logChan chan<- string) Distribution {
+	Register("endeavouros", "#7F3FBF", FamilyArch, func(config DistroConfig, logChan chan<- string) Distribution {
 		return NewArchDistribution(config, logChan)
 	})
-	Register("manjaro", "#35BF5C", func(config DistroConfig, logChan chan<- string) Distribution {
+	Register("manjaro", "#35BF5C", FamilyArch, func(config DistroConfig, logChan chan<- string) Distribution {
 		return NewArchDistribution(config, logChan)
 	})
 }
@@ -54,6 +54,10 @@ func (a *ArchDistribution) GetID() string {
 
 func (a *ArchDistribution) GetColorHex() string {
 	return a.config.ColorHex
+}
+
+func (a *ArchDistribution) GetFamily() DistroFamily {
+	return a.config.Family
 }
 
 func (a *ArchDistribution) GetPackageManager() PackageManagerType {

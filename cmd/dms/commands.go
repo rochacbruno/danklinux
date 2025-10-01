@@ -129,18 +129,23 @@ func runVersion(cmd *cobra.Command, args []string) {
 }
 
 func runUpdate() {
-	// Detect the operating system
 	osInfo, err := distros.GetOSInfo()
 	if err != nil {
 		fmt.Printf("Error detecting OS: %v\n", err)
 		os.Exit(1)
 	}
 
+	config, exists := distros.Registry[osInfo.Distribution.ID]
+	if !exists {
+		fmt.Printf("Error: Unsupported distribution: %s\n", osInfo.Distribution.ID)
+		os.Exit(1)
+	}
+
 	var updateErr error
-	switch strings.ToLower(osInfo.Distribution.ID) {
-	case "arch", "cachyos", "endeavouros", "manjaro":
+	switch config.Family {
+	case distros.FamilyArch:
 		updateErr = updateArchLinux()
-	case "nixos":
+	case distros.FamilyNix:
 		updateErr = updateNixOS()
 	default:
 		updateErr = updateOtherDistros()
@@ -220,12 +225,6 @@ func updateNixOS() error {
 	return nil
 }
 
-// Manual update strategy is basically:
-// cd ~/.config/quickshell/dms
-// git fetch
-// git branch -M master master-<timestamp>
-// git checkout -b master origin/master
-// dms restart
 func updateOtherDistros() error {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
@@ -239,12 +238,23 @@ func updateOtherDistros() error {
 	}
 
 	fmt.Printf("Found DMS configuration at %s\n", dmsPath)
-	fmt.Println("\nThis will update DankMaterialShell using git.")
-	fmt.Println("Your current configuration will be backed up to a timestamped branch.")
+	fmt.Println("\nThis will update:")
+	fmt.Println("  1. The dms binary from GitHub releases")
+	fmt.Println("  2. DankMaterialShell configuration using git")
+	fmt.Println("\nYour current configuration will be backed up to a timestamped branch.")
 	if !confirmUpdate() {
 		return errdefs.ErrUpdateCancelled
 	}
 
+	fmt.Println("\n=== Updating dms binary ===")
+	if err := updateDMSBinary(); err != nil {
+		fmt.Printf("Warning: Failed to update dms binary: %v\n", err)
+		fmt.Println("Continuing with shell configuration update...")
+	} else {
+		fmt.Println("dms binary successfully updated")
+	}
+
+	fmt.Println("\n=== Updating DMS shell configuration ===")
 	timestamp := time.Now().Unix()
 	backupBranch := fmt.Sprintf("master-%d", timestamp)
 
@@ -252,7 +262,7 @@ func updateOtherDistros() error {
 		return fmt.Errorf("failed to change to DMS directory: %w", err)
 	}
 
-	fmt.Printf("\nCreating backup branch: %s\n", backupBranch)
+	fmt.Printf("Creating backup branch: %s\n", backupBranch)
 	backupCmd := exec.Command("git", "branch", "-M", "master", backupBranch)
 	backupCmd.Stdout = os.Stdout
 	backupCmd.Stderr = os.Stderr
@@ -276,7 +286,7 @@ func updateOtherDistros() error {
 		return fmt.Errorf("failed to checkout new master: %w", err)
 	}
 
-	fmt.Printf("dms successfully updated (previous version backed up as branch '%s')\n", backupBranch)
+	fmt.Printf("\nUpdate complete! (previous version backed up as branch '%s')\n", backupBranch)
 	return nil
 }
 
@@ -301,4 +311,124 @@ func confirmUpdate() bool {
 	}
 	response = strings.TrimSpace(strings.ToLower(response))
 	return response == "y" || response == "yes"
+}
+
+func updateDMSBinary() error {
+	arch := ""
+	switch strings.ToLower(os.Getenv("HOSTTYPE")) {
+	case "x86_64", "amd64":
+		arch = "amd64"
+	case "aarch64", "arm64":
+		arch = "arm64"
+	default:
+		cmd := exec.Command("uname", "-m")
+		output, err := cmd.Output()
+		if err != nil {
+			return fmt.Errorf("failed to detect architecture: %w", err)
+		}
+		archStr := strings.TrimSpace(string(output))
+		switch archStr {
+		case "x86_64":
+			arch = "amd64"
+		case "aarch64":
+			arch = "arm64"
+		default:
+			return fmt.Errorf("unsupported architecture: %s", archStr)
+		}
+	}
+
+	fmt.Println("Fetching latest release version...")
+	cmd := exec.Command("curl", "-s", "https://api.github.com/repos/AvengeMedia/danklinux/releases/latest")
+	output, err := cmd.Output()
+	if err != nil {
+		return fmt.Errorf("failed to fetch latest release: %w", err)
+	}
+
+	version := ""
+	for _, line := range strings.Split(string(output), "\n") {
+		if strings.Contains(line, "\"tag_name\"") {
+			parts := strings.Split(line, "\"")
+			if len(parts) >= 4 {
+				version = parts[3]
+				break
+			}
+		}
+	}
+
+	if version == "" {
+		return fmt.Errorf("could not determine latest version")
+	}
+
+	fmt.Printf("Latest version: %s\n", version)
+
+	tempDir, err := os.MkdirTemp("", "dms-update-*")
+	if err != nil {
+		return fmt.Errorf("failed to create temp directory: %w", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	binaryURL := fmt.Sprintf("https://github.com/AvengeMedia/danklinux/releases/download/%s/dms-%s.gz", version, arch)
+	checksumURL := fmt.Sprintf("https://github.com/AvengeMedia/danklinux/releases/download/%s/dms-%s.gz.sha256", version, arch)
+
+	binaryPath := filepath.Join(tempDir, "dms.gz")
+	checksumPath := filepath.Join(tempDir, "dms.gz.sha256")
+
+	fmt.Println("Downloading dms binary...")
+	downloadCmd := exec.Command("curl", "-L", binaryURL, "-o", binaryPath)
+	if err := downloadCmd.Run(); err != nil {
+		return fmt.Errorf("failed to download binary: %w", err)
+	}
+
+	fmt.Println("Downloading checksum...")
+	downloadCmd = exec.Command("curl", "-L", checksumURL, "-o", checksumPath)
+	if err := downloadCmd.Run(); err != nil {
+		return fmt.Errorf("failed to download checksum: %w", err)
+	}
+
+	fmt.Println("Verifying checksum...")
+	checksumData, err := os.ReadFile(checksumPath)
+	if err != nil {
+		return fmt.Errorf("failed to read checksum file: %w", err)
+	}
+	expectedChecksum := strings.Fields(string(checksumData))[0]
+
+	actualCmd := exec.Command("sha256sum", binaryPath)
+	actualOutput, err := actualCmd.Output()
+	if err != nil {
+		return fmt.Errorf("failed to calculate checksum: %w", err)
+	}
+	actualChecksum := strings.Fields(string(actualOutput))[0]
+
+	if expectedChecksum != actualChecksum {
+		return fmt.Errorf("checksum verification failed\nExpected: %s\nGot: %s", expectedChecksum, actualChecksum)
+	}
+
+	fmt.Println("Decompressing binary...")
+	decompressCmd := exec.Command("gunzip", binaryPath)
+	if err := decompressCmd.Run(); err != nil {
+		return fmt.Errorf("failed to decompress binary: %w", err)
+	}
+
+	decompressedPath := filepath.Join(tempDir, "dms")
+
+	if err := os.Chmod(decompressedPath, 0755); err != nil {
+		return fmt.Errorf("failed to make binary executable: %w", err)
+	}
+
+	currentPath, err := exec.LookPath("dms")
+	if err != nil {
+		return fmt.Errorf("could not find current dms binary: %w", err)
+	}
+
+	fmt.Printf("Installing to %s...\n", currentPath)
+
+	replaceCmd := exec.Command("sudo", "install", "-m", "0755", decompressedPath, currentPath)
+	replaceCmd.Stdin = os.Stdin
+	replaceCmd.Stdout = os.Stdout
+	replaceCmd.Stderr = os.Stderr
+	if err := replaceCmd.Run(); err != nil {
+		return fmt.Errorf("failed to replace binary: %w", err)
+	}
+
+	return nil
 }

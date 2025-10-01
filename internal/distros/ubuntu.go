@@ -12,7 +12,7 @@ import (
 )
 
 func init() {
-	Register("ubuntu", "#E95420", func(config DistroConfig, logChan chan<- string) Distribution {
+	Register("ubuntu", "#E95420", FamilyUbuntu, func(config DistroConfig, logChan chan<- string) Distribution {
 		return NewUbuntuDistribution(config, logChan)
 	})
 }
@@ -38,6 +38,10 @@ func (u *UbuntuDistribution) GetID() string {
 
 func (u *UbuntuDistribution) GetColorHex() string {
 	return u.config.ColorHex
+}
+
+func (u *UbuntuDistribution) GetFamily() DistroFamily {
+	return u.config.Family
 }
 
 func (u *UbuntuDistribution) GetPackageManager() PackageManagerType {
