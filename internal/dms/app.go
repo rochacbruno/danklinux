@@ -14,6 +14,10 @@ const (
 	StateUpdatePassword
 	StateUpdateProgress
 	StateShell
+	StateGreeterMenu
+	StateGreeterCompositorSelect
+	StateGreeterPassword
+	StateGreeterInstalling
 	StateAbout
 )
 
@@ -43,6 +47,19 @@ type Model struct {
 	// Window manager states
 	hyprlandInstalled bool
 	niriInstalled     bool
+
+	// Greeter states
+	selectedGreeterItem   int
+	greeterInstallChan    chan greeterProgressMsg
+	greeterProgress       greeterProgressMsg
+	greeterLogs           []string
+	greeterNeedsPassword    bool
+	greeterPasswordInput    string
+	greeterPasswordError    string
+	greeterSudoPassword     string
+	greeterCompositors      []string
+	greeterSelectedComp     int
+	greeterChosenCompositor string
 }
 
 type MenuItem struct {
@@ -81,6 +98,7 @@ func NewModel(version string) Model {
 		updateProgressChan: make(chan updateProgressMsg, 100),
 		hyprlandInstalled:  hyprlandInstalled,
 		niriInstalled:      niriInstalled,
+		greeterInstallChan: make(chan greeterProgressMsg, 100),
 	}
 
 	m.menuItems = m.buildMenuItems()
@@ -99,6 +117,8 @@ func (m *Model) buildMenuItems() []MenuItem {
 		items = append(items, MenuItem{Label: "Start Shell (Daemon)", Action: StateShell})
 	}
 
+	// Greeter management
+	items = append(items, MenuItem{Label: "Greeter", Action: StateGreeterMenu})
 
 	items = append(items, MenuItem{Label: "About", Action: StateAbout})
 
@@ -138,6 +158,26 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			restartShell()
 		}
 		return m, nil
+	case greeterProgressMsg:
+		m.greeterProgress = msg
+		if msg.logOutput != "" {
+			m.greeterLogs = append(m.greeterLogs, msg.logOutput)
+		}
+		return m, m.waitForGreeterProgress()
+	case greeterPasswordValidMsg:
+		if msg.valid {
+			m.greeterSudoPassword = msg.password
+			m.greeterPasswordInput = ""
+			m.greeterPasswordError = ""
+			m.state = StateGreeterInstalling
+			m.greeterProgress = greeterProgressMsg{step: "Starting greeter installation..."}
+			m.greeterLogs = []string{}
+			return m, tea.Batch(m.performGreeterInstall(), m.waitForGreeterProgress())
+		} else {
+			m.greeterPasswordError = "Incorrect password. Please try again."
+			m.greeterPasswordInput = ""
+		}
+		return m, nil
 	case passwordValidMsg:
 		if msg.valid {
 			m.sudoPassword = msg.password
@@ -164,6 +204,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateProgressView(msg)
 		case StateShell:
 			return m.updateShellView(msg)
+		case StateGreeterMenu:
+			return m.updateGreeterMenu(msg)
+		case StateGreeterCompositorSelect:
+			return m.updateGreeterCompositorSelect(msg)
+		case StateGreeterPassword:
+			return m.updateGreeterPasswordView(msg)
+		case StateGreeterInstalling:
+			return m.updateGreeterInstalling(msg)
 		case StateAbout:
 			return m.updateAboutView(msg)
 		}
@@ -189,9 +237,27 @@ type passwordValidMsg struct {
 	valid    bool
 }
 
+type greeterProgressMsg struct {
+	step      string
+	complete  bool
+	err       error
+	logOutput string
+}
+
+type greeterPasswordValidMsg struct {
+	password string
+	valid    bool
+}
+
 func (m Model) waitForProgress() tea.Cmd {
 	return func() tea.Msg {
 		return <-m.updateProgressChan
+	}
+}
+
+func (m Model) waitForGreeterProgress() tea.Cmd {
+	return func() tea.Msg {
+		return <-m.greeterInstallChan
 	}
 }
 
@@ -207,6 +273,14 @@ func (m Model) View() string {
 		return m.renderProgressView()
 	case StateShell:
 		return m.renderShellView()
+	case StateGreeterMenu:
+		return m.renderGreeterMenu()
+	case StateGreeterCompositorSelect:
+		return m.renderGreeterCompositorSelect()
+	case StateGreeterPassword:
+		return m.renderGreeterPasswordView()
+	case StateGreeterInstalling:
+		return m.renderGreeterInstalling()
 	case StateAbout:
 		return m.renderAboutView()
 	default:

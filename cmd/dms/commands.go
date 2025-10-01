@@ -80,6 +80,24 @@ var updateCmd = &cobra.Command{
 	},
 }
 
+var greeterCmd = &cobra.Command{
+	Use:   "greeter",
+	Short: "Manage DMS greeter installation",
+	Long:  "Manage DMS greeter (greetd) installation and configuration",
+}
+
+var greeterInstallCmd = &cobra.Command{
+	Use:   "install",
+	Short: "Install and configure DMS greeter",
+	Long:  "Install greetd and configure it to use DMS as the greeter interface",
+	Run: func(cmd *cobra.Command, args []string) {
+		if err := installGreeter(); err != nil {
+			fmt.Printf("Error installing greeter: %v\n", err)
+			os.Exit(1)
+		}
+	},
+}
+
 func runInteractiveMode(cmd *cobra.Command, args []string) {
 	detector, err := dms.NewDetector()
 	if err != nil && !errors.Is(err, &distros.UnsupportedDistributionError{}) {

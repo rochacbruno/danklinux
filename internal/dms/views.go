@@ -446,3 +446,223 @@ func (m Model) getDepAtVisualIndex(index int) *DependencyInfo {
 	}
 	return nil
 }
+
+func (m Model) renderGreeterPasswordView() string {
+	var b strings.Builder
+
+	b.WriteString(m.renderBanner())
+	b.WriteString("\n")
+
+	headerStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#FFFFFF")).
+		Bold(true).
+		MarginBottom(1)
+
+	b.WriteString(headerStyle.Render("Sudo Authentication"))
+	b.WriteString("\n\n")
+
+	normalStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#FFFFFF"))
+
+	b.WriteString(normalStyle.Render("Greeter installation requires sudo privileges."))
+	b.WriteString("\n")
+	b.WriteString(normalStyle.Render("Please enter your password to continue:"))
+	b.WriteString("\n\n")
+
+	// Password input (masked)
+	inputStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#00D4AA"))
+
+	maskedPassword := strings.Repeat("*", len(m.greeterPasswordInput))
+	b.WriteString(inputStyle.Render("Password: " + maskedPassword))
+	b.WriteString("\n")
+
+	// Show error if any
+	if m.greeterPasswordError != "" {
+		errorStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FF0000"))
+		b.WriteString(errorStyle.Render("✗ " + m.greeterPasswordError))
+		b.WriteString("\n")
+	}
+
+	b.WriteString("\n")
+	instructionStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#888888")).
+		MarginTop(1)
+
+	instructions := "Enter: Continue, Esc: Back, Ctrl+C: Cancel"
+	b.WriteString(instructionStyle.Render(instructions))
+
+	return b.String()
+}
+
+func (m Model) renderGreeterCompositorSelect() string {
+	var b strings.Builder
+
+	b.WriteString(m.renderBanner())
+	b.WriteString("\n")
+
+	headerStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#FFFFFF")).
+		Bold(true).
+		MarginBottom(1)
+
+	b.WriteString(headerStyle.Render("Select Compositor"))
+	b.WriteString("\n\n")
+
+	normalStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#FFFFFF"))
+
+	b.WriteString(normalStyle.Render("Multiple compositors detected. Choose which one to use for the greeter:"))
+	b.WriteString("\n\n")
+
+	selectedStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#00D4AA")).
+		Bold(true)
+
+	for i, comp := range m.greeterCompositors {
+		if i == m.greeterSelectedComp {
+			b.WriteString(selectedStyle.Render(fmt.Sprintf("▶ %s", comp)))
+		} else {
+			b.WriteString(normalStyle.Render(fmt.Sprintf("  %s", comp)))
+		}
+		b.WriteString("\n")
+	}
+
+	b.WriteString("\n")
+	instructionStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#888888")).
+		MarginTop(1)
+
+	instructions := "↑/↓: Navigate, Enter: Select, Esc: Back"
+	b.WriteString(instructionStyle.Render(instructions))
+
+	return b.String()
+}
+
+func (m Model) renderGreeterMenu() string {
+	var b strings.Builder
+
+	b.WriteString(m.renderBanner())
+	b.WriteString("\n")
+
+	headerStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#FFFFFF")).
+		Bold(true).
+		MarginBottom(1)
+
+	b.WriteString(headerStyle.Render("Greeter Management"))
+	b.WriteString("\n")
+
+	greeterMenuItems := []string{"Install Greeter"}
+
+	selectedStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#00D4AA")).
+		Bold(true)
+
+	normalStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#FFFFFF"))
+
+	for i, item := range greeterMenuItems {
+		if i == m.selectedGreeterItem {
+			b.WriteString(selectedStyle.Render(fmt.Sprintf("▶ %s", item)))
+		} else {
+			b.WriteString(normalStyle.Render(fmt.Sprintf("  %s", item)))
+		}
+		b.WriteString("\n")
+	}
+
+	b.WriteString("\n")
+	instructionStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#888888")).
+		MarginTop(1)
+
+	instructions := "↑/↓: Navigate, Enter: Select, Esc: Back"
+	b.WriteString(instructionStyle.Render(instructions))
+
+	return b.String()
+}
+
+func (m Model) renderGreeterInstalling() string {
+	var b strings.Builder
+
+	b.WriteString(m.renderBanner())
+	b.WriteString("\n")
+
+	headerStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#FFFFFF")).
+		Bold(true).
+		MarginBottom(1)
+
+	b.WriteString(headerStyle.Render("Installing Greeter"))
+	b.WriteString("\n\n")
+
+	if !m.greeterProgress.complete {
+		progressStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#00D4AA"))
+
+		b.WriteString(progressStyle.Render(m.greeterProgress.step))
+		b.WriteString("\n\n")
+
+		// Show live logs
+		if len(m.greeterLogs) > 0 {
+			b.WriteString("\n")
+			logHeader := lipgloss.NewStyle().Foreground(lipgloss.Color("#888888")).Render("Output:")
+			b.WriteString(logHeader)
+			b.WriteString("\n")
+
+			// Show last 10 lines
+			maxLines := 10
+			startIdx := 0
+			if len(m.greeterLogs) > maxLines {
+				startIdx = len(m.greeterLogs) - maxLines
+			}
+
+			logStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#888888"))
+			for i := startIdx; i < len(m.greeterLogs); i++ {
+				if m.greeterLogs[i] != "" {
+					b.WriteString(logStyle.Render("  " + m.greeterLogs[i]))
+					b.WriteString("\n")
+				}
+			}
+		}
+	}
+
+	if m.greeterProgress.err != nil {
+		errorStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FF0000"))
+
+		b.WriteString("\n")
+		b.WriteString(errorStyle.Render(fmt.Sprintf("✗ Installation failed: %v", m.greeterProgress.err)))
+		b.WriteString("\n\n")
+
+		instructionStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#888888"))
+		b.WriteString(instructionStyle.Render("Press Esc to go back"))
+	} else if m.greeterProgress.complete {
+		successStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#00D4AA"))
+
+		b.WriteString("\n")
+		b.WriteString(successStyle.Render("✓ Greeter installation complete!"))
+		b.WriteString("\n\n")
+
+		normalStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FFFFFF"))
+
+		b.WriteString(normalStyle.Render("To test the greeter, run:"))
+		b.WriteString("\n")
+		b.WriteString(normalStyle.Render("  sudo systemctl start greetd"))
+		b.WriteString("\n\n")
+		b.WriteString(normalStyle.Render("To enable on boot, run:"))
+		b.WriteString("\n")
+		b.WriteString(normalStyle.Render("  sudo systemctl enable --now greetd"))
+		b.WriteString("\n\n")
+
+		instructionStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#888888"))
+		b.WriteString(instructionStyle.Render("Press Esc to return to main menu"))
+	}
+
+	return b.String()
+}
