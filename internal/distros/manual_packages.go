@@ -420,10 +420,10 @@ func (m *ManualPackageInstaller) installQuickshell(ctx context.Context, sudoPass
 		Progress:    0.1,
 		Step:        "Cloning quickshell repository...",
 		IsComplete:  false,
-		CommandInfo: "git clone https://git.outfoxxed.me/outfoxxed/quickshell.git",
+		CommandInfo: "git clone https://github.com/quickshell-mirror/quickshell.git",
 	}
 
-	cloneCmd := exec.CommandContext(ctx, "git", "clone", "--branch", "v0.2.0", "https://git.outfoxxed.me/outfoxxed/quickshell.git", tmpDir)
+	cloneCmd := exec.CommandContext(ctx, "git", "clone", "--branch", "v0.2.0", "https://github.com/quickshell-mirror/quickshell.git", tmpDir)
 	if err := cloneCmd.Run(); err != nil {
 		return fmt.Errorf("failed to clone quickshell: %w", err)
 	}
@@ -446,7 +446,6 @@ func (m *ManualPackageInstaller) installQuickshell(ctx context.Context, sudoPass
 		"-DCRASH_REPORTER=off",
 		"-DX11=off",
 		"-DI3=off",
-		"-DSERVICE_GREETD=off",
 		"-DCMAKE_CXX_STANDARD=20")
 	configureCmd.Dir = tmpDir
 	configureCmd.Env = append(os.Environ(), "TMPDIR="+cacheDir)

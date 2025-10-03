@@ -66,6 +66,8 @@ func (m Model) viewWelcome() string {
 			switch m.osInfo.Distribution.ID {
 			case "ubuntu":
 				errorMsg = fmt.Sprintf("Ubuntu %s is not supported.\n\nOnly Ubuntu 25.04+ is supported.\n\nPlease upgrade to Ubuntu 25.04 or later.", m.osInfo.VersionID)
+			case "debian":
+				errorMsg = fmt.Sprintf("Debian %s is not supported.\n\nOnly Debian 13+ (Trixie) is supported.\n\nPlease upgrade to Debian 13 or later.", m.osInfo.VersionID)
 			case "nixos":
 				errorMsg = "NixOS is currently not supported, but there is a DankMaterialShell flake available."
 			default:

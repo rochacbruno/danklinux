@@ -99,5 +99,13 @@ func IsUnsupportedDistro(distroID, versionID string) bool {
 		return true
 	}
 
+	if distroID == "debian" {
+		versionNum, err := strconv.Atoi(versionID)
+		if err == nil {
+			return versionNum < 12
+		}
+		return true
+	}
+
 	return false
 }

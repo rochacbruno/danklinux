@@ -104,48 +104,40 @@ curl -fsSL https://install.danklinux.com | sh
 | Go compiler | PPA | `ppa:longsleep/golang-backports` |
 | DankMaterialShell | Manual | Git clone to `~/.config/quickshell/dms` |
 
-### NixOS (Not Currently Support)
+### Debian
 
-**NixOS is not supported atm due to the flake needing some adjustments for defaults/Hyprland, it will be re-enabled in the future.**
-**You can install the [dms](https://github.com/AvengeMedia/DankMaterialShell) flake manually still and get most of what you need for this setup**
-
-~~**Supported:** NixOS~~
+**Supported:** Debian 13+ (Trixie)
 
 **Special Notes:**
-- Window managers (hyprland/niri) should be managed through `configuration.nix`, not the installer
-  - This means we require hyprland or niri to be installed first.
-- Uses `nix profile` for user-level package installation
-- All packages sourced from nixpkgs or flakes
-- DMS installed as a flake package (not `git clone` like other distributions)
-
-Requires the following in `configuration.nix`
-```
-{
-  nix.settings.experimental-features = ["nix-command flakes"];
-}
-```
+- **niri only** - Debian does not support Hyprland currently, only niri.
+- Most packages require manual building due to limited repository availability
+  - This means the install can be quite slow, as many need to be compiled from source.
+  - niri is packages as a `.deb` so it can be managed via `apt`
 
 **Package Sources:**
 | Package | Source | Notes |
 |---------|---------|-------|
-| All system packages | nixpkgs | Via `nix profile install nixpkgs#package` |
-| quickshell | Flake | Built from source |
-| matugen | Flake | Built from source |
-| dgop | Flake | Built from source |
-| DankMaterialShell | Flake | Installed via nix profile |
-| hyprland | System config | `programs.hyprland.enable = true` in `configuration.nix` |
-| niri | System config | Add to `environment.systemPackages` in `configuration.nix` |
+| System packages | Official repos | Via `apt` |
+| quickshell | Manual | Built from source with cmake |
+| matugen | Manual | Built from source with Go |
+| dgop | Manual | Built from source with Go |
+| niri | Manual | Built from source with Rust |
+| DankMaterialShell | Manual | Git clone to `~/.config/quickshell/dms` |
+
+### NixOS (Not supported by Dank Linux, but with Flake)
+
+NixOS users should use the [dms flake](https://github.com/AvengeMedia/DankMaterialShell/tree/master?tab=readme-ov-file#nixos---via-home-manager)
 
 ## Manual Package Building
 
 The installer handles manual package building for packages not available in repositories:
 
-### quickshell (Ubuntu, NixOS)
+### quickshell (Ubuntu, Debian)
 - Built from source using cmake
 - Requires Qt6 development libraries
 - Automatically handles build dependencies
 
-### matugen (Ubuntu, NixOS, Fedora)
+### matugen (Ubuntu, Debian, Fedora)
 - Built from Go source
 - Requires Go 1.19+
 - Installed to `/usr/local/bin`
@@ -155,7 +147,7 @@ The installer handles manual package building for packages not available in repo
 - Simple dependency-free build
 - Installed to `/usr/local/bin`
 
-### niri (Ubuntu)
+### niri (Ubuntu, Debian)
 - Built from Rust source
 - Requires cargo and rust toolchain
 - Complex build with multiple dependencies
