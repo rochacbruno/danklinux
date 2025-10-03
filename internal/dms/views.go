@@ -63,7 +63,6 @@ func (m Model) renderUpdateView() string {
 	b.WriteString(headerStyle.Render("Update Dependencies"))
 	b.WriteString("\n")
 
-
 	if len(m.updateDeps) == 0 {
 		b.WriteString("Loading dependencies...\n")
 		return b.String()
@@ -155,7 +154,6 @@ func (m Model) renderUpdateView() string {
 	return b.String()
 }
 
-
 func (m Model) renderShellView() string {
 	var b strings.Builder
 
@@ -205,7 +203,7 @@ func (m Model) renderAboutView() string {
 	normalStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#FFFFFF"))
 
-	b.WriteString(normalStyle.Render(fmt.Sprintf("DMS Management Interface v%s", m.version)))
+	b.WriteString(normalStyle.Render(fmt.Sprintf("DMS Management Interface %s", m.version)))
 	b.WriteString("\n\n")
 	b.WriteString(normalStyle.Render("DankMaterialShell is a comprehensive desktop environment"))
 	b.WriteString("\n")
