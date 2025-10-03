@@ -121,6 +121,14 @@ func EnsureGreetdInstalled(logFunc func(string), sudoPassword string) error {
 			installCmd = exec.CommandContext(ctx, "sudo", "apt-get", "install", "-y", "greetd")
 		}
 
+	case distros.FamilyDebian:
+		if sudoPassword != "" {
+			installCmd = exec.CommandContext(ctx, "bash", "-c",
+				fmt.Sprintf("echo '%s' | sudo -S apt-get install -y greetd", sudoPassword))
+		} else {
+			installCmd = exec.CommandContext(ctx, "sudo", "apt-get", "install", "-y", "greetd")
+		}
+
 	case distros.FamilyNix:
 		return fmt.Errorf("on NixOS, please add greetd to your configuration.nix")
 

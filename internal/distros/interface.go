@@ -13,6 +13,7 @@ const (
 	FamilyArch   DistroFamily = "arch"
 	FamilyFedora DistroFamily = "fedora"
 	FamilyUbuntu DistroFamily = "ubuntu"
+	FamilyDebian DistroFamily = "debian"
 	FamilyNix    DistroFamily = "nix"
 )
 

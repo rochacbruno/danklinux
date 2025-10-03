@@ -26,7 +26,13 @@ func (m Model) viewSelectWindowManager() string {
 		description string
 	}{
 		{"niri", "Scrollable-tiling Wayland compositor."},
-		{"Hyprland", "Dynamic tiling Wayland compositor."},
+	}
+
+	if m.osInfo == nil || m.osInfo.Distribution.ID != "debian" {
+		options = append(options, struct {
+			name        string
+			description string
+		}{"Hyprland", "Dynamic tiling Wayland compositor."})
 	}
 
 	for i, option := range options {
@@ -143,13 +149,18 @@ func (m Model) updateSelectTerminalState(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m Model) updateSelectWindowManagerState(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+		maxWMIndex := 1
+		if m.osInfo != nil && m.osInfo.Distribution.ID == "debian" {
+			maxWMIndex = 0
+		}
+
 		switch keyMsg.String() {
 		case "up":
 			if m.selectedWM > 0 {
 				m.selectedWM--
 			}
 		case "down":
-			if m.selectedWM < 1 {
+			if m.selectedWM < maxWMIndex {
 				m.selectedWM++
 			}
 		case "enter":
