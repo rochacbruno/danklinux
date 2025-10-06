@@ -74,8 +74,8 @@ func restartShell() {
 }
 
 func killShell() {
-	// Find qs, quickshell processes that include "dms" or "DankMaterialShell" in their command line
 	patterns := []string{
+		"dms run",
 		"qs.*dms",
 		"qs.*DankMaterialShell",
 		"quickshell.*dms",
@@ -87,13 +87,11 @@ func killShell() {
 	for _, pattern := range patterns {
 		out, err := exec.Command("pgrep", "-f", pattern).Output()
 		if err != nil {
-			// pgrep returns exit code 1 when no matches found, which is normal
 			continue
 		}
 
 		pids := strings.TrimSpace(string(out))
 		if pids != "" {
-			// Split on newlines and add to our collection
 			pidList := strings.Split(pids, "\n")
 			allPids = append(allPids, pidList...)
 		}
@@ -104,16 +102,18 @@ func killShell() {
 		return
 	}
 
-	// Remove duplicates (in case a process matches multiple patterns)
+	currentPid := os.Getpid()
 	uniquePids := make(map[string]bool)
 	for _, pid := range allPids {
 		pid = strings.TrimSpace(pid)
 		if pid != "" {
-			uniquePids[pid] = true
+			pidInt, err := strconv.Atoi(pid)
+			if err == nil && pidInt != currentPid {
+				uniquePids[pid] = true
+			}
 		}
 	}
 
-	// Kill each unique process
 	for pid := range uniquePids {
 		pidInt, err := strconv.Atoi(pid)
 		if err != nil {
@@ -130,27 +130,45 @@ func killShell() {
 		if err := proc.Kill(); err != nil {
 			log.Errorf("Error killing process %s: %v", pid, err)
 		} else {
-			log.Infof("Killed DMS shell process with PID %s", pid)
+			log.Infof("Killed DMS process with PID %s", pid)
 		}
 	}
 }
 
 func runShellDaemon() {
+	isDaemonChild := os.Getenv("DMS_DAEMON_CHILD") == "1"
+
+	if !isDaemonChild {
+		cmd := exec.Command(os.Args[0], "run", "-d")
+		cmd.Env = append(os.Environ(), "DMS_DAEMON_CHILD=1")
+
+		cmd.SysProcAttr = &syscall.SysProcAttr{
+			Setsid: true,
+		}
+
+		if err := cmd.Start(); err != nil {
+			log.Fatalf("Error starting daemon: %v", err)
+		}
+
+		log.Infof("DMS shell daemon started (PID: %d)", cmd.Process.Pid)
+		return
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	socketPath := server.GetSocketPath()
+
+	errChan := make(chan error, 2)
 
 	go func() {
 		if err := server.Start(); err != nil {
-			log.Errorf("Server error: %v", err)
+			errChan <- fmt.Errorf("server error: %w", err)
 		}
 	}()
 
-	cmd := exec.Command("qs", "-c", "dms")
+	cmd := exec.CommandContext(ctx, "qs", "-c", "dms")
 	cmd.Env = append(os.Environ(), "DMS_SOCKET="+socketPath)
-
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Setpgid: true,
-		Pgid:    0,
-	}
 
 	devNull, err := os.OpenFile("/dev/null", os.O_RDWR, 0)
 	if err != nil {
@@ -166,8 +184,30 @@ func runShellDaemon() {
 		log.Fatalf("Error starting daemon: %v", err)
 	}
 
-	log.Infof("DMS shell started as daemon (PID: %d)", cmd.Process.Pid)
-	log.Infof("Socket: %s", socketPath)
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		if err := cmd.Wait(); err != nil {
+			errChan <- fmt.Errorf("quickshell exited: %w", err)
+		} else {
+			errChan <- fmt.Errorf("quickshell exited")
+		}
+	}()
+
+	select {
+	case <-sigChan:
+		cancel()
+		cmd.Process.Kill()
+		os.Remove(socketPath)
+	case <-errChan:
+		cancel()
+		if cmd.Process != nil {
+			cmd.Process.Kill()
+		}
+		os.Remove(socketPath)
+		os.Exit(1)
+	}
 }
 
 func runShellIPCCommand(args []string) {

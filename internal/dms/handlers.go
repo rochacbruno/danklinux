@@ -10,6 +10,7 @@ import (
 	"github.com/AvengeMedia/danklinux/internal/deps"
 	"github.com/AvengeMedia/danklinux/internal/distros"
 	"github.com/AvengeMedia/danklinux/internal/greeter"
+	"github.com/AvengeMedia/danklinux/internal/log"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -132,13 +133,18 @@ func (m Model) updateAboutView(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func terminateShell() {
-	cmd := exec.Command("pkill", "-f", "qs -c dms")
-	cmd.Run()
+	patterns := []string{"dms run", "qs -c dms"}
+	for _, pattern := range patterns {
+		cmd := exec.Command("pkill", "-f", pattern)
+		cmd.Run()
+	}
 }
 
 func startShellDaemon() {
-	cmd := exec.Command("qs", "-c", "dms")
-	cmd.Start()
+	cmd := exec.Command("dms", "run", "-d")
+	if err := cmd.Start(); err != nil {
+		log.Errorf("Error starting daemon: %v", err)
+	}
 }
 
 func restartShell() {
