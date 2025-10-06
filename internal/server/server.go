@@ -50,11 +50,11 @@ type SuccessResult struct {
 
 func sortPluginInfoByFirstParty(pluginInfos []PluginInfo) {
 	sort.SliceStable(pluginInfos, func(i, j int) bool {
-		// First-party plugins come first
-		if pluginInfos[i].FirstParty != pluginInfos[j].FirstParty {
-			return pluginInfos[i].FirstParty
+		isFirstPartyI := strings.HasPrefix(pluginInfos[i].Repo, "https://github.com/AvengeMedia")
+		isFirstPartyJ := strings.HasPrefix(pluginInfos[j].Repo, "https://github.com/AvengeMedia")
+		if isFirstPartyI != isFirstPartyJ {
+			return isFirstPartyI
 		}
-		// Otherwise maintain original order (stable sort)
 		return false
 	})
 }
@@ -203,7 +203,7 @@ func handlePluginsList(conn net.Conn, req Request) {
 			Compositors:  p.Compositors,
 			Dependencies: p.Dependencies,
 			Installed:    installed,
-			FirstParty:   p.FirstParty,
+			FirstParty:   strings.HasPrefix(p.Repo, "https://github.com/AvengeMedia"),
 		}
 	}
 
@@ -253,7 +253,7 @@ func handlePluginsListInstalled(conn net.Conn, req Request) {
 				Capabilities: plugin.Capabilities,
 				Compositors:  plugin.Compositors,
 				Dependencies: plugin.Dependencies,
-				FirstParty:   plugin.FirstParty,
+				FirstParty:   strings.HasPrefix(plugin.Repo, "https://github.com/AvengeMedia"),
 			})
 		} else {
 			result = append(result, PluginInfo{
@@ -498,7 +498,7 @@ func handlePluginsSearch(conn net.Conn, req Request) {
 			Compositors:  p.Compositors,
 			Dependencies: p.Dependencies,
 			Installed:    installed,
-			FirstParty:   p.FirstParty,
+			FirstParty:   strings.HasPrefix(p.Repo, "https://github.com/AvengeMedia"),
 		}
 	}
 

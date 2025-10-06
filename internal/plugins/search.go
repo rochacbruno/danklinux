@@ -92,14 +92,13 @@ func FilterByCapability(capability string, plugins []Plugin) []Plugin {
 	return results
 }
 
-// SortByFirstParty sorts plugins with first-party plugins at the top
 func SortByFirstParty(plugins []Plugin) []Plugin {
 	sort.SliceStable(plugins, func(i, j int) bool {
-		// First-party plugins come first
-		if plugins[i].FirstParty != plugins[j].FirstParty {
-			return plugins[i].FirstParty
+		isFirstPartyI := strings.HasPrefix(plugins[i].Repo, "https://github.com/AvengeMedia")
+		isFirstPartyJ := strings.HasPrefix(plugins[j].Repo, "https://github.com/AvengeMedia")
+		if isFirstPartyI != isFirstPartyJ {
+			return isFirstPartyI
 		}
-		// Otherwise maintain original order (stable sort)
 		return false
 	})
 	return plugins

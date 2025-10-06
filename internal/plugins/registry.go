@@ -24,7 +24,6 @@ type Plugin struct {
 	Compositors  []string `json:"compositors"`
 	Distro       []string `json:"distro"`
 	Screenshot   string   `json:"screenshot,omitempty"`
-	FirstParty   bool     `json:"firstParty,omitempty"`
 }
 
 type gitClient interface {

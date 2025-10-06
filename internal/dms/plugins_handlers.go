@@ -1,6 +1,8 @@
 package dms
 
 import (
+	"strings"
+
 	"github.com/AvengeMedia/danklinux/internal/plugins"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -130,7 +132,6 @@ func (m *Model) filterPlugins() {
 			Capabilities: p.Capabilities,
 			Compositors:  p.Compositors,
 			Dependencies: p.Dependencies,
-			FirstParty:   p.FirstParty,
 		}
 	}
 
@@ -149,7 +150,7 @@ func (m *Model) filterPlugins() {
 			Capabilities: p.Capabilities,
 			Compositors:  p.Compositors,
 			Dependencies: p.Dependencies,
-			FirstParty:   p.FirstParty,
+			FirstParty:   strings.HasPrefix(p.Repo, "https://github.com/AvengeMedia"),
 		}
 	}
 
@@ -296,7 +297,6 @@ func installPlugin(plugin pluginInfo) tea.Cmd {
 			Capabilities: plugin.Capabilities,
 			Compositors:  plugin.Compositors,
 			Dependencies: plugin.Dependencies,
-			FirstParty:   plugin.FirstParty,
 		}
 
 		if err := manager.Install(p); err != nil {
@@ -324,7 +324,6 @@ func uninstallPlugin(plugin pluginInfo) tea.Cmd {
 			Capabilities: plugin.Capabilities,
 			Compositors:  plugin.Compositors,
 			Dependencies: plugin.Dependencies,
-			FirstParty:   plugin.FirstParty,
 		}
 
 		if err := manager.Uninstall(p); err != nil {

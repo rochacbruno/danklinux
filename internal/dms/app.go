@@ -2,6 +2,7 @@ package dms
 
 import (
 	"os/exec"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -225,7 +226,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					Capabilities: p.Capabilities,
 					Compositors:  p.Compositors,
 					Dependencies: p.Dependencies,
-					FirstParty:   p.FirstParty,
+					FirstParty:   strings.HasPrefix(p.Repo, "https://github.com/AvengeMedia"),
 				}
 			}
 			m.filteredPluginsList = m.pluginsList
@@ -250,7 +251,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					Capabilities: p.Capabilities,
 					Compositors:  p.Compositors,
 					Dependencies: p.Dependencies,
-					FirstParty:   p.FirstParty,
+					FirstParty:   strings.HasPrefix(p.Repo, "https://github.com/AvengeMedia"),
 				}
 			}
 			m.selectedInstalledIndex = 0
