@@ -6,8 +6,8 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/AvengeMedia/dankinstall/internal/deps"
-	"github.com/AvengeMedia/dankinstall/internal/distros"
+	"github.com/AvengeMedia/danklinux/internal/deps"
+	"github.com/AvengeMedia/danklinux/internal/distros"
 )
 
 type Detector struct {

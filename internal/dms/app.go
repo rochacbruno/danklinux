@@ -14,6 +14,12 @@ const (
 	StateUpdatePassword
 	StateUpdateProgress
 	StateShell
+	StatePluginsMenu
+	StatePluginsBrowse
+	StatePluginDetail
+	StatePluginSearch
+	StatePluginsInstalled
+	StatePluginInstalledDetail
 	StateGreeterMenu
 	StateGreeterCompositorSelect
 	StateGreeterPassword
@@ -60,6 +66,33 @@ type Model struct {
 	greeterCompositors      []string
 	greeterSelectedComp     int
 	greeterChosenCompositor string
+
+	pluginsMenuItems          []MenuItem
+	selectedPluginsMenuItem   int
+	pluginsList               []pluginInfo
+	filteredPluginsList       []pluginInfo
+	selectedPluginIndex       int
+	pluginsLoading            bool
+	pluginsError              string
+	pluginSearchQuery         string
+	installedPluginsList      []pluginInfo
+	selectedInstalledIndex    int
+	installedPluginsLoading   bool
+	installedPluginsError     string
+	pluginInstallStatus       map[string]bool
+}
+
+type pluginInfo struct {
+	Name         string
+	Category     string
+	Author       string
+	Description  string
+	Repo         string
+	Path         string
+	Capabilities []string
+	Compositors  []string
+	Dependencies []string
+	FirstParty   bool
 }
 
 type MenuItem struct {
@@ -88,17 +121,18 @@ func NewModel(version string) Model {
 	}
 
 	m := Model{
-		version:            version,
-		detector:           detector,
-		dependencies:       dependencies,
-		state:              StateMainMenu,
-		selectedItem:       0,
-		updateToggles:      updateToggles,
-		updateDeps:         dependencies,
-		updateProgressChan: make(chan updateProgressMsg, 100),
-		hyprlandInstalled:  hyprlandInstalled,
-		niriInstalled:      niriInstalled,
-		greeterInstallChan: make(chan greeterProgressMsg, 100),
+		version:             version,
+		detector:            detector,
+		dependencies:        dependencies,
+		state:               StateMainMenu,
+		selectedItem:        0,
+		updateToggles:       updateToggles,
+		updateDeps:          dependencies,
+		updateProgressChan:  make(chan updateProgressMsg, 100),
+		hyprlandInstalled:   hyprlandInstalled,
+		niriInstalled:       niriInstalled,
+		greeterInstallChan:  make(chan greeterProgressMsg, 100),
+		pluginInstallStatus: make(map[string]bool),
 	}
 
 	m.menuItems = m.buildMenuItems()
@@ -117,12 +151,22 @@ func (m *Model) buildMenuItems() []MenuItem {
 		items = append(items, MenuItem{Label: "Start Shell (Daemon)", Action: StateShell})
 	}
 
+	// Plugins management
+	items = append(items, MenuItem{Label: "Plugins", Action: StatePluginsMenu})
+
 	// Greeter management
 	items = append(items, MenuItem{Label: "Greeter", Action: StateGreeterMenu})
 
 	items = append(items, MenuItem{Label: "About", Action: StateAbout})
 
 	return items
+}
+
+func (m *Model) buildPluginsMenuItems() []MenuItem {
+	return []MenuItem{
+		{Label: "Browse Plugins", Action: StatePluginsBrowse},
+		{Label: "View Installed", Action: StatePluginsInstalled},
+	}
 }
 
 func (m *Model) isShellRunning() bool {
@@ -164,6 +208,73 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.greeterLogs = append(m.greeterLogs, msg.logOutput)
 		}
 		return m, m.waitForGreeterProgress()
+	case pluginsLoadedMsg:
+		m.pluginsLoading = false
+		if msg.err != nil {
+			m.pluginsError = msg.err.Error()
+		} else {
+			m.pluginsList = make([]pluginInfo, len(msg.plugins))
+			for i, p := range msg.plugins {
+				m.pluginsList[i] = pluginInfo{
+					Name:         p.Name,
+					Category:     p.Category,
+					Author:       p.Author,
+					Description:  p.Description,
+					Repo:         p.Repo,
+					Path:         p.Path,
+					Capabilities: p.Capabilities,
+					Compositors:  p.Compositors,
+					Dependencies: p.Dependencies,
+					FirstParty:   p.FirstParty,
+				}
+			}
+			m.filteredPluginsList = m.pluginsList
+			m.selectedPluginIndex = 0
+			m.updatePluginInstallStatus()
+		}
+		return m, nil
+	case installedPluginsLoadedMsg:
+		m.installedPluginsLoading = false
+		if msg.err != nil {
+			m.installedPluginsError = msg.err.Error()
+		} else {
+			m.installedPluginsList = make([]pluginInfo, len(msg.plugins))
+			for i, p := range msg.plugins {
+				m.installedPluginsList[i] = pluginInfo{
+					Name:         p.Name,
+					Category:     p.Category,
+					Author:       p.Author,
+					Description:  p.Description,
+					Repo:         p.Repo,
+					Path:         p.Path,
+					Capabilities: p.Capabilities,
+					Compositors:  p.Compositors,
+					Dependencies: p.Dependencies,
+					FirstParty:   p.FirstParty,
+				}
+			}
+			m.selectedInstalledIndex = 0
+		}
+		return m, nil
+	case pluginUninstalledMsg:
+		if msg.err != nil {
+			m.installedPluginsError = msg.err.Error()
+			m.state = StatePluginInstalledDetail
+		} else {
+			m.state = StatePluginsInstalled
+			m.installedPluginsLoading = true
+			m.installedPluginsError = ""
+			return m, loadInstalledPlugins
+		}
+		return m, nil
+	case pluginInstalledMsg:
+		if msg.err != nil {
+			m.pluginsError = msg.err.Error()
+		} else {
+			m.pluginInstallStatus[msg.pluginName] = true
+			m.pluginsError = ""
+		}
+		return m, nil
 	case greeterPasswordValidMsg:
 		if msg.valid {
 			m.greeterSudoPassword = msg.password
@@ -204,6 +315,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateProgressView(msg)
 		case StateShell:
 			return m.updateShellView(msg)
+		case StatePluginsMenu:
+			return m.updatePluginsMenu(msg)
+		case StatePluginsBrowse:
+			return m.updatePluginsBrowse(msg)
+		case StatePluginDetail:
+			return m.updatePluginDetail(msg)
+		case StatePluginSearch:
+			return m.updatePluginSearch(msg)
+		case StatePluginsInstalled:
+			return m.updatePluginsInstalled(msg)
+		case StatePluginInstalledDetail:
+			return m.updatePluginInstalledDetail(msg)
 		case StateGreeterMenu:
 			return m.updateGreeterMenu(msg)
 		case StateGreeterCompositorSelect:
@@ -273,6 +396,18 @@ func (m Model) View() string {
 		return m.renderProgressView()
 	case StateShell:
 		return m.renderShellView()
+	case StatePluginsMenu:
+		return m.renderPluginsMenu()
+	case StatePluginsBrowse:
+		return m.renderPluginsBrowse()
+	case StatePluginDetail:
+		return m.renderPluginDetail()
+	case StatePluginSearch:
+		return m.renderPluginSearch()
+	case StatePluginsInstalled:
+		return m.renderPluginsInstalled()
+	case StatePluginInstalledDetail:
+		return m.renderPluginInstalledDetail()
 	case StateGreeterMenu:
 		return m.renderGreeterMenu()
 	case StateGreeterCompositorSelect:

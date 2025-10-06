@@ -1,23 +1,69 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
+	"os/signal"
 	"strconv"
 	"strings"
 	"syscall"
+
+	"github.com/AvengeMedia/danklinux/internal/log"
+	"github.com/AvengeMedia/danklinux/internal/server"
 )
 
 func runShellInteractive() {
 	printASCII()
-	cmd := exec.Command("qs", "-c", "dms")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	socketPath := server.GetSocketPath()
+
+	errChan := make(chan error, 2)
+
+	go func() {
+		if err := server.Start(); err != nil {
+			errChan <- fmt.Errorf("server error: %w", err)
+		}
+	}()
+
+	cmd := exec.CommandContext(ctx, "qs", "-c", "dms")
+	cmd.Env = append(os.Environ(), "DMS_SOCKET="+socketPath)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	if err := cmd.Run(); err != nil {
-		fmt.Printf("Error starting quickshell: %v\n", err)
+	if err := cmd.Start(); err != nil {
+		log.Fatalf("Error starting quickshell: %v", err)
+	}
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		if err := cmd.Wait(); err != nil {
+			errChan <- fmt.Errorf("quickshell exited: %w", err)
+		} else {
+			errChan <- fmt.Errorf("quickshell exited")
+		}
+	}()
+
+	select {
+	case sig := <-sigChan:
+		log.Infof("\nReceived signal %v, shutting down...", sig)
+		cancel()
+		cmd.Process.Kill()
+		os.Remove(socketPath)
+	case err := <-errChan:
+		log.Error(err)
+		cancel()
+		if cmd.Process != nil {
+			cmd.Process.Kill()
+		}
+		os.Remove(socketPath)
 		os.Exit(1)
 	}
 }
@@ -54,7 +100,7 @@ func killShell() {
 	}
 
 	if len(allPids) == 0 {
-		fmt.Println("No running DMS shell instances found.")
+		log.Info("No running DMS shell instances found.")
 		return
 	}
 
@@ -71,26 +117,35 @@ func killShell() {
 	for pid := range uniquePids {
 		pidInt, err := strconv.Atoi(pid)
 		if err != nil {
-			fmt.Printf("Invalid PID %s: %v\n", pid, err)
+			log.Errorf("Invalid PID %s: %v", pid, err)
 			continue
 		}
 
 		proc, err := os.FindProcess(pidInt)
 		if err != nil {
-			fmt.Printf("Error finding process %s: %v\n", pid, err)
+			log.Errorf("Error finding process %s: %v", pid, err)
 			continue
 		}
 
 		if err := proc.Kill(); err != nil {
-			fmt.Printf("Error killing process %s: %v\n", pid, err)
+			log.Errorf("Error killing process %s: %v", pid, err)
 		} else {
-			fmt.Printf("Killed DMS shell process with PID %s\n", pid)
+			log.Infof("Killed DMS shell process with PID %s", pid)
 		}
 	}
 }
 
 func runShellDaemon() {
+	socketPath := server.GetSocketPath()
+
+	go func() {
+		if err := server.Start(); err != nil {
+			log.Errorf("Server error: %v", err)
+		}
+	}()
+
 	cmd := exec.Command("qs", "-c", "dms")
+	cmd.Env = append(os.Environ(), "DMS_SOCKET="+socketPath)
 
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Setpgid: true,
@@ -99,8 +154,7 @@ func runShellDaemon() {
 
 	devNull, err := os.OpenFile("/dev/null", os.O_RDWR, 0)
 	if err != nil {
-		fmt.Printf("Error opening /dev/null: %v\n", err)
-		os.Exit(1)
+		log.Fatalf("Error opening /dev/null: %v", err)
 	}
 	defer devNull.Close()
 
@@ -109,17 +163,17 @@ func runShellDaemon() {
 	cmd.Stderr = devNull
 
 	if err := cmd.Start(); err != nil {
-		fmt.Printf("Error starting daemon: %v\n", err)
-		os.Exit(1)
+		log.Fatalf("Error starting daemon: %v", err)
 	}
 
-	fmt.Printf("DMS shell started as daemon (PID: %d)\n", cmd.Process.Pid)
+	log.Infof("DMS shell started as daemon (PID: %d)", cmd.Process.Pid)
+	log.Infof("Socket: %s", socketPath)
 }
 
 func runShellIPCCommand(args []string) {
 	if len(args) == 0 {
-		fmt.Println("Error: IPC command requires arguments")
-		fmt.Println("Usage: dms ipc <command> [args...]")
+		log.Error("IPC command requires arguments")
+		log.Info("Usage: dms ipc <command> [args...]")
 		os.Exit(1)
 	}
 
@@ -134,7 +188,6 @@ func runShellIPCCommand(args []string) {
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
-		fmt.Printf("Error running IPC command: %v\n", err)
-		os.Exit(1)
+		log.Fatalf("Error running IPC command: %v", err)
 	}
 }

@@ -10,9 +10,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/AvengeMedia/dankinstall/internal/distros"
-	"github.com/AvengeMedia/dankinstall/internal/dms"
-	"github.com/AvengeMedia/dankinstall/internal/errdefs"
+	"github.com/AvengeMedia/danklinux/internal/distros"
+	"github.com/AvengeMedia/danklinux/internal/dms"
+	"github.com/AvengeMedia/danklinux/internal/errdefs"
+	"github.com/AvengeMedia/danklinux/internal/log"
+	"github.com/AvengeMedia/danklinux/internal/plugins"
+	"github.com/AvengeMedia/danklinux/internal/server"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 )
@@ -92,8 +95,70 @@ var greeterInstallCmd = &cobra.Command{
 	Long:  "Install greetd and configure it to use DMS as the greeter interface",
 	Run: func(cmd *cobra.Command, args []string) {
 		if err := installGreeter(); err != nil {
-			fmt.Printf("Error installing greeter: %v\n", err)
-			os.Exit(1)
+			log.Fatalf("Error installing greeter: %v", err)
+		}
+	},
+}
+
+var debugSrvCmd = &cobra.Command{
+	Use:   "debug-srv",
+	Short: "Start the debug server",
+	Long:  "Start the Unix socket debug server for DMS",
+	Run: func(cmd *cobra.Command, args []string) {
+		if err := startDebugServer(); err != nil {
+			log.Fatalf("Error starting debug server: %v", err)
+		}
+	},
+}
+
+var pluginsCmd = &cobra.Command{
+	Use:   "plugins",
+	Short: "Manage DMS plugins",
+	Long:  "Browse and manage DMS plugins from the registry",
+}
+
+var pluginsBrowseCmd = &cobra.Command{
+	Use:   "browse",
+	Short: "Browse available plugins",
+	Long:  "Browse available plugins from the DMS plugin registry",
+	Run: func(cmd *cobra.Command, args []string) {
+		if err := browsePlugins(); err != nil {
+			log.Fatalf("Error browsing plugins: %v", err)
+		}
+	},
+}
+
+var pluginsListCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List installed plugins",
+	Long:  "List all installed DMS plugins",
+	Run: func(cmd *cobra.Command, args []string) {
+		if err := listInstalledPlugins(); err != nil {
+			log.Fatalf("Error listing plugins: %v", err)
+		}
+	},
+}
+
+var pluginsInstallCmd = &cobra.Command{
+	Use:   "install <plugin-name>",
+	Short: "Install a plugin",
+	Long:  "Install a DMS plugin from the registry",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		if err := installPluginCLI(args[0]); err != nil {
+			log.Fatalf("Error installing plugin: %v", err)
+		}
+	},
+}
+
+var pluginsUninstallCmd = &cobra.Command{
+	Use:   "uninstall <plugin-name>",
+	Short: "Uninstall a plugin",
+	Long:  "Uninstall a DMS plugin",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		if err := uninstallPluginCLI(args[0]); err != nil {
+			log.Fatalf("Error uninstalling plugin: %v", err)
 		}
 	},
 }
@@ -101,25 +166,23 @@ var greeterInstallCmd = &cobra.Command{
 func runInteractiveMode(cmd *cobra.Command, args []string) {
 	detector, err := dms.NewDetector()
 	if err != nil && !errors.Is(err, &distros.UnsupportedDistributionError{}) {
-		fmt.Printf("Error initializing DMS detector: %v\n", err)
-		os.Exit(1)
+		log.Fatalf("Error initializing DMS detector: %v", err)
 	} else if (errors.Is(err, &distros.UnsupportedDistributionError{})) {
-		fmt.Println("Interactive mode is not supported on this distribution.")
-		fmt.Println("Please run 'dms --help' for available commands.")
+		log.Error("Interactive mode is not supported on this distribution.")
+		log.Info("Please run 'dms --help' for available commands.")
 		os.Exit(1)
 	}
 
 	if !detector.IsDMSInstalled() {
-		fmt.Println("Error: DankMaterialShell (DMS) is not detected as installed on this system.")
-		fmt.Println("Please install DMS using dankinstall before using this management interface.")
+		log.Error("DankMaterialShell (DMS) is not detected as installed on this system.")
+		log.Info("Please install DMS using dankinstall before using this management interface.")
 		os.Exit(1)
 	}
 
 	model := dms.NewModel(Version)
 	p := tea.NewProgram(model, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
-		fmt.Printf("Error running program: %v\n", err)
-		os.Exit(1)
+		log.Fatalf("Error running program: %v", err)
 	}
 }
 
@@ -131,14 +194,12 @@ func runVersion(cmd *cobra.Command, args []string) {
 func runUpdate() {
 	osInfo, err := distros.GetOSInfo()
 	if err != nil {
-		fmt.Printf("Error detecting OS: %v\n", err)
-		os.Exit(1)
+		log.Fatalf("Error detecting OS: %v", err)
 	}
 
 	config, exists := distros.Registry[osInfo.Distribution.ID]
 	if !exists {
-		fmt.Printf("Error: Unsupported distribution: %s\n", osInfo.Distribution.ID)
-		os.Exit(1)
+		log.Fatalf("Unsupported distribution: %s", osInfo.Distribution.ID)
 	}
 
 	var updateErr error
@@ -153,14 +214,13 @@ func runUpdate() {
 
 	if updateErr != nil {
 		if errors.Is(updateErr, errdefs.ErrUpdateCancelled) {
-			fmt.Println("Update cancelled.")
+			log.Info("Update cancelled.")
 			return
 		}
-		fmt.Printf("Error updating DMS: %v\n", updateErr)
-		os.Exit(1)
+		log.Fatalf("Error updating DMS: %v", updateErr)
 	}
 
-	fmt.Println("Update complete! Restarting DMS...")
+	log.Info("Update complete! Restarting DMS...")
 	restartShell()
 }
 
@@ -430,5 +490,197 @@ func updateDMSBinary() error {
 		return fmt.Errorf("failed to replace binary: %w", err)
 	}
 
+	return nil
+}
+
+func startDebugServer() error {
+	return server.Start()
+}
+
+func browsePlugins() error {
+	registry, err := plugins.NewRegistry()
+	if err != nil {
+		return fmt.Errorf("failed to create registry: %w", err)
+	}
+
+	manager, err := plugins.NewManager()
+	if err != nil {
+		return fmt.Errorf("failed to create manager: %w", err)
+	}
+
+	fmt.Println("Fetching plugin registry...")
+	pluginList, err := registry.List()
+	if err != nil {
+		return fmt.Errorf("failed to list plugins: %w", err)
+	}
+
+	if len(pluginList) == 0 {
+		fmt.Println("No plugins found in registry.")
+		return nil
+	}
+
+	fmt.Printf("\nAvailable Plugins (%d):\n\n", len(pluginList))
+	for _, plugin := range pluginList {
+		installed, _ := manager.IsInstalled(plugin)
+		installedMarker := ""
+		if installed {
+			installedMarker = " [Installed]"
+		}
+
+		fmt.Printf("  %s%s\n", plugin.Name, installedMarker)
+		fmt.Printf("    Category: %s\n", plugin.Category)
+		fmt.Printf("    Author: %s\n", plugin.Author)
+		fmt.Printf("    Description: %s\n", plugin.Description)
+		fmt.Printf("    Repository: %s\n", plugin.Repo)
+		if len(plugin.Capabilities) > 0 {
+			fmt.Printf("    Capabilities: %s\n", strings.Join(plugin.Capabilities, ", "))
+		}
+		if len(plugin.Compositors) > 0 {
+			fmt.Printf("    Compositors: %s\n", strings.Join(plugin.Compositors, ", "))
+		}
+		if len(plugin.Dependencies) > 0 {
+			fmt.Printf("    Dependencies: %s\n", strings.Join(plugin.Dependencies, ", "))
+		}
+		fmt.Println()
+	}
+
+	return nil
+}
+
+func listInstalledPlugins() error {
+	manager, err := plugins.NewManager()
+	if err != nil {
+		return fmt.Errorf("failed to create manager: %w", err)
+	}
+
+	registry, err := plugins.NewRegistry()
+	if err != nil {
+		return fmt.Errorf("failed to create registry: %w", err)
+	}
+
+	installedNames, err := manager.ListInstalled()
+	if err != nil {
+		return fmt.Errorf("failed to list installed plugins: %w", err)
+	}
+
+	if len(installedNames) == 0 {
+		fmt.Println("No plugins installed.")
+		return nil
+	}
+
+	allPlugins, err := registry.List()
+	if err != nil {
+		return fmt.Errorf("failed to list plugins: %w", err)
+	}
+
+	pluginMap := make(map[string]plugins.Plugin)
+	for _, p := range allPlugins {
+		pluginMap[p.Name] = p
+	}
+
+	fmt.Printf("\nInstalled Plugins (%d):\n\n", len(installedNames))
+	for _, name := range installedNames {
+		if plugin, ok := pluginMap[name]; ok {
+			fmt.Printf("  %s\n", plugin.Name)
+			fmt.Printf("    Category: %s\n", plugin.Category)
+			fmt.Printf("    Author: %s\n", plugin.Author)
+			fmt.Println()
+		} else {
+			fmt.Printf("  %s (not in registry)\n\n", name)
+		}
+	}
+
+	return nil
+}
+
+func installPluginCLI(name string) error {
+	registry, err := plugins.NewRegistry()
+	if err != nil {
+		return fmt.Errorf("failed to create registry: %w", err)
+	}
+
+	manager, err := plugins.NewManager()
+	if err != nil {
+		return fmt.Errorf("failed to create manager: %w", err)
+	}
+
+	pluginList, err := registry.List()
+	if err != nil {
+		return fmt.Errorf("failed to list plugins: %w", err)
+	}
+
+	var plugin *plugins.Plugin
+	for _, p := range pluginList {
+		if p.Name == name {
+			plugin = &p
+			break
+		}
+	}
+
+	if plugin == nil {
+		return fmt.Errorf("plugin not found: %s", name)
+	}
+
+	installed, err := manager.IsInstalled(*plugin)
+	if err != nil {
+		return fmt.Errorf("failed to check install status: %w", err)
+	}
+
+	if installed {
+		return fmt.Errorf("plugin already installed: %s", name)
+	}
+
+	fmt.Printf("Installing plugin: %s\n", name)
+	if err := manager.Install(*plugin); err != nil {
+		return fmt.Errorf("failed to install plugin: %w", err)
+	}
+
+	fmt.Printf("Plugin installed successfully: %s\n", name)
+	return nil
+}
+
+func uninstallPluginCLI(name string) error {
+	manager, err := plugins.NewManager()
+	if err != nil {
+		return fmt.Errorf("failed to create manager: %w", err)
+	}
+
+	registry, err := plugins.NewRegistry()
+	if err != nil {
+		return fmt.Errorf("failed to create registry: %w", err)
+	}
+
+	pluginList, err := registry.List()
+	if err != nil {
+		return fmt.Errorf("failed to list plugins: %w", err)
+	}
+
+	var plugin *plugins.Plugin
+	for _, p := range pluginList {
+		if p.Name == name {
+			plugin = &p
+			break
+		}
+	}
+
+	if plugin == nil {
+		return fmt.Errorf("plugin not found: %s", name)
+	}
+
+	installed, err := manager.IsInstalled(*plugin)
+	if err != nil {
+		return fmt.Errorf("failed to check install status: %w", err)
+	}
+
+	if !installed {
+		return fmt.Errorf("plugin not installed: %s", name)
+	}
+
+	fmt.Printf("Uninstalling plugin: %s\n", name)
+	if err := manager.Uninstall(*plugin); err != nil {
+		return fmt.Errorf("failed to uninstall plugin: %w", err)
+	}
+
+	fmt.Printf("Plugin uninstalled successfully: %s\n", name)
 	return nil
 }

@@ -3,7 +3,7 @@ package distros
 import (
 	"context"
 
-	"github.com/AvengeMedia/dankinstall/internal/deps"
+	"github.com/AvengeMedia/danklinux/internal/deps"
 )
 
 // DistroFamily represents a family of related distributions

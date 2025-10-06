@@ -1,7 +1,7 @@
 package distros
 
 import (
-	"github.com/AvengeMedia/dankinstall/internal/deps"
+	"github.com/AvengeMedia/danklinux/internal/deps"
 )
 
 // NewDependencyDetector creates a DependencyDetector for the specified distribution

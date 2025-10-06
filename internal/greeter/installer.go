@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/AvengeMedia/dankinstall/internal/distros"
+	"github.com/AvengeMedia/danklinux/internal/distros"
 )
 
 // DetectDMSPath checks for DMS installation in user config and system config

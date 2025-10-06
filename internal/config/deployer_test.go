@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/AvengeMedia/dankinstall/internal/deps"
+	"github.com/AvengeMedia/danklinux/internal/deps"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/AvengeMedia/dankinstall/internal/deps"
-	"github.com/AvengeMedia/dankinstall/internal/distros"
-	"github.com/AvengeMedia/dankinstall/internal/greeter"
+	"github.com/AvengeMedia/danklinux/internal/deps"
+	"github.com/AvengeMedia/danklinux/internal/distros"
+	"github.com/AvengeMedia/danklinux/internal/greeter"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -35,24 +35,23 @@ func (m Model) updateMainMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.state = StateUpdate
 				m.selectedUpdateDep = 0
 			case StateShell:
-				// Handle shell management based on label
 				if selectedLabel == "Terminate Shell" {
 					terminateShell()
-					// Rebuild menu to update shell status
 					m.menuItems = m.buildMenuItems()
-					// Reset selection if it's now out of bounds
 					if m.selectedItem >= len(m.menuItems) {
 						m.selectedItem = len(m.menuItems) - 1
 					}
 				} else {
 					startShellDaemon()
-					// Rebuild menu to update shell status
 					m.menuItems = m.buildMenuItems()
-					// Reset selection if it's now out of bounds
 					if m.selectedItem >= len(m.menuItems) {
 						m.selectedItem = len(m.menuItems) - 1
 					}
 				}
+			case StatePluginsMenu:
+				m.state = StatePluginsMenu
+				m.selectedPluginsMenuItem = 0
+				m.pluginsMenuItems = m.buildPluginsMenuItems()
 			case StateGreeterMenu:
 				m.state = StateGreeterMenu
 				m.selectedGreeterItem = 0
@@ -106,7 +105,6 @@ func (m Model) updateUpdateView(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 	return m, nil
 }
-
 
 func (m Model) updateShellView(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {

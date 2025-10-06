@@ -3,7 +3,7 @@ package tui
 import (
 	"strings"
 
-	"github.com/AvengeMedia/dankinstall/internal/deps"
+	"github.com/AvengeMedia/danklinux/internal/deps"
 	tea "github.com/charmbracelet/bubbletea"
 )
 

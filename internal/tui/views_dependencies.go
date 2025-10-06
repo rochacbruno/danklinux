@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/AvengeMedia/dankinstall/internal/deps"
-	"github.com/AvengeMedia/dankinstall/internal/distros"
+	"github.com/AvengeMedia/danklinux/internal/deps"
+	"github.com/AvengeMedia/danklinux/internal/distros"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -44,11 +44,11 @@ func (m Model) viewDependencyReview() string {
 			var variantMarker string
 
 			isDMS := dep.Name == "dms (DankMaterialShell)"
-			
+
 			if dep.CanToggle && dep.Variant == deps.VariantGit {
 				variantMarker = "[git] "
 			}
-			
+
 			if m.reinstallItems[dep.Name] {
 				reinstallMarker = "🔄 "
 				status = m.styles.Warning.Render("Will reinstall")

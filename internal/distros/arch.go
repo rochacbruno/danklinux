@@ -9,7 +9,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/AvengeMedia/dankinstall/internal/deps"
+	"github.com/AvengeMedia/danklinux/internal/deps"
 )
 
 func init() {

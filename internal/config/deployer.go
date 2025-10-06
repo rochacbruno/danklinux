@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/AvengeMedia/dankinstall/internal/deps"
+	"github.com/AvengeMedia/danklinux/internal/deps"
 )
 
 type ConfigDeployer struct {

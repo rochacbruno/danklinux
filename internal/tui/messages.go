@@ -1,8 +1,8 @@
 package tui
 
 import (
-	"github.com/AvengeMedia/dankinstall/internal/deps"
-	"github.com/AvengeMedia/dankinstall/internal/distros"
+	"github.com/AvengeMedia/danklinux/internal/deps"
+	"github.com/AvengeMedia/danklinux/internal/distros"
 )
 
 type logMsg struct {

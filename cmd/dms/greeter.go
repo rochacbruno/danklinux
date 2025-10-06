@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/AvengeMedia/dankinstall/internal/greeter"
+	"github.com/AvengeMedia/danklinux/internal/greeter"
 )
 
 func installGreeter() error {

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/AvengeMedia/dankinstall/internal/distros"
+	"github.com/AvengeMedia/danklinux/internal/distros"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )

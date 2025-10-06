@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/AvengeMedia/dankinstall/internal/tui"
+	"github.com/AvengeMedia/danklinux/internal/tui"
 	"github.com/charmbracelet/lipgloss"
 )
 

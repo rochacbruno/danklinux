@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/AvengeMedia/dankinstall/internal/deps"
+	"github.com/AvengeMedia/danklinux/internal/deps"
 )
 
 // BaseDistribution provides common functionality for all distributions
@@ -284,7 +284,7 @@ func (b *BaseDistribution) detectQuickshell() deps.Dependency {
 	if strings.Contains(versionStr, "git") || strings.Contains(versionStr, "+") {
 		variant = deps.VariantGit
 	}
-	
+
 	if b.versionCompare(version, "0.2.0") >= 0 {
 		return deps.Dependency{
 			Name:        "quickshell",
@@ -314,7 +314,7 @@ func (b *BaseDistribution) detectWindowManager(wm deps.WindowManager) deps.Depen
 		status := deps.StatusMissing
 		variant := deps.VariantStable
 		version := ""
-		
+
 		if b.commandExists("hyprland") || b.commandExists("Hyprland") {
 			status = deps.StatusInstalled
 			cmd := exec.Command("hyprctl", "version")
@@ -344,7 +344,7 @@ func (b *BaseDistribution) detectWindowManager(wm deps.WindowManager) deps.Depen
 		status := deps.StatusMissing
 		variant := deps.VariantStable
 		version := ""
-		
+
 		if b.commandExists("niri") {
 			status = deps.StatusInstalled
 			cmd := exec.Command("niri", "--version")
@@ -569,7 +569,7 @@ func (b *BaseDistribution) installDMSBinary(ctx context.Context, sudoPassword st
 	// Download the gzipped binary
 	downloadURL := fmt.Sprintf("https://github.com/AvengeMedia/danklinux/releases/download/%s/dms-%s.gz", version, arch)
 	gzPath := filepath.Join(tmpDir, "dms.gz")
-	
+
 	downloadCmd := exec.CommandContext(ctx, "curl", "-L", downloadURL, "-o", gzPath)
 	if err := downloadCmd.Run(); err != nil {
 		return fmt.Errorf("failed to download DMS binary: %w", err)

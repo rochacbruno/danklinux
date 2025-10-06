@@ -6,8 +6,8 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/AvengeMedia/dankinstall/internal/deps"
-	"github.com/AvengeMedia/dankinstall/internal/distros"
+	"github.com/AvengeMedia/danklinux/internal/deps"
+	"github.com/AvengeMedia/danklinux/internal/distros"
 	tea "github.com/charmbracelet/bubbletea"
 )
 

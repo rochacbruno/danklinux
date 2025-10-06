@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/AvengeMedia/dankinstall/internal/errdefs"
+	"github.com/AvengeMedia/danklinux/internal/errdefs"
 )
 
 // DistroInfo contains basic information about a distribution
