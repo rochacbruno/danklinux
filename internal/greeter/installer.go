@@ -113,6 +113,14 @@ func EnsureGreetdInstalled(logFunc func(string), sudoPassword string) error {
 			installCmd = exec.CommandContext(ctx, "sudo", "dnf", "install", "-y", "greetd")
 		}
 
+	case distros.FamilySUSE:
+		if sudoPassword != "" {
+			installCmd = exec.CommandContext(ctx, "bash", "-c",
+				fmt.Sprintf("echo '%s' | sudo -S zypper install -y greetd", sudoPassword))
+		} else {
+			installCmd = exec.CommandContext(ctx, "sudo", "zypper", "install", "-y", "greetd")
+		}
+
 	case distros.FamilyUbuntu:
 		if sudoPassword != "" {
 			installCmd = exec.CommandContext(ctx, "bash", "-c",
@@ -190,10 +198,10 @@ func CopyGreeterFiles(dmsPath, compositor string, logFunc func(string), sudoPass
 		return fmt.Errorf("failed to make script executable: %w", err)
 	}
 
-	// Set SELinux context on Fedora
+	// Set SELinux context on Fedora and openSUSE
 	osInfo, err := distros.GetOSInfo()
 	if err == nil {
-		if config, exists := distros.Registry[osInfo.Distribution.ID]; exists && config.Family == distros.FamilyFedora {
+		if config, exists := distros.Registry[osInfo.Distribution.ID]; exists && (config.Family == distros.FamilyFedora || config.Family == distros.FamilySUSE) {
 			if err := runSudoCmd(sudoPassword, "semanage", "fcontext", "-a", "-t", "bin_t", scriptDst); err != nil {
 				logFunc(fmt.Sprintf("⚠ Warning: Failed to set SELinux fcontext: %v", err))
 			} else {

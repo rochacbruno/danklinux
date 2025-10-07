@@ -208,6 +208,8 @@ func runUpdate() {
 		updateErr = updateArchLinux()
 	case distros.FamilyNix:
 		updateErr = updateNixOS()
+	case distros.FamilySUSE:
+		updateErr = updateOtherDistros()
 	default:
 		updateErr = updateOtherDistros()
 	}

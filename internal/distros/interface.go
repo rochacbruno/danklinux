@@ -12,6 +12,7 @@ type DistroFamily string
 const (
 	FamilyArch   DistroFamily = "arch"
 	FamilyFedora DistroFamily = "fedora"
+	FamilySUSE   DistroFamily = "suse"
 	FamilyUbuntu DistroFamily = "ubuntu"
 	FamilyDebian DistroFamily = "debian"
 	FamilyNix    DistroFamily = "nix"
