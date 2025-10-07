@@ -203,6 +203,8 @@ func (o *OpenSUSEDistribution) getPrerequisites() []string {
 		"pipewire-devel",
 		"jemalloc-devel",
 		"wayland-utils",
+		"Mesa-libGLESv3-devel",
+		"pam-devel",
 	}
 }
 
@@ -508,13 +510,63 @@ func (o *OpenSUSEDistribution) installQuickshell(ctx context.Context, sudoPasswo
 	return nil
 }
 
-// InstallManualPackages overrides the base implementation to use openSUSE-specific quickshell build
+func (o *OpenSUSEDistribution) installRust(ctx context.Context, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
+	if o.commandExists("cargo") {
+		return nil
+	}
+
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
+		Progress:    0.82,
+		Step:        "Installing rustup...",
+		IsComplete:  false,
+		NeedsSudo:   true,
+		CommandInfo: "sudo zypper install rustup",
+	}
+
+	rustupInstallCmd := exec.CommandContext(ctx, "bash", "-c",
+		fmt.Sprintf("echo '%s' | sudo -S zypper install -y rustup", sudoPassword))
+	if err := o.runWithProgress(rustupInstallCmd, progressChan, PhaseSystemPackages, 0.82, 0.83); err != nil {
+		return fmt.Errorf("failed to install rustup: %w", err)
+	}
+
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
+		Progress:    0.83,
+		Step:        "Installing stable Rust toolchain...",
+		IsComplete:  false,
+		CommandInfo: "rustup install stable",
+	}
+
+	rustInstallCmd := exec.CommandContext(ctx, "bash", "-c", "rustup install stable && rustup default stable")
+	if err := o.runWithProgress(rustInstallCmd, progressChan, PhaseSystemPackages, 0.83, 0.84); err != nil {
+		return fmt.Errorf("failed to install Rust toolchain: %w", err)
+	}
+
+	if !o.commandExists("cargo") {
+		o.log("Warning: cargo not found in PATH after Rust installation, trying to source environment")
+	}
+
+	return nil
+}
+
+// InstallManualPackages overrides the base implementation to use openSUSE-specific builds
 func (o *OpenSUSEDistribution) InstallManualPackages(ctx context.Context, packages []string, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
 	if len(packages) == 0 {
 		return nil
 	}
 
 	o.log(fmt.Sprintf("Installing manual packages: %s", strings.Join(packages, ", ")))
+
+	// Install Rust if needed for matugen
+	for _, pkg := range packages {
+		if pkg == "matugen" {
+			if err := o.installRust(ctx, sudoPassword, progressChan); err != nil {
+				return fmt.Errorf("failed to install Rust: %w", err)
+			}
+			break
+		}
+	}
 
 	for _, pkg := range packages {
 		if pkg == "quickshell" {

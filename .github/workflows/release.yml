@@ -69,6 +69,18 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Notify DankMaterialShell to create release and mirror assets
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.SHELL_REPO_PAT }}
+          repository: AvengeMedia/DankMaterialShell
+          event-type: dms_release
+          client-payload: >-
+            {
+              "tag": "${{ github.ref_name }}",
+              "dms_repo": "${{ github.repository }}"
+            }
+
     strategy:
       matrix:
         arch: [amd64, arm64]

@@ -35,7 +35,7 @@ curl -fsSL https://install.danklinux.com | sh
 
 ### Arch Linux & Derivatives
 
-**Supported:** Arch, CachyOS, EndeavourOS, Manjaro
+**Supported:** Arch, ArchARM, Archcraft, CachyOS, EndeavourOS, Manjaro
 
 **Special Notes:**
 - Uses native `pacman` for system packages
@@ -57,7 +57,7 @@ curl -fsSL https://install.danklinux.com | sh
 
 ### Fedora & Derivatives
 
-**Supported:** Fedora, Nobara, Asahi
+**Supported:** Fedora, Nobara, Fedora Asahi Remix
 
 **Special Notes:**
 - Requires `dnf-plugins-core` for COPR repository support
@@ -124,6 +124,29 @@ curl -fsSL https://install.danklinux.com | sh
 | niri | Manual | Built from source with Rust |
 | DankMaterialShell | Manual | Git clone to `~/.config/quickshell/dms` |
 
+### openSUSE Tumbleweed
+
+**Special Notes:**
+- Most packages available in standard repos, minimal manual building required
+- quickshell and matugen require building from source
+
+**Package Sources:**
+| Package | Source | Notes |
+|---------|---------|-------|
+| System packages (git, jq, etc.) | Official repos | Via `zypper` |
+| hyprland | Official repos | Available in standard repos |
+| niri | Official repos | Available in standard repos |
+| xwayland-satellite | Official repos | For niri X11 app support |
+| ghostty | Official repos | Latest terminal emulator |
+| kitty, alacritty | Official repos | Alternative terminals |
+| grim, slurp, hyprpicker | Official repos | Wayland screenshot utilities |
+| wl-clipboard | Official repos | Via `wl-clipboard` package |
+| cliphist | Official repos | Clipboard manager |
+| quickshell | Manual | Built from source with cmake + openSUSE flags |
+| matugen | Manual | Built from source with Rust |
+| dgop | Manual | Built from source with Go |
+| DankMaterialShell | Manual | Git clone to `~/.config/quickshell/dms` |
+
 ### NixOS (Not supported by Dank Linux, but with Flake)
 
 NixOS users should use the [dms flake](https://github.com/AvengeMedia/DankMaterialShell/tree/master?tab=readme-ov-file#nixos---via-home-manager)
@@ -132,14 +155,15 @@ NixOS users should use the [dms flake](https://github.com/AvengeMedia/DankMateri
 
 The installer handles manual package building for packages not available in repositories:
 
-### quickshell (Ubuntu, Debian)
+### quickshell (Ubuntu, Debian, openSUSE)
 - Built from source using cmake
 - Requires Qt6 development libraries
 - Automatically handles build dependencies
+- **openSUSE:** Uses special CFLAGS with rpm optflags and wayland include path
 
-### matugen (Ubuntu, Debian, Fedora)
-- Built from Go source
-- Requires Go 1.19+
+### matugen (Ubuntu, Debian, Fedora, openSUSE)
+- Built from Rust source
+- Requires cargo and rust toolchain
 - Installed to `/usr/local/bin`
 
 ### dgop (All distros)
