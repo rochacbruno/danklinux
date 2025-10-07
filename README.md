@@ -29,9 +29,9 @@ curl -fsSL https://install.danklinux.com | sh
 
 ## Supported Distributions
 
-**Note on Greeter**: dankinstall does not install a greeter.
-- Start niri with `niri-session`, or Hyprland with `Hyprland`
-- If you want a greeter such as gdm, sddm, tuigreet - follow your distribution's guide.
+**Note on Greeter**: dankinstall does not install a greeter automatically.
+- To install the dms greeter, run `dms greeter install` after installation.
+- Then you can disable any existing greeter, if present, and run `sudo systemctl enable --now greetd`
 
 ### Arch Linux & Derivatives
 
