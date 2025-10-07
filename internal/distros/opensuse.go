@@ -130,7 +130,7 @@ func (o *OpenSUSEDistribution) GetPackageMappingWithVariants(wm deps.WindowManag
 		"ghostty":                {Name: "ghostty", Repository: RepoTypeSystem},
 		"kitty":                  {Name: "kitty", Repository: RepoTypeSystem},
 		"alacritty":              {Name: "alacritty", Repository: RepoTypeSystem},
-		"wl-clipboard":           {Name: "wl-clipboard-rs", Repository: RepoTypeSystem},
+		"wl-clipboard":           {Name: "wl-clipboard", Repository: RepoTypeSystem},
 		"xdg-desktop-portal-gtk": {Name: "xdg-desktop-portal-gtk", Repository: RepoTypeSystem},
 		"mate-polkit":            {Name: "mate-polkit", Repository: RepoTypeSystem},
 		"font-firacode":          {Name: "fira-code-fonts", Repository: RepoTypeSystem},
