@@ -3,7 +3,9 @@ package distros
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/AvengeMedia/danklinux/internal/deps"
@@ -182,6 +184,25 @@ func (o *OpenSUSEDistribution) getPrerequisites() []string {
 		"unzip",
 		"gcc",
 		"gcc-c++",
+		"cmake",
+		"ninja",
+		"pkgconf-pkg-config",
+		"git",
+		"qt6-base-devel",
+		"qt6-declarative-devel",
+		"qt6-declarative-private-devel",
+		"qt6-shadertools",
+		"qt6-shadertools-devel",
+		"qt6-wayland-devel",
+		"qt6-waylandclient-private-devel",
+		"spirv-tools-devel",
+		"cli11-devel",
+		"wayland-protocols-devel",
+		"libgbm-devel",
+		"libdrm-devel",
+		"pipewire-devel",
+		"jemalloc-devel",
+		"wayland-utils",
 	}
 }
 
@@ -368,4 +389,145 @@ func (o *OpenSUSEDistribution) installZypperPackages(ctx context.Context, packag
 	cmdStr := fmt.Sprintf("echo '%s' | sudo -S %s", sudoPassword, strings.Join(args, " "))
 	cmd := exec.CommandContext(ctx, "bash", "-c", cmdStr)
 	return o.runWithProgress(cmd, progressChan, PhaseSystemPackages, 0.40, 0.60)
+}
+
+// installQuickshell overrides the base implementation to set openSUSE-specific CFLAGS
+func (o *OpenSUSEDistribution) installQuickshell(ctx context.Context, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
+	o.log("Installing quickshell from source (with openSUSE-specific build flags)...")
+
+	homeDir := os.Getenv("HOME")
+	if homeDir == "" {
+		return fmt.Errorf("HOME environment variable not set")
+	}
+
+	cacheDir := filepath.Join(homeDir, ".cache", "dankinstall")
+	if err := os.MkdirAll(cacheDir, 0755); err != nil {
+		return fmt.Errorf("failed to create cache directory: %w", err)
+	}
+
+	tmpDir := filepath.Join(cacheDir, "quickshell-build")
+	if err := os.MkdirAll(tmpDir, 0755); err != nil {
+		return fmt.Errorf("failed to create temp directory: %w", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
+		Progress:    0.1,
+		Step:        "Cloning quickshell repository...",
+		IsComplete:  false,
+		CommandInfo: "git clone https://github.com/quickshell-mirror/quickshell.git",
+	}
+
+	cloneCmd := exec.CommandContext(ctx, "git", "clone", "--branch", "v0.2.0", "https://github.com/quickshell-mirror/quickshell.git", tmpDir)
+	if err := cloneCmd.Run(); err != nil {
+		return fmt.Errorf("failed to clone quickshell: %w", err)
+	}
+
+	buildDir := tmpDir + "/build"
+	if err := os.MkdirAll(buildDir, 0755); err != nil {
+		return fmt.Errorf("failed to create build directory: %w", err)
+	}
+
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
+		Progress:    0.3,
+		Step:        "Configuring quickshell build (with openSUSE flags)...",
+		IsComplete:  false,
+		CommandInfo: "cmake -B build -S . -G Ninja",
+	}
+
+	// Get optflags from rpm
+	optflagsCmd := exec.CommandContext(ctx, "rpm", "--eval", "%{optflags}")
+	optflagsOutput, err := optflagsCmd.Output()
+	optflags := strings.TrimSpace(string(optflagsOutput))
+	if err != nil || optflags == "" {
+		o.log("Warning: Could not get optflags from rpm, using default -O2 -g")
+		optflags = "-O2 -g"
+	}
+
+	// Set openSUSE-specific CFLAGS
+	customCFLAGS := fmt.Sprintf("%s -I/usr/include/wayland", optflags)
+
+	configureCmd := exec.CommandContext(ctx, "cmake", "-GNinja", "-B", "build",
+		"-DCMAKE_BUILD_TYPE=RelWithDebInfo",
+		"-DCRASH_REPORTER=off",
+		"-DX11=off",
+		"-DI3=off",
+		"-DCMAKE_CXX_STANDARD=20")
+	configureCmd.Dir = tmpDir
+	configureCmd.Env = append(os.Environ(),
+		"TMPDIR="+cacheDir,
+		"CFLAGS="+customCFLAGS,
+		"CXXFLAGS="+customCFLAGS)
+
+	o.log(fmt.Sprintf("Using CFLAGS: %s", customCFLAGS))
+
+	output, err := configureCmd.CombinedOutput()
+	if err != nil {
+		o.log(fmt.Sprintf("cmake configure failed. Output:\n%s", string(output)))
+		return fmt.Errorf("failed to configure quickshell: %w\nCMake output:\n%s", err, string(output))
+	}
+
+	o.log(fmt.Sprintf("cmake configure successful. Output:\n%s", string(output)))
+
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
+		Progress:    0.4,
+		Step:        "Building quickshell (this may take a while)...",
+		IsComplete:  false,
+		CommandInfo: "cmake --build build",
+	}
+
+	buildCmd := exec.CommandContext(ctx, "cmake", "--build", "build")
+	buildCmd.Dir = tmpDir
+	buildCmd.Env = append(os.Environ(),
+		"TMPDIR="+cacheDir,
+		"CFLAGS="+customCFLAGS,
+		"CXXFLAGS="+customCFLAGS)
+	if err := o.runWithProgressStep(buildCmd, progressChan, PhaseSystemPackages, 0.4, 0.8, "Building quickshell..."); err != nil {
+		return fmt.Errorf("failed to build quickshell: %w", err)
+	}
+
+	progressChan <- InstallProgressMsg{
+		Phase:       PhaseSystemPackages,
+		Progress:    0.8,
+		Step:        "Installing quickshell...",
+		IsComplete:  false,
+		NeedsSudo:   true,
+		CommandInfo: "sudo cmake --install build",
+	}
+
+	installCmd := exec.CommandContext(ctx, "bash", "-c",
+		fmt.Sprintf("cd %s && echo '%s' | sudo -S cmake --install build", tmpDir, sudoPassword))
+	if err := installCmd.Run(); err != nil {
+		return fmt.Errorf("failed to install quickshell: %w", err)
+	}
+
+	o.log("quickshell installed successfully from source")
+	return nil
+}
+
+// InstallManualPackages overrides the base implementation to use openSUSE-specific quickshell build
+func (o *OpenSUSEDistribution) InstallManualPackages(ctx context.Context, packages []string, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
+	if len(packages) == 0 {
+		return nil
+	}
+
+	o.log(fmt.Sprintf("Installing manual packages: %s", strings.Join(packages, ", ")))
+
+	for _, pkg := range packages {
+		if pkg == "quickshell" {
+			if err := o.installQuickshell(ctx, sudoPassword, progressChan); err != nil {
+				return fmt.Errorf("failed to install quickshell: %w", err)
+			}
+		} else {
+			// Use the base ManualPackageInstaller for other packages
+			if err := o.ManualPackageInstaller.InstallManualPackages(ctx, []string{pkg}, sudoPassword, progressChan); err != nil {
+				return fmt.Errorf("failed to install %s: %w", pkg, err)
+			}
+		}
+	}
+
+	return nil
 }
