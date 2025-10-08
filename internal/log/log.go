@@ -47,7 +47,7 @@ func GetLogger() *Logger {
 		base.SetStyles(styles)
 		base.SetReportTimestamp(false)
 		base.SetLevel(cblog.DebugLevel)
-		base.SetPrefix("go")
+		base.SetPrefix(" go")
 
 		logger = &Logger{base}
 	})

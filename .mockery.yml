@@ -19,3 +19,6 @@ packages:
   github.com/AvengeMedia/danklinux/internal/plugins:
     interfaces:
       GitClient:
+  github.com/godbus/dbus/v5:
+    interfaces:
+      BusObject:

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/AvengeMedia/danklinux/internal/log"
+	"github.com/AvengeMedia/danklinux/internal/server/freedesktop"
 	"github.com/AvengeMedia/danklinux/internal/server/loginctl"
 	"github.com/AvengeMedia/danklinux/internal/server/models"
 	"github.com/AvengeMedia/danklinux/internal/server/network"
@@ -45,6 +46,20 @@ func RouteRequest(conn net.Conn, req models.Request) {
 			Params: req.Params,
 		}
 		loginctl.HandleRequest(conn, loginReq, loginctlManager)
+		return
+	}
+
+	if strings.HasPrefix(req.Method, "freedesktop.") {
+		if freedesktopManager == nil {
+			models.RespondError(conn, req.ID, "freedesktop manager not initialized")
+			return
+		}
+		freedeskReq := freedesktop.Request{
+			ID:     req.ID,
+			Method: req.Method,
+			Params: req.Params,
+		}
+		freedesktop.HandleRequest(conn, freedeskReq, freedesktopManager)
 		return
 	}
 

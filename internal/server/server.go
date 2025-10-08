@@ -12,6 +12,7 @@ import (
 	"syscall"
 
 	"github.com/AvengeMedia/danklinux/internal/log"
+	"github.com/AvengeMedia/danklinux/internal/server/freedesktop"
 	"github.com/AvengeMedia/danklinux/internal/server/loginctl"
 	"github.com/AvengeMedia/danklinux/internal/server/models"
 	"github.com/AvengeMedia/danklinux/internal/server/network"
@@ -23,6 +24,7 @@ type Capabilities struct {
 
 var networkManager *network.Manager
 var loginctlManager *loginctl.Manager
+var freedesktopManager *freedesktop.Manager
 
 func getSocketDir() string {
 	if runtime := os.Getenv("XDG_RUNTIME_DIR"); runtime != "" {
@@ -105,6 +107,19 @@ func InitializeLoginctlManager() error {
 	return nil
 }
 
+func InitializeFreedeskManager() error {
+	manager, err := freedesktop.NewManager()
+	if err != nil {
+		log.Warnf("Failed to initialize freedesktop manager: %v", err)
+		return err
+	}
+
+	freedesktopManager = manager
+
+	log.Info("Freedesktop manager initialized")
+	return nil
+}
+
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
 
@@ -138,6 +153,10 @@ func getCapabilities() Capabilities {
 		caps = append(caps, "loginctl")
 	}
 
+	if freedesktopManager != nil {
+		caps = append(caps, "freedesktop")
+	}
+
 	return Capabilities{Capabilities: caps}
 }
 
@@ -150,6 +169,10 @@ func Start() error {
 
 	if err := InitializeLoginctlManager(); err != nil {
 		log.Warnf("Loginctl manager unavailable: %v", err)
+	}
+
+	if err := InitializeFreedeskManager(); err != nil {
+		log.Warnf("Freedesktop manager unavailable: %v", err)
 	}
 
 	socketPath := GetSocketPath()
@@ -197,6 +220,16 @@ func Start() error {
 	log.Info(" loginctl.setIdleHint        - Set idle hint (params: idle)")
 	log.Info(" loginctl.terminate          - Terminate session")
 	log.Info(" loginctl.subscribe          - Subscribe to session state changes (streaming)")
+	log.Info("Freedesktop:")
+	log.Info(" freedesktop.getState                  - Get accounts & settings state")
+	log.Info(" freedesktop.accounts.setIconFile      - Set profile icon (params: path)")
+	log.Info(" freedesktop.accounts.setRealName      - Set real name (params: name)")
+	log.Info(" freedesktop.accounts.setEmail         - Set email (params: email)")
+	log.Info(" freedesktop.accounts.setLanguage      - Set language (params: language)")
+	log.Info(" freedesktop.accounts.setLocation      - Set location (params: location)")
+	log.Info(" freedesktop.accounts.getUserIconFile  - Get user icon (params: username)")
+	log.Info(" freedesktop.settings.setColorScheme   - Set color scheme (params: preferDark)")
+	log.Info(" freedesktop.settings.getColorScheme   - Get color scheme")
 
 	for {
 		conn, err := listener.Accept()
