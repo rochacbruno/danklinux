@@ -26,7 +26,7 @@ type Plugin struct {
 	Screenshot   string   `json:"screenshot,omitempty"`
 }
 
-type gitClient interface {
+type GitClient interface {
 	PlainClone(path string, url string) error
 	Pull(path string) error
 }
@@ -64,7 +64,7 @@ type Registry struct {
 	fs       afero.Fs
 	cacheDir string
 	plugins  []Plugin
-	git      gitClient
+	git      GitClient
 }
 
 func NewRegistry() (*Registry, error) {

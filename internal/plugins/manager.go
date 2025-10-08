@@ -14,7 +14,7 @@ import (
 type Manager struct {
 	fs          afero.Fs
 	pluginsDir  string
-	gitClient   gitClient
+	gitClient   GitClient
 }
 
 func NewManager() (*Manager, error) {

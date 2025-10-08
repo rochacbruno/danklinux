@@ -1,0 +1,21 @@
+with-expecter: true
+dir: "internal/mocks/{{.InterfaceDirRelative}}"
+mockname: "Mock{{.InterfaceName}}"
+outpkg: "{{.PackageName}}"
+packages:
+  github.com/Wifx/gonetworkmanager/v2:
+    interfaces:
+      NetworkManager:
+      Device:
+      DeviceWireless:
+      AccessPoint:
+      Connection:
+      Settings:
+      ActiveConnection:
+      IP4Config:
+  net:
+    interfaces:
+      Conn:
+  github.com/AvengeMedia/danklinux/internal/plugins:
+    interfaces:
+      GitClient:

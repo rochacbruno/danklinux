@@ -3,10 +3,12 @@ module github.com/AvengeMedia/danklinux
 go 1.24.6
 
 require (
+	github.com/Wifx/gonetworkmanager/v2 v2.2.0
 	github.com/charmbracelet/bubbles v0.21.0
 	github.com/charmbracelet/bubbletea v1.3.6
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/charmbracelet/log v0.4.2
+	github.com/godbus/dbus/v5 v5.1.0
 	github.com/spf13/cobra v1.9.1
 	github.com/stretchr/testify v1.11.1
 )
@@ -25,6 +27,7 @@ require (
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/pjbgf/sha1cd v0.5.0 // indirect
 	github.com/sergi/go-diff v1.4.0 // indirect
+	github.com/stretchr/objx v0.5.2 // indirect
 	golang.org/x/crypto v0.42.0 // indirect
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d // indirect
 	golang.org/x/net v0.44.0 // indirect
