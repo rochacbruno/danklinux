@@ -141,28 +141,43 @@ func (m *Manager) createAndConnectWiFi(req ConnectionRequest) error {
 	log.Printf("[createAndConnectWiFi] AP Security flags - flags: 0x%x, wpaFlags: 0x%x, rsnFlags: 0x%x",
 		flags, wpaFlags, rsnFlags)
 
+	// NM80211ApSecurityFlags constants
+	const KeyMgmt8021x = uint32(512) // KeyMgmt8021x indicates enterprise WiFi
+	const KeyMgmtPsk = uint32(256)   // KeyMgmtPsk indicates personal WiFi
+
+	isEnterprise := (wpaFlags&KeyMgmt8021x) != 0 || (rsnFlags&KeyMgmt8021x) != 0
+	isPsk := (wpaFlags&KeyMgmtPsk) != 0 || (rsnFlags&KeyMgmtPsk) != 0
+
 	secured := flags != uint32(gonetworkmanager.Nm80211APFlagsNone) ||
 		wpaFlags != uint32(gonetworkmanager.Nm80211APSecNone) ||
 		rsnFlags != uint32(gonetworkmanager.Nm80211APSecNone)
 
-	log.Printf("[createAndConnectWiFi] Network secured: %v", secured)
+	log.Printf("[createAndConnectWiFi] Network analysis - secured: %v, isEnterprise: %v, isPsk: %v",
+		secured, isEnterprise, isPsk)
 
 	if secured {
-		if req.Username != "" {
+		// Prefer enterprise if detected or username provided
+		if isEnterprise || req.Username != "" {
 			log.Printf("[createAndConnectWiFi] Configuring WPA-EAP (enterprise) with username: %s", req.Username)
+
+			if req.Username == "" {
+				log.Printf("[createAndConnectWiFi] ERROR: Enterprise network detected but no username provided")
+				return fmt.Errorf("enterprise network requires username")
+			}
+
 			settings["802-11-wireless-security"] = map[string]interface{}{
 				"key-mgmt": "wpa-eap",
 			}
 
 			settings["802-1x"] = map[string]interface{}{
-				"eap":               []string{"peap"},
-				"phase2-auth":       "mschapv2",
-				"identity":          req.Username,
-				"password":          req.Password,
+				"eap":                []string{"peap"},
+				"phase2-auth":        "mschapv2",
+				"identity":           req.Username,
+				"password":           req.Password,
 				"anonymous-identity": "",
 			}
-			log.Printf("[createAndConnectWiFi] WPA-EAP settings: eap=peap, phase2-auth=mschapv2, identity=%s", req.Username)
-		} else if req.Password != "" {
+			log.Printf("[createAndConnectWiFi] WPA-EAP settings configured: eap=peap, phase2-auth=mschapv2, identity=%s", req.Username)
+		} else if isPsk || req.Password != "" {
 			log.Printf("[createAndConnectWiFi] Configuring WPA-PSK (personal)")
 			settings["802-11-wireless-security"] = map[string]interface{}{
 				"key-mgmt": "wpa-psk",
