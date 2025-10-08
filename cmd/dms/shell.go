@@ -15,7 +15,7 @@ import (
 )
 
 func runShellInteractive() {
-	printASCII()
+	go printASCII()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -25,7 +25,7 @@ func runShellInteractive() {
 	errChan := make(chan error, 2)
 
 	go func() {
-		if err := server.Start(); err != nil {
+		if err := server.Start(false); err != nil {
 			errChan <- fmt.Errorf("server error: %w", err)
 		}
 	}()
@@ -83,16 +83,27 @@ func killShell() {
 	}
 
 	var allPids []string
+	pidChan := make(chan []string, len(patterns))
 
 	for _, pattern := range patterns {
-		out, err := exec.Command("pgrep", "-f", pattern).Output()
-		if err != nil {
-			continue
-		}
+		go func(p string) {
+			out, err := exec.Command("pgrep", "-f", p).Output()
+			if err != nil {
+				pidChan <- nil
+				return
+			}
 
-		pids := strings.TrimSpace(string(out))
-		if pids != "" {
-			pidList := strings.Split(pids, "\n")
+			pids := strings.TrimSpace(string(out))
+			if pids != "" {
+				pidChan <- strings.Split(pids, "\n")
+			} else {
+				pidChan <- nil
+			}
+		}(pattern)
+	}
+
+	for i := 0; i < len(patterns); i++ {
+		if pidList := <-pidChan; pidList != nil {
 			allPids = append(allPids, pidList...)
 		}
 	}
@@ -162,7 +173,7 @@ func runShellDaemon() {
 	errChan := make(chan error, 2)
 
 	go func() {
-		if err := server.Start(); err != nil {
+		if err := server.Start(false); err != nil {
 			errChan <- fmt.Errorf("server error: %w", err)
 		}
 	}()

@@ -496,7 +496,7 @@ func updateDMSBinary() error {
 }
 
 func startDebugServer() error {
-	return server.Start()
+	return server.Start(true)
 }
 
 func browsePlugins() error {

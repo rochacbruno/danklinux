@@ -160,20 +160,8 @@ func getCapabilities() Capabilities {
 	return Capabilities{Capabilities: caps}
 }
 
-func Start() error {
+func Start(printDocs bool) error {
 	cleanupStaleSockets()
-
-	if err := InitializeNetworkManager(); err != nil {
-		log.Warnf("Network manager unavailable: %v", err)
-	}
-
-	if err := InitializeLoginctlManager(); err != nil {
-		log.Warnf("Loginctl manager unavailable: %v", err)
-	}
-
-	if err := InitializeFreedeskManager(); err != nil {
-		log.Warnf("Freedesktop manager unavailable: %v", err)
-	}
 
 	socketPath := GetSocketPath()
 	os.Remove(socketPath)
@@ -184,52 +172,72 @@ func Start() error {
 	}
 	defer listener.Close()
 
+	go func() {
+		if err := InitializeNetworkManager(); err != nil {
+			log.Warnf("Network manager unavailable: %v", err)
+		}
+	}()
+
+	go func() {
+		if err := InitializeLoginctlManager(); err != nil {
+			log.Warnf("Loginctl manager unavailable: %v", err)
+		}
+	}()
+
+	go func() {
+		if err := InitializeFreedeskManager(); err != nil {
+			log.Warnf("Freedesktop manager unavailable: %v", err)
+		}
+	}()
+
 	log.Infof("DMS API Server listening on: %s", socketPath)
 	log.Info("Protocol: JSON over Unix socket")
 	log.Info("Request format: {\"id\": <any>, \"method\": \"...\", \"params\": {...}}")
 	log.Info("Response format: {\"id\": <any>, \"result\": {...}} or {\"id\": <any>, \"error\": \"...\"}")
-	log.Info("Available methods:")
-	log.Info("  ping - Test connection")
-	log.Info("Plugins:")
-	log.Info(" plugins.list                - List all plugins")
-	log.Info(" plugins.listInstalled       - List installed plugins")
-	log.Info(" plugins.install             - Install plugin (params: name)")
-	log.Info(" plugins.uninstall           - Uninstall plugin (params: name)")
-	log.Info(" plugins.update              - Update plugin (params: name)")
-	log.Info(" plugins.search              - Search plugins (params: query, category?, compositor?, capability?)")
-	log.Info("Network:")
-	log.Info(" network.getState            - Get current network state")
-	log.Info(" network.wifi.scan           - Scan for WiFi networks")
-	log.Info(" network.wifi.networks       - Get WiFi network list")
-	log.Info(" network.wifi.connect        - Connect to WiFi (params: ssid, password?, username?)")
-	log.Info(" network.wifi.disconnect     - Disconnect WiFi")
-	log.Info(" network.wifi.forget         - Forget network (params: ssid)")
-	log.Info(" network.wifi.toggle         - Toggle WiFi radio")
-	log.Info(" network.wifi.enable         - Enable WiFi")
-	log.Info(" network.wifi.disable        - Disable WiFi")
-	log.Info(" network.ethernet.connect    - Connect Ethernet")
-	log.Info(" network.ethernet.disconnect - Disconnect Ethernet")
-	log.Info(" network.preference.set      - Set preference (params: preference [auto|wifi|ethernet])")
-	log.Info(" network.info                - Get network info (params: ssid)")
-	log.Info(" network.subscribe           - Subscribe to network state changes (streaming)")
-	log.Info("Loginctl:")
-	log.Info(" loginctl.getState           - Get current session state")
-	log.Info(" loginctl.lock               - Lock session")
-	log.Info(" loginctl.unlock             - Unlock session")
-	log.Info(" loginctl.activate           - Activate session")
-	log.Info(" loginctl.setIdleHint        - Set idle hint (params: idle)")
-	log.Info(" loginctl.terminate          - Terminate session")
-	log.Info(" loginctl.subscribe          - Subscribe to session state changes (streaming)")
-	log.Info("Freedesktop:")
-	log.Info(" freedesktop.getState                  - Get accounts & settings state")
-	log.Info(" freedesktop.accounts.setIconFile      - Set profile icon (params: path)")
-	log.Info(" freedesktop.accounts.setRealName      - Set real name (params: name)")
-	log.Info(" freedesktop.accounts.setEmail         - Set email (params: email)")
-	log.Info(" freedesktop.accounts.setLanguage      - Set language (params: language)")
-	log.Info(" freedesktop.accounts.setLocation      - Set location (params: location)")
-	log.Info(" freedesktop.accounts.getUserIconFile  - Get user icon (params: username)")
-	log.Info(" freedesktop.settings.setColorScheme   - Set color scheme (params: preferDark)")
-	log.Info(" freedesktop.settings.getColorScheme   - Get color scheme")
+	if printDocs {
+		log.Info("Available methods:")
+		log.Info("  ping - Test connection")
+		log.Info("Plugins:")
+		log.Info(" plugins.list                - List all plugins")
+		log.Info(" plugins.listInstalled       - List installed plugins")
+		log.Info(" plugins.install             - Install plugin (params: name)")
+		log.Info(" plugins.uninstall           - Uninstall plugin (params: name)")
+		log.Info(" plugins.update              - Update plugin (params: name)")
+		log.Info(" plugins.search              - Search plugins (params: query, category?, compositor?, capability?)")
+		log.Info("Network:")
+		log.Info(" network.getState            - Get current network state")
+		log.Info(" network.wifi.scan           - Scan for WiFi networks")
+		log.Info(" network.wifi.networks       - Get WiFi network list")
+		log.Info(" network.wifi.connect        - Connect to WiFi (params: ssid, password?, username?)")
+		log.Info(" network.wifi.disconnect     - Disconnect WiFi")
+		log.Info(" network.wifi.forget         - Forget network (params: ssid)")
+		log.Info(" network.wifi.toggle         - Toggle WiFi radio")
+		log.Info(" network.wifi.enable         - Enable WiFi")
+		log.Info(" network.wifi.disable        - Disable WiFi")
+		log.Info(" network.ethernet.connect    - Connect Ethernet")
+		log.Info(" network.ethernet.disconnect - Disconnect Ethernet")
+		log.Info(" network.preference.set      - Set preference (params: preference [auto|wifi|ethernet])")
+		log.Info(" network.info                - Get network info (params: ssid)")
+		log.Info(" network.subscribe           - Subscribe to network state changes (streaming)")
+		log.Info("Loginctl:")
+		log.Info(" loginctl.getState           - Get current session state")
+		log.Info(" loginctl.lock               - Lock session")
+		log.Info(" loginctl.unlock             - Unlock session")
+		log.Info(" loginctl.activate           - Activate session")
+		log.Info(" loginctl.setIdleHint        - Set idle hint (params: idle)")
+		log.Info(" loginctl.terminate          - Terminate session")
+		log.Info(" loginctl.subscribe          - Subscribe to session state changes (streaming)")
+		log.Info("Freedesktop:")
+		log.Info(" freedesktop.getState                  - Get accounts & settings state")
+		log.Info(" freedesktop.accounts.setIconFile      - Set profile icon (params: path)")
+		log.Info(" freedesktop.accounts.setRealName      - Set real name (params: name)")
+		log.Info(" freedesktop.accounts.setEmail         - Set email (params: email)")
+		log.Info(" freedesktop.accounts.setLanguage      - Set language (params: language)")
+		log.Info(" freedesktop.accounts.setLocation      - Set location (params: location)")
+		log.Info(" freedesktop.accounts.getUserIconFile  - Get user icon (params: username)")
+		log.Info(" freedesktop.settings.setColorScheme   - Set color scheme (params: preferDark)")
+		log.Info(" freedesktop.settings.getColorScheme   - Get color scheme")
+	}
 
 	for {
 		conn, err := listener.Accept()
