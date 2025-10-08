@@ -10,7 +10,7 @@ import (
 )
 
 func NewManager() (*Manager, error) {
-	conn, err := dbus.SystemBus()
+	conn, err := dbus.ConnectSystemBus()
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to system bus: %w", err)
 	}
@@ -30,15 +30,21 @@ func NewManager() (*Manager, error) {
 		stopChan:    make(chan struct{}),
 		conn:        conn,
 		dirty:       make(chan struct{}, 1),
+		signals:     make(chan *dbus.Signal, 256),
 	}
 
 	if err := m.initialize(); err != nil {
+		conn.Close()
 		return nil, err
 	}
 
 	m.notifierWg.Add(1)
 	go m.notifier()
-	go m.monitorChanges()
+
+	if err := m.startSignalPump(); err != nil {
+		m.Close()
+		return nil, err
+	}
 
 	return m, nil
 }
@@ -243,15 +249,171 @@ func (m *Manager) notifySubscribers() {
 	}
 }
 
+func (m *Manager) startSignalPump() error {
+	m.conn.Signal(m.signals)
+
+	if err := m.conn.AddMatchSignal(
+		dbus.WithMatchObjectPath(dbus.ObjectPath(m.state.SessionPath)),
+		dbus.WithMatchInterface("org.freedesktop.DBus.Properties"),
+		dbus.WithMatchMember("PropertiesChanged"),
+	); err != nil {
+		m.conn.RemoveSignal(m.signals)
+		return err
+	}
+	if err := m.conn.AddMatchSignal(
+		dbus.WithMatchObjectPath(dbus.ObjectPath(m.state.SessionPath)),
+		dbus.WithMatchInterface("org.freedesktop.login1.Session"),
+		dbus.WithMatchMember("Lock"),
+	); err != nil {
+		_ = m.conn.RemoveMatchSignal(
+			dbus.WithMatchObjectPath(dbus.ObjectPath(m.state.SessionPath)),
+			dbus.WithMatchInterface("org.freedesktop.DBus.Properties"),
+			dbus.WithMatchMember("PropertiesChanged"),
+		)
+		m.conn.RemoveSignal(m.signals)
+		return err
+	}
+	if err := m.conn.AddMatchSignal(
+		dbus.WithMatchObjectPath(dbus.ObjectPath(m.state.SessionPath)),
+		dbus.WithMatchInterface("org.freedesktop.login1.Session"),
+		dbus.WithMatchMember("Unlock"),
+	); err != nil {
+		_ = m.conn.RemoveMatchSignal(
+			dbus.WithMatchObjectPath(dbus.ObjectPath(m.state.SessionPath)),
+			dbus.WithMatchInterface("org.freedesktop.DBus.Properties"),
+			dbus.WithMatchMember("PropertiesChanged"),
+		)
+		_ = m.conn.RemoveMatchSignal(
+			dbus.WithMatchObjectPath(dbus.ObjectPath(m.state.SessionPath)),
+			dbus.WithMatchInterface("org.freedesktop.login1.Session"),
+			dbus.WithMatchMember("Lock"),
+		)
+		m.conn.RemoveSignal(m.signals)
+		return err
+	}
+	if err := m.conn.AddMatchSignal(
+		dbus.WithMatchObjectPath("/org/freedesktop/login1"),
+		dbus.WithMatchInterface("org.freedesktop.login1.Manager"),
+		dbus.WithMatchMember("PrepareForSleep"),
+	); err != nil {
+		_ = m.conn.RemoveMatchSignal(
+			dbus.WithMatchObjectPath(dbus.ObjectPath(m.state.SessionPath)),
+			dbus.WithMatchInterface("org.freedesktop.DBus.Properties"),
+			dbus.WithMatchMember("PropertiesChanged"),
+		)
+		_ = m.conn.RemoveMatchSignal(
+			dbus.WithMatchObjectPath(dbus.ObjectPath(m.state.SessionPath)),
+			dbus.WithMatchInterface("org.freedesktop.login1.Session"),
+			dbus.WithMatchMember("Lock"),
+		)
+		_ = m.conn.RemoveMatchSignal(
+			dbus.WithMatchObjectPath(dbus.ObjectPath(m.state.SessionPath)),
+			dbus.WithMatchInterface("org.freedesktop.login1.Session"),
+			dbus.WithMatchMember("Unlock"),
+		)
+		m.conn.RemoveSignal(m.signals)
+		return err
+	}
+
+	if err := m.conn.AddMatchSignal(
+		dbus.WithMatchObjectPath("/org/freedesktop/DBus"),
+		dbus.WithMatchInterface("org.freedesktop.DBus"),
+		dbus.WithMatchMember("NameOwnerChanged"),
+	); err != nil {
+		_ = m.conn.RemoveMatchSignal(
+			dbus.WithMatchObjectPath(dbus.ObjectPath(m.state.SessionPath)),
+			dbus.WithMatchInterface("org.freedesktop.DBus.Properties"),
+			dbus.WithMatchMember("PropertiesChanged"),
+		)
+		_ = m.conn.RemoveMatchSignal(
+			dbus.WithMatchObjectPath(dbus.ObjectPath(m.state.SessionPath)),
+			dbus.WithMatchInterface("org.freedesktop.login1.Session"),
+			dbus.WithMatchMember("Lock"),
+		)
+		_ = m.conn.RemoveMatchSignal(
+			dbus.WithMatchObjectPath(dbus.ObjectPath(m.state.SessionPath)),
+			dbus.WithMatchInterface("org.freedesktop.login1.Session"),
+			dbus.WithMatchMember("Unlock"),
+		)
+		_ = m.conn.RemoveMatchSignal(
+			dbus.WithMatchObjectPath("/org/freedesktop/login1"),
+			dbus.WithMatchInterface("org.freedesktop.login1.Manager"),
+			dbus.WithMatchMember("PrepareForSleep"),
+		)
+		m.conn.RemoveSignal(m.signals)
+		return err
+	}
+
+	m.sigWG.Add(1)
+	go func() {
+		defer m.sigWG.Done()
+		for {
+			select {
+			case <-m.stopChan:
+				return
+			case sig, ok := <-m.signals:
+				if !ok {
+					return
+				}
+				if sig == nil {
+					continue
+				}
+				m.handleDBusSignal(sig)
+			}
+		}
+	}()
+	return nil
+}
+
+func (m *Manager) stopSignalPump() {
+	if m.conn == nil {
+		return
+	}
+	_ = m.conn.RemoveMatchSignal(
+		dbus.WithMatchObjectPath(dbus.ObjectPath(m.state.SessionPath)),
+		dbus.WithMatchInterface("org.freedesktop.DBus.Properties"),
+		dbus.WithMatchMember("PropertiesChanged"),
+	)
+	_ = m.conn.RemoveMatchSignal(
+		dbus.WithMatchObjectPath(dbus.ObjectPath(m.state.SessionPath)),
+		dbus.WithMatchInterface("org.freedesktop.login1.Session"),
+		dbus.WithMatchMember("Lock"),
+	)
+	_ = m.conn.RemoveMatchSignal(
+		dbus.WithMatchObjectPath(dbus.ObjectPath(m.state.SessionPath)),
+		dbus.WithMatchInterface("org.freedesktop.login1.Session"),
+		dbus.WithMatchMember("Unlock"),
+	)
+	_ = m.conn.RemoveMatchSignal(
+		dbus.WithMatchObjectPath("/org/freedesktop/login1"),
+		dbus.WithMatchInterface("org.freedesktop.login1.Manager"),
+		dbus.WithMatchMember("PrepareForSleep"),
+	)
+	_ = m.conn.RemoveMatchSignal(
+		dbus.WithMatchObjectPath("/org/freedesktop/DBus"),
+		dbus.WithMatchInterface("org.freedesktop.DBus"),
+		dbus.WithMatchMember("NameOwnerChanged"),
+	)
+
+	m.conn.RemoveSignal(m.signals)
+	close(m.signals)
+
+	m.sigWG.Wait()
+}
+
 func (m *Manager) Close() {
 	close(m.stopChan)
 	m.notifierWg.Wait()
+
+	m.stopSignalPump()
+
 	m.subMutex.Lock()
 	for _, ch := range m.subscribers {
 		close(ch)
 	}
 	m.subscribers = make(map[string]chan SessionState)
 	m.subMutex.Unlock()
+
 	if m.conn != nil {
 		m.conn.Close()
 	}

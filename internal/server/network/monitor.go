@@ -7,64 +7,6 @@ import (
 	"github.com/godbus/dbus/v5"
 )
 
-func (m *Manager) monitorChanges() {
-
-	conn, err := dbus.SystemBus()
-	if err != nil {
-		return
-	}
-
-	err = conn.AddMatchSignal(
-		dbus.WithMatchObjectPath("/org/freedesktop/NetworkManager"),
-		dbus.WithMatchInterface("org.freedesktop.DBus.Properties"),
-		dbus.WithMatchMember("PropertiesChanged"),
-	)
-	if err != nil {
-		return
-	}
-
-	if m.wifiDevice != nil {
-		dev := m.wifiDevice.(gonetworkmanager.Device)
-		err = conn.AddMatchSignal(
-			dbus.WithMatchObjectPath(dbus.ObjectPath(dev.GetPath())),
-			dbus.WithMatchInterface("org.freedesktop.DBus.Properties"),
-			dbus.WithMatchMember("PropertiesChanged"),
-		)
-		if err != nil {
-			return
-		}
-	}
-
-	if m.ethernetDevice != nil {
-		dev := m.ethernetDevice.(gonetworkmanager.Device)
-		err = conn.AddMatchSignal(
-			dbus.WithMatchObjectPath(dbus.ObjectPath(dev.GetPath())),
-			dbus.WithMatchInterface("org.freedesktop.DBus.Properties"),
-			dbus.WithMatchMember("PropertiesChanged"),
-		)
-		if err != nil {
-			return
-		}
-	}
-
-	signals := make(chan *dbus.Signal, 10)
-	conn.Signal(signals)
-
-	for {
-		select {
-		case <-m.stopChan:
-			return
-
-		case sig := <-signals:
-			if sig == nil {
-				continue
-			}
-
-			m.handleDBusSignal(sig)
-		}
-	}
-}
-
 func (m *Manager) handleDBusSignal(sig *dbus.Signal) {
 	if len(sig.Body) < 2 {
 		return

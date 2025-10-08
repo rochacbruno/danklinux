@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Wifx/gonetworkmanager/v2"
+	"github.com/godbus/dbus/v5"
 )
 
 func NewManager() (*Manager, error) {
@@ -35,7 +36,11 @@ func NewManager() (*Manager, error) {
 
 	m.notifierWg.Add(1)
 	go m.notifier()
-	go m.monitorChanges()
+
+	if err := m.startSignalPump(); err != nil {
+		m.Close()
+		return nil, err
+	}
 
 	return m, nil
 }
@@ -397,9 +402,139 @@ func (m *Manager) notifySubscribers() {
 	}
 }
 
+func (m *Manager) startSignalPump() error {
+	conn, err := dbus.ConnectSystemBus()
+	if err != nil {
+		return err
+	}
+	m.dbusConn = conn
+
+	signals := make(chan *dbus.Signal, 256)
+	m.signals = signals
+	conn.Signal(signals)
+
+	if err := conn.AddMatchSignal(
+		dbus.WithMatchObjectPath("/org/freedesktop/NetworkManager"),
+		dbus.WithMatchInterface("org.freedesktop.DBus.Properties"),
+		dbus.WithMatchMember("PropertiesChanged"),
+	); err != nil {
+		conn.RemoveSignal(signals)
+		conn.Close()
+		return err
+	}
+
+	if m.wifiDevice != nil {
+		dev := m.wifiDevice.(gonetworkmanager.Device)
+		if err := conn.AddMatchSignal(
+			dbus.WithMatchObjectPath(dbus.ObjectPath(dev.GetPath())),
+			dbus.WithMatchInterface("org.freedesktop.DBus.Properties"),
+			dbus.WithMatchMember("PropertiesChanged"),
+		); err != nil {
+			_ = conn.RemoveMatchSignal(
+				dbus.WithMatchObjectPath("/org/freedesktop/NetworkManager"),
+				dbus.WithMatchInterface("org.freedesktop.DBus.Properties"),
+				dbus.WithMatchMember("PropertiesChanged"),
+			)
+			conn.RemoveSignal(signals)
+			conn.Close()
+			return err
+		}
+	}
+
+	if m.ethernetDevice != nil {
+		dev := m.ethernetDevice.(gonetworkmanager.Device)
+		if err := conn.AddMatchSignal(
+			dbus.WithMatchObjectPath(dbus.ObjectPath(dev.GetPath())),
+			dbus.WithMatchInterface("org.freedesktop.DBus.Properties"),
+			dbus.WithMatchMember("PropertiesChanged"),
+		); err != nil {
+			_ = conn.RemoveMatchSignal(
+				dbus.WithMatchObjectPath("/org/freedesktop/NetworkManager"),
+				dbus.WithMatchInterface("org.freedesktop.DBus.Properties"),
+				dbus.WithMatchMember("PropertiesChanged"),
+			)
+			if m.wifiDevice != nil {
+				dev := m.wifiDevice.(gonetworkmanager.Device)
+				_ = conn.RemoveMatchSignal(
+					dbus.WithMatchObjectPath(dbus.ObjectPath(dev.GetPath())),
+					dbus.WithMatchInterface("org.freedesktop.DBus.Properties"),
+					dbus.WithMatchMember("PropertiesChanged"),
+				)
+			}
+			conn.RemoveSignal(signals)
+			conn.Close()
+			return err
+		}
+	}
+
+	m.sigWG.Add(1)
+	go func() {
+		defer m.sigWG.Done()
+		for {
+			select {
+			case <-m.stopChan:
+				return
+			case sig, ok := <-signals:
+				if !ok {
+					return
+				}
+				if sig == nil {
+					continue
+				}
+				m.handleDBusSignal(sig)
+			}
+		}
+	}()
+	return nil
+}
+
+func (m *Manager) stopSignalPump() {
+	if m.dbusConn == nil {
+		return
+	}
+	conn := m.dbusConn.(*dbus.Conn)
+
+	_ = conn.RemoveMatchSignal(
+		dbus.WithMatchObjectPath("/org/freedesktop/NetworkManager"),
+		dbus.WithMatchInterface("org.freedesktop.DBus.Properties"),
+		dbus.WithMatchMember("PropertiesChanged"),
+	)
+
+	if m.wifiDevice != nil {
+		dev := m.wifiDevice.(gonetworkmanager.Device)
+		_ = conn.RemoveMatchSignal(
+			dbus.WithMatchObjectPath(dbus.ObjectPath(dev.GetPath())),
+			dbus.WithMatchInterface("org.freedesktop.DBus.Properties"),
+			dbus.WithMatchMember("PropertiesChanged"),
+		)
+	}
+
+	if m.ethernetDevice != nil {
+		dev := m.ethernetDevice.(gonetworkmanager.Device)
+		_ = conn.RemoveMatchSignal(
+			dbus.WithMatchObjectPath(dbus.ObjectPath(dev.GetPath())),
+			dbus.WithMatchInterface("org.freedesktop.DBus.Properties"),
+			dbus.WithMatchMember("PropertiesChanged"),
+		)
+	}
+
+	if m.signals != nil {
+		signals := m.signals.(chan *dbus.Signal)
+		conn.RemoveSignal(signals)
+		close(signals)
+	}
+
+	m.sigWG.Wait()
+
+	conn.Close()
+}
+
 func (m *Manager) Close() {
 	close(m.stopChan)
 	m.notifierWg.Wait()
+
+	m.stopSignalPump()
+
 	m.subMutex.Lock()
 	for _, ch := range m.subscribers {
 		close(ch)

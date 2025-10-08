@@ -4,61 +4,6 @@ import (
 	"github.com/godbus/dbus/v5"
 )
 
-func (m *Manager) monitorChanges() {
-	err := m.conn.AddMatchSignal(
-		dbus.WithMatchObjectPath(dbus.ObjectPath(m.state.SessionPath)),
-		dbus.WithMatchInterface("org.freedesktop.DBus.Properties"),
-		dbus.WithMatchMember("PropertiesChanged"),
-	)
-	if err != nil {
-		return
-	}
-
-	err = m.conn.AddMatchSignal(
-		dbus.WithMatchObjectPath(dbus.ObjectPath(m.state.SessionPath)),
-		dbus.WithMatchInterface("org.freedesktop.login1.Session"),
-		dbus.WithMatchMember("Lock"),
-	)
-	if err != nil {
-		return
-	}
-
-	err = m.conn.AddMatchSignal(
-		dbus.WithMatchObjectPath(dbus.ObjectPath(m.state.SessionPath)),
-		dbus.WithMatchInterface("org.freedesktop.login1.Session"),
-		dbus.WithMatchMember("Unlock"),
-	)
-	if err != nil {
-		return
-	}
-
-	err = m.conn.AddMatchSignal(
-		dbus.WithMatchObjectPath("/org/freedesktop/login1"),
-		dbus.WithMatchInterface("org.freedesktop.login1.Manager"),
-		dbus.WithMatchMember("PrepareForSleep"),
-	)
-	if err != nil {
-		return
-	}
-
-	signals := make(chan *dbus.Signal, 10)
-	m.conn.Signal(signals)
-
-	for {
-		select {
-		case <-m.stopChan:
-			return
-
-		case sig := <-signals:
-			if sig == nil {
-				continue
-			}
-
-			m.handleDBusSignal(sig)
-		}
-	}
-}
-
 func (m *Manager) handleDBusSignal(sig *dbus.Signal) {
 	switch sig.Name {
 	case "org.freedesktop.login1.Session.Lock":
@@ -87,6 +32,17 @@ func (m *Manager) handleDBusSignal(sig *dbus.Signal) {
 
 	case "org.freedesktop.DBus.Properties.PropertiesChanged":
 		m.handlePropertiesChanged(sig)
+
+	case "org.freedesktop.DBus.NameOwnerChanged":
+		if len(sig.Body) == 3 {
+			name, _ := sig.Body[0].(string)
+			oldOwner, _ := sig.Body[1].(string)
+			newOwner, _ := sig.Body[2].(string)
+			if name == "org.freedesktop.login1" && oldOwner != "" && newOwner != "" {
+				_ = m.updateSessionState()
+				m.notifySubscribers()
+			}
+		}
 	}
 }
 

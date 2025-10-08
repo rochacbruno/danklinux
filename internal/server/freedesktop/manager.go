@@ -9,12 +9,12 @@ import (
 )
 
 func NewManager() (*Manager, error) {
-	systemConn, err := dbus.SystemBus()
+	systemConn, err := dbus.ConnectSystemBus()
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to system bus: %w", err)
 	}
 
-	sessionConn, err := dbus.SessionBus()
+	sessionConn, err := dbus.ConnectSessionBus()
 	if err != nil {
 		sessionConn = nil
 	}

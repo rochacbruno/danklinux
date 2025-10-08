@@ -77,6 +77,9 @@ type Manager struct {
 	dirty             chan struct{}
 	notifierWg        sync.WaitGroup
 	lastNotifiedState *NetworkState
+	dbusConn          interface{}
+	signals           interface{}
+	sigWG             sync.WaitGroup
 }
 
 type EventType string
