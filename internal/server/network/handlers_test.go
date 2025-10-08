@@ -52,13 +52,13 @@ func (m *mockNetConn) getResponse() (*models.Response[json.RawMessage], error) {
 
 func TestRespondError_Network(t *testing.T) {
 	conn := newMockNetConn()
-	models.RespondError(conn, "test-id", "test error")
+	models.RespondError(conn, 123, "test error")
 
 	var resp models.Response[any]
 	err := json.NewDecoder(conn.writeBuf).Decode(&resp)
 	require.NoError(t, err)
 
-	assert.Equal(t, "test-id", resp.ID)
+	assert.Equal(t, 123, resp.ID)
 	assert.Equal(t, "test error", resp.Error)
 	assert.Nil(t, resp.Result)
 }
@@ -66,13 +66,13 @@ func TestRespondError_Network(t *testing.T) {
 func TestRespond_Network(t *testing.T) {
 	conn := newMockNetConn()
 	result := SuccessResult{Success: true, Message: "test"}
-	models.Respond(conn, "test-id", result)
+	models.Respond(conn, 123, result)
 
 	var resp models.Response[SuccessResult]
 	err := json.NewDecoder(conn.writeBuf).Decode(&resp)
 	require.NoError(t, err)
 
-	assert.Equal(t, "test-id", resp.ID)
+	assert.Equal(t, 123, resp.ID)
 	assert.Empty(t, resp.Error)
 	require.NotNil(t, resp.Result)
 	assert.True(t, resp.Result.Success)
@@ -89,7 +89,7 @@ func TestHandleGetState(t *testing.T) {
 	}
 
 	conn := newMockNetConn()
-	req := Request{ID: "123", Method: "network.getState"}
+	req := Request{ID: 123, Method: "network.getState"}
 
 	handleGetState(conn, req, manager)
 
@@ -97,7 +97,7 @@ func TestHandleGetState(t *testing.T) {
 	err := json.NewDecoder(conn.writeBuf).Decode(&resp)
 	require.NoError(t, err)
 
-	assert.Equal(t, "123", resp.ID)
+	assert.Equal(t, 123, resp.ID)
 	assert.Empty(t, resp.Error)
 	require.NotNil(t, resp.Result)
 	assert.Equal(t, StatusWiFi, resp.Result.NetworkStatus)
@@ -115,7 +115,7 @@ func TestHandleGetWiFiNetworks(t *testing.T) {
 	}
 
 	conn := newMockNetConn()
-	req := Request{ID: "123", Method: "network.wifi.networks"}
+	req := Request{ID: 123, Method: "network.wifi.networks"}
 
 	handleGetWiFiNetworks(conn, req, manager)
 
@@ -123,7 +123,7 @@ func TestHandleGetWiFiNetworks(t *testing.T) {
 	err := json.NewDecoder(conn.writeBuf).Decode(&resp)
 	require.NoError(t, err)
 
-	assert.Equal(t, "123", resp.ID)
+	assert.Equal(t, 123, resp.ID)
 	assert.Empty(t, resp.Error)
 	require.NotNil(t, resp.Result)
 	assert.Len(t, *resp.Result, 2)
@@ -138,7 +138,7 @@ func TestHandleConnectWiFi(t *testing.T) {
 
 		conn := newMockNetConn()
 		req := Request{
-			ID:     "123",
+			ID: 123,
 			Method: "network.wifi.connect",
 			Params: map[string]interface{}{},
 		}
@@ -149,7 +149,7 @@ func TestHandleConnectWiFi(t *testing.T) {
 		err := json.NewDecoder(conn.writeBuf).Decode(&resp)
 		require.NoError(t, err)
 
-		assert.Equal(t, "123", resp.ID)
+		assert.Equal(t, 123, resp.ID)
 		assert.Contains(t, resp.Error, "missing or invalid 'ssid' parameter")
 	})
 
@@ -162,7 +162,7 @@ func TestHandleConnectWiFi(t *testing.T) {
 
 		conn := newMockNetConn()
 		req := Request{
-			ID:     "123",
+			ID: 123,
 			Method: "network.wifi.connect",
 			Params: map[string]interface{}{
 				"ssid":     "TestNetwork",
@@ -177,7 +177,7 @@ func TestHandleConnectWiFi(t *testing.T) {
 		require.NoError(t, err)
 
 		// Will fail due to no actual WiFi device, but we're testing the handler logic
-		assert.Equal(t, "123", resp.ID)
+		assert.Equal(t, 123, resp.ID)
 	})
 }
 
@@ -189,7 +189,7 @@ func TestHandleSetPreference(t *testing.T) {
 
 		conn := newMockNetConn()
 		req := Request{
-			ID:     "123",
+			ID: 123,
 			Method: "network.preference.set",
 			Params: map[string]interface{}{},
 		}
@@ -200,7 +200,7 @@ func TestHandleSetPreference(t *testing.T) {
 		err := json.NewDecoder(conn.writeBuf).Decode(&resp)
 		require.NoError(t, err)
 
-		assert.Equal(t, "123", resp.ID)
+		assert.Equal(t, 123, resp.ID)
 		assert.Contains(t, resp.Error, "missing or invalid 'preference' parameter")
 	})
 }
@@ -213,7 +213,7 @@ func TestHandleGetNetworkInfo(t *testing.T) {
 
 		conn := newMockNetConn()
 		req := Request{
-			ID:     "123",
+			ID: 123,
 			Method: "network.info",
 			Params: map[string]interface{}{},
 		}
@@ -224,7 +224,7 @@ func TestHandleGetNetworkInfo(t *testing.T) {
 		err := json.NewDecoder(conn.writeBuf).Decode(&resp)
 		require.NoError(t, err)
 
-		assert.Equal(t, "123", resp.ID)
+		assert.Equal(t, 123, resp.ID)
 		assert.Contains(t, resp.Error, "missing or invalid 'ssid' parameter")
 	})
 }
@@ -239,7 +239,7 @@ func TestHandleRequest(t *testing.T) {
 	t.Run("unknown method", func(t *testing.T) {
 		conn := newMockNetConn()
 		req := Request{
-			ID:     "123",
+			ID: 123,
 			Method: "network.unknown",
 		}
 
@@ -249,14 +249,14 @@ func TestHandleRequest(t *testing.T) {
 		err := json.NewDecoder(conn.writeBuf).Decode(&resp)
 		require.NoError(t, err)
 
-		assert.Equal(t, "123", resp.ID)
+		assert.Equal(t, 123, resp.ID)
 		assert.Contains(t, resp.Error, "unknown method")
 	})
 
 	t.Run("valid method - getState", func(t *testing.T) {
 		conn := newMockNetConn()
 		req := Request{
-			ID:     "123",
+			ID: 123,
 			Method: "network.getState",
 		}
 
@@ -266,7 +266,7 @@ func TestHandleRequest(t *testing.T) {
 		err := json.NewDecoder(conn.writeBuf).Decode(&resp)
 		require.NoError(t, err)
 
-		assert.Equal(t, "123", resp.ID)
+		assert.Equal(t, 123, resp.ID)
 		assert.Empty(t, resp.Error)
 	})
 }

@@ -9,7 +9,7 @@ import (
 )
 
 type Request struct {
-	ID     interface{}            `json:"id,omitempty"`
+	ID     int                    `json:"id,omitempty"`
 	Method string                 `json:"method"`
 	Params map[string]interface{} `json:"params,omitempty"`
 }

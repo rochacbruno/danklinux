@@ -8,24 +8,24 @@ import (
 )
 
 type Request struct {
-	ID     interface{}            `json:"id,omitempty"`
+	ID     int                    `json:"id,omitempty"`
 	Method string                 `json:"method"`
 	Params map[string]interface{} `json:"params,omitempty"`
 }
 
 type Response[T any] struct {
-	ID     interface{} `json:"id,omitempty"`
-	Result *T          `json:"result,omitempty"`
-	Error  string      `json:"error,omitempty"`
+	ID     int    `json:"id,omitempty"`
+	Result *T     `json:"result,omitempty"`
+	Error  string `json:"error,omitempty"`
 }
 
-func RespondError(conn net.Conn, id interface{}, errMsg string) {
-	log.Errorf("DMS API Error: id=%v error=%s", id, errMsg)
+func RespondError(conn net.Conn, id int, errMsg string) {
+	log.Errorf("DMS API Error: id=%d error=%s", id, errMsg)
 	resp := Response[any]{ID: id, Error: errMsg}
 	json.NewEncoder(conn).Encode(resp)
 }
 
-func Respond[T any](conn net.Conn, id interface{}, result T) {
+func Respond[T any](conn net.Conn, id int, result T) {
 	resp := Response[T]{ID: id, Result: &result}
 	json.NewEncoder(conn).Encode(resp)
 }

@@ -14,7 +14,7 @@ import (
 )
 
 func RouteRequest(conn net.Conn, req models.Request) {
-	log.Debugf("DMS API Request: method=%s id=%v", req.Method, req.ID)
+	log.Debugf("DMS API Request: method=%s id=%d", req.Method, req.ID)
 
 	if strings.HasPrefix(req.Method, "network.") {
 		if networkManager == nil {

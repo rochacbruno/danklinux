@@ -55,13 +55,13 @@ func (m *mockNetConn) getResponse() (*models.Response[json.RawMessage], error) {
 
 func TestRespondError_Freedesktop(t *testing.T) {
 	conn := newMockNetConn()
-	models.RespondError(conn, "test-id", "test error")
+	models.RespondError(conn, 123, "test error")
 
 	var resp models.Response[any]
 	err := json.NewDecoder(conn.writeBuf).Decode(&resp)
 	require.NoError(t, err)
 
-	assert.Equal(t, "test-id", resp.ID)
+	assert.Equal(t, 123, resp.ID)
 	assert.Equal(t, "test error", resp.Error)
 	assert.Nil(t, resp.Result)
 }
@@ -69,13 +69,13 @@ func TestRespondError_Freedesktop(t *testing.T) {
 func TestRespond_Freedesktop(t *testing.T) {
 	conn := newMockNetConn()
 	result := SuccessResult{Success: true, Message: "test"}
-	models.Respond(conn, "test-id", result)
+	models.Respond(conn, 123, result)
 
 	var resp models.Response[SuccessResult]
 	err := json.NewDecoder(conn.writeBuf).Decode(&resp)
 	require.NoError(t, err)
 
-	assert.Equal(t, "test-id", resp.ID)
+	assert.Equal(t, 123, resp.ID)
 	assert.Empty(t, resp.Error)
 	require.NotNil(t, resp.Result)
 	assert.True(t, resp.Result.Success)
@@ -100,7 +100,7 @@ func TestHandleGetState(t *testing.T) {
 	}
 
 	conn := newMockNetConn()
-	req := Request{ID: "123", Method: "freedesktop.getState"}
+	req := Request{ID: 123, Method: "freedesktop.getState"}
 
 	handleGetState(conn, req, manager)
 
@@ -108,7 +108,7 @@ func TestHandleGetState(t *testing.T) {
 	err := json.NewDecoder(conn.writeBuf).Decode(&resp)
 	require.NoError(t, err)
 
-	assert.Equal(t, "123", resp.ID)
+	assert.Equal(t, 123, resp.ID)
 	assert.Empty(t, resp.Error)
 	require.NotNil(t, resp.Result)
 	assert.True(t, resp.Result.Accounts.Available)
@@ -126,7 +126,7 @@ func TestHandleSetIconFile(t *testing.T) {
 
 		conn := newMockNetConn()
 		req := Request{
-			ID:     "123",
+			ID: 123,
 			Method: "freedesktop.accounts.setIconFile",
 			Params: map[string]interface{}{},
 		}
@@ -137,7 +137,7 @@ func TestHandleSetIconFile(t *testing.T) {
 		err := json.NewDecoder(conn.writeBuf).Decode(&resp)
 		require.NoError(t, err)
 
-		assert.Equal(t, "123", resp.ID)
+		assert.Equal(t, 123, resp.ID)
 		assert.Contains(t, resp.Error, "missing or invalid 'path' parameter")
 	})
 
@@ -170,7 +170,7 @@ func TestHandleSetIconFile(t *testing.T) {
 
 		conn := newMockNetConn()
 		req := Request{
-			ID:     "123",
+			ID: 123,
 			Method: "freedesktop.accounts.setIconFile",
 			Params: map[string]interface{}{
 				"path": "/path/to/icon.png",
@@ -183,7 +183,7 @@ func TestHandleSetIconFile(t *testing.T) {
 		err := json.NewDecoder(conn.writeBuf).Decode(&resp)
 		require.NoError(t, err)
 
-		assert.Equal(t, "123", resp.ID)
+		assert.Equal(t, 123, resp.ID)
 		assert.Empty(t, resp.Error)
 		require.NotNil(t, resp.Result)
 		assert.True(t, resp.Result.Success)
@@ -202,7 +202,7 @@ func TestHandleSetIconFile(t *testing.T) {
 
 		conn := newMockNetConn()
 		req := Request{
-			ID:     "123",
+			ID: 123,
 			Method: "freedesktop.accounts.setIconFile",
 			Params: map[string]interface{}{
 				"path": "/path/to/icon.png",
@@ -215,7 +215,7 @@ func TestHandleSetIconFile(t *testing.T) {
 		err := json.NewDecoder(conn.writeBuf).Decode(&resp)
 		require.NoError(t, err)
 
-		assert.Equal(t, "123", resp.ID)
+		assert.Equal(t, 123, resp.ID)
 		assert.Contains(t, resp.Error, "accounts service not available")
 	})
 }
@@ -229,7 +229,7 @@ func TestHandleSetRealName(t *testing.T) {
 
 		conn := newMockNetConn()
 		req := Request{
-			ID:     "123",
+			ID: 123,
 			Method: "freedesktop.accounts.setRealName",
 			Params: map[string]interface{}{},
 		}
@@ -240,7 +240,7 @@ func TestHandleSetRealName(t *testing.T) {
 		err := json.NewDecoder(conn.writeBuf).Decode(&resp)
 		require.NoError(t, err)
 
-		assert.Equal(t, "123", resp.ID)
+		assert.Equal(t, 123, resp.ID)
 		assert.Contains(t, resp.Error, "missing or invalid 'name' parameter")
 	})
 
@@ -272,7 +272,7 @@ func TestHandleSetRealName(t *testing.T) {
 
 		conn := newMockNetConn()
 		req := Request{
-			ID:     "123",
+			ID: 123,
 			Method: "freedesktop.accounts.setRealName",
 			Params: map[string]interface{}{
 				"name": "New Name",
@@ -285,7 +285,7 @@ func TestHandleSetRealName(t *testing.T) {
 		err := json.NewDecoder(conn.writeBuf).Decode(&resp)
 		require.NoError(t, err)
 
-		assert.Equal(t, "123", resp.ID)
+		assert.Equal(t, 123, resp.ID)
 		assert.Empty(t, resp.Error)
 		require.NotNil(t, resp.Result)
 		assert.True(t, resp.Result.Success)
@@ -302,7 +302,7 @@ func TestHandleSetEmail(t *testing.T) {
 
 		conn := newMockNetConn()
 		req := Request{
-			ID:     "123",
+			ID: 123,
 			Method: "freedesktop.accounts.setEmail",
 			Params: map[string]interface{}{},
 		}
@@ -313,7 +313,7 @@ func TestHandleSetEmail(t *testing.T) {
 		err := json.NewDecoder(conn.writeBuf).Decode(&resp)
 		require.NoError(t, err)
 
-		assert.Equal(t, "123", resp.ID)
+		assert.Equal(t, 123, resp.ID)
 		assert.Contains(t, resp.Error, "missing or invalid 'email' parameter")
 	})
 
@@ -345,7 +345,7 @@ func TestHandleSetEmail(t *testing.T) {
 
 		conn := newMockNetConn()
 		req := Request{
-			ID:     "123",
+			ID: 123,
 			Method: "freedesktop.accounts.setEmail",
 			Params: map[string]interface{}{
 				"email": "test@example.com",
@@ -358,7 +358,7 @@ func TestHandleSetEmail(t *testing.T) {
 		err := json.NewDecoder(conn.writeBuf).Decode(&resp)
 		require.NoError(t, err)
 
-		assert.Equal(t, "123", resp.ID)
+		assert.Equal(t, 123, resp.ID)
 		assert.Empty(t, resp.Error)
 		require.NotNil(t, resp.Result)
 		assert.True(t, resp.Result.Success)
@@ -375,7 +375,7 @@ func TestHandleSetLanguage(t *testing.T) {
 
 		conn := newMockNetConn()
 		req := Request{
-			ID:     "123",
+			ID: 123,
 			Method: "freedesktop.accounts.setLanguage",
 			Params: map[string]interface{}{},
 		}
@@ -386,7 +386,7 @@ func TestHandleSetLanguage(t *testing.T) {
 		err := json.NewDecoder(conn.writeBuf).Decode(&resp)
 		require.NoError(t, err)
 
-		assert.Equal(t, "123", resp.ID)
+		assert.Equal(t, 123, resp.ID)
 		assert.Contains(t, resp.Error, "missing or invalid 'language' parameter")
 	})
 }
@@ -400,7 +400,7 @@ func TestHandleSetLocation(t *testing.T) {
 
 		conn := newMockNetConn()
 		req := Request{
-			ID:     "123",
+			ID: 123,
 			Method: "freedesktop.accounts.setLocation",
 			Params: map[string]interface{}{},
 		}
@@ -411,7 +411,7 @@ func TestHandleSetLocation(t *testing.T) {
 		err := json.NewDecoder(conn.writeBuf).Decode(&resp)
 		require.NoError(t, err)
 
-		assert.Equal(t, "123", resp.ID)
+		assert.Equal(t, 123, resp.ID)
 		assert.Contains(t, resp.Error, "missing or invalid 'location' parameter")
 	})
 }
@@ -425,7 +425,7 @@ func TestHandleGetUserIconFile(t *testing.T) {
 
 		conn := newMockNetConn()
 		req := Request{
-			ID:     "123",
+			ID: 123,
 			Method: "freedesktop.accounts.getUserIconFile",
 			Params: map[string]interface{}{},
 		}
@@ -436,7 +436,7 @@ func TestHandleGetUserIconFile(t *testing.T) {
 		err := json.NewDecoder(conn.writeBuf).Decode(&resp)
 		require.NoError(t, err)
 
-		assert.Equal(t, "123", resp.ID)
+		assert.Equal(t, 123, resp.ID)
 		assert.Contains(t, resp.Error, "missing or invalid 'username' parameter")
 	})
 
@@ -452,7 +452,7 @@ func TestHandleGetUserIconFile(t *testing.T) {
 
 		conn := newMockNetConn()
 		req := Request{
-			ID:     "123",
+			ID: 123,
 			Method: "freedesktop.accounts.getUserIconFile",
 			Params: map[string]interface{}{
 				"username": "testuser",
@@ -465,7 +465,7 @@ func TestHandleGetUserIconFile(t *testing.T) {
 		err := json.NewDecoder(conn.writeBuf).Decode(&resp)
 		require.NoError(t, err)
 
-		assert.Equal(t, "123", resp.ID)
+		assert.Equal(t, 123, resp.ID)
 		assert.Contains(t, resp.Error, "accounts service not available")
 	})
 }
@@ -482,7 +482,7 @@ func TestHandleGetColorScheme(t *testing.T) {
 		}
 
 		conn := newMockNetConn()
-		req := Request{ID: "123", Method: "freedesktop.settings.getColorScheme"}
+		req := Request{ID: 123, Method: "freedesktop.settings.getColorScheme"}
 
 		handleGetColorScheme(conn, req, manager)
 
@@ -490,7 +490,7 @@ func TestHandleGetColorScheme(t *testing.T) {
 		err := json.NewDecoder(conn.writeBuf).Decode(&resp)
 		require.NoError(t, err)
 
-		assert.Equal(t, "123", resp.ID)
+		assert.Equal(t, 123, resp.ID)
 		assert.Contains(t, resp.Error, "settings portal not available")
 	})
 
@@ -513,7 +513,7 @@ func TestHandleGetColorScheme(t *testing.T) {
 		}
 
 		conn := newMockNetConn()
-		req := Request{ID: "123", Method: "freedesktop.settings.getColorScheme"}
+		req := Request{ID: 123, Method: "freedesktop.settings.getColorScheme"}
 
 		handleGetColorScheme(conn, req, manager)
 
@@ -521,7 +521,7 @@ func TestHandleGetColorScheme(t *testing.T) {
 		err := json.NewDecoder(conn.writeBuf).Decode(&resp)
 		require.NoError(t, err)
 
-		assert.Equal(t, "123", resp.ID)
+		assert.Equal(t, 123, resp.ID)
 		assert.Empty(t, resp.Error)
 		require.NotNil(t, resp.Result)
 		assert.Equal(t, uint32(1), (*resp.Result)["colorScheme"])
@@ -542,7 +542,7 @@ func TestHandleRequest(t *testing.T) {
 	t.Run("unknown method", func(t *testing.T) {
 		conn := newMockNetConn()
 		req := Request{
-			ID:     "123",
+			ID: 123,
 			Method: "freedesktop.unknown",
 		}
 
@@ -552,14 +552,14 @@ func TestHandleRequest(t *testing.T) {
 		err := json.NewDecoder(conn.writeBuf).Decode(&resp)
 		require.NoError(t, err)
 
-		assert.Equal(t, "123", resp.ID)
+		assert.Equal(t, 123, resp.ID)
 		assert.Contains(t, resp.Error, "unknown method")
 	})
 
 	t.Run("valid method - getState", func(t *testing.T) {
 		conn := newMockNetConn()
 		req := Request{
-			ID:     "123",
+			ID: 123,
 			Method: "freedesktop.getState",
 		}
 
@@ -569,7 +569,7 @@ func TestHandleRequest(t *testing.T) {
 		err := json.NewDecoder(conn.writeBuf).Decode(&resp)
 		require.NoError(t, err)
 
-		assert.Equal(t, "123", resp.ID)
+		assert.Equal(t, 123, resp.ID)
 		assert.Empty(t, resp.Error)
 	})
 
@@ -587,7 +587,7 @@ func TestHandleRequest(t *testing.T) {
 		for _, method := range tests {
 			conn := newMockNetConn()
 			req := Request{
-				ID:     "123",
+				ID: 123,
 				Method: method,
 				Params: map[string]interface{}{},
 			}
@@ -598,7 +598,7 @@ func TestHandleRequest(t *testing.T) {
 			err := json.NewDecoder(conn.writeBuf).Decode(&resp)
 			require.NoError(t, err)
 
-			assert.Equal(t, "123", resp.ID)
+			assert.Equal(t, 123, resp.ID)
 			// Will have errors due to missing params or service unavailable
 			// but the method routing should work
 		}

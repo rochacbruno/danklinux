@@ -134,7 +134,7 @@ func handleConnection(conn net.Conn) {
 
 		var req models.Request
 		if err := json.Unmarshal(line, &req); err != nil {
-			models.RespondError(conn, nil, "invalid json")
+			models.RespondError(conn, 0, "invalid json")
 			continue
 		}
 

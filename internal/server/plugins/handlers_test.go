@@ -15,7 +15,7 @@ func TestHandleList(t *testing.T) {
 	conn.EXPECT().Write(mock.Anything).Return(0, nil).Maybe()
 
 	req := models.Request{
-		ID:     "test-id",
+		ID: 123,
 		Method: "plugins.list",
 		Params: map[string]interface{}{},
 	}
@@ -28,7 +28,7 @@ func TestHandleListInstalled(t *testing.T) {
 	conn.EXPECT().Write(mock.Anything).Return(0, nil).Maybe()
 
 	req := models.Request{
-		ID:     "test-id",
+		ID: 123,
 		Method: "plugins.listInstalled",
 		Params: map[string]interface{}{},
 	}
@@ -45,7 +45,7 @@ func TestHandleInstallMissingName(t *testing.T) {
 	}).Maybe()
 
 	req := models.Request{
-		ID:     "test-id",
+		ID: 123,
 		Method: "plugins.install",
 		Params: map[string]interface{}{},
 	}
@@ -68,7 +68,7 @@ func TestHandleInstallInvalidName(t *testing.T) {
 	}).Maybe()
 
 	req := models.Request{
-		ID:     "test-id",
+		ID: 123,
 		Method: "plugins.install",
 		Params: map[string]interface{}{
 			"name": 123,
@@ -92,7 +92,7 @@ func TestHandleUninstallMissingName(t *testing.T) {
 	}).Maybe()
 
 	req := models.Request{
-		ID:     "test-id",
+		ID: 123,
 		Method: "plugins.uninstall",
 		Params: map[string]interface{}{},
 	}
@@ -114,7 +114,7 @@ func TestHandleUpdateMissingName(t *testing.T) {
 	}).Maybe()
 
 	req := models.Request{
-		ID:     "test-id",
+		ID: 123,
 		Method: "plugins.update",
 		Params: map[string]interface{}{},
 	}
@@ -136,7 +136,7 @@ func TestHandleSearchMissingQuery(t *testing.T) {
 	}).Maybe()
 
 	req := models.Request{
-		ID:     "test-id",
+		ID: 123,
 		Method: "plugins.search",
 		Params: map[string]interface{}{},
 	}

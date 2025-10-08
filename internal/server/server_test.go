@@ -83,13 +83,13 @@ func (m *mockConn) Close() error {
 
 func TestRespondError(t *testing.T) {
 	conn := &mockConn{}
-	models.RespondError(conn, "test-id", "test error")
+	models.RespondError(conn, 123, "test error")
 
 	var resp models.Response[any]
 	err := json.Unmarshal(conn.written, &resp)
 	require.NoError(t, err)
 
-	assert.Equal(t, "test-id", resp.ID)
+	assert.Equal(t, 123, resp.ID)
 	assert.Equal(t, "test error", resp.Error)
 	assert.Nil(t, resp.Result)
 }
@@ -97,25 +97,25 @@ func TestRespondError(t *testing.T) {
 func TestRespond(t *testing.T) {
 	conn := &mockConn{}
 	result := map[string]string{"foo": "bar"}
-	models.Respond(conn, "test-id", result)
+	models.Respond(conn, 123, result)
 
 	var resp models.Response[map[string]string]
 	err := json.Unmarshal(conn.written, &resp)
 	require.NoError(t, err)
 
-	assert.Equal(t, "test-id", resp.ID)
+	assert.Equal(t, 123, resp.ID)
 	assert.Empty(t, resp.Error)
 	require.NotNil(t, resp.Result)
 	assert.Equal(t, "bar", (*resp.Result)["foo"])
 }
 
 func TestRequest_JSON(t *testing.T) {
-	jsonStr := `{"id":"123","method":"test.method","params":{"key":"value"}}`
+	jsonStr := `{"id":123,"method":"test.method","params":{"key":"value"}}`
 	var req models.Request
 	err := json.Unmarshal([]byte(jsonStr), &req)
 	require.NoError(t, err)
 
-	assert.Equal(t, "123", req.ID)
+	assert.Equal(t, 123, req.ID)
 	assert.Equal(t, "test.method", req.Method)
 	assert.Equal(t, "value", req.Params["key"])
 }
@@ -124,7 +124,7 @@ func TestResponse_JSON(t *testing.T) {
 	t.Run("success response", func(t *testing.T) {
 		result := "success"
 		resp := models.Response[string]{
-			ID:     "123",
+			ID: 123,
 			Result: &result,
 		}
 
@@ -135,14 +135,14 @@ func TestResponse_JSON(t *testing.T) {
 		err = json.Unmarshal(data, &decoded)
 		require.NoError(t, err)
 
-		assert.Equal(t, "123", decoded.ID)
+		assert.Equal(t, 123, decoded.ID)
 		assert.Equal(t, "success", *decoded.Result)
 		assert.Empty(t, decoded.Error)
 	})
 
 	t.Run("error response", func(t *testing.T) {
 		resp := models.Response[any]{
-			ID:    "123",
+			ID: 123,
 			Error: "test error",
 		}
 
@@ -153,7 +153,7 @@ func TestResponse_JSON(t *testing.T) {
 		err = json.Unmarshal(data, &decoded)
 		require.NoError(t, err)
 
-		assert.Equal(t, "123", decoded.ID)
+		assert.Equal(t, 123, decoded.ID)
 		assert.Equal(t, "test error", decoded.Error)
 		assert.Nil(t, decoded.Result)
 	})
