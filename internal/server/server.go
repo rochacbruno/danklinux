@@ -12,6 +12,7 @@ import (
 	"syscall"
 
 	"github.com/AvengeMedia/danklinux/internal/log"
+	"github.com/AvengeMedia/danklinux/internal/server/loginctl"
 	"github.com/AvengeMedia/danklinux/internal/server/models"
 	"github.com/AvengeMedia/danklinux/internal/server/network"
 )
@@ -21,6 +22,7 @@ type Capabilities struct {
 }
 
 var networkManager *network.Manager
+var loginctlManager *loginctl.Manager
 
 func getSocketDir() string {
 	if runtime := os.Getenv("XDG_RUNTIME_DIR"); runtime != "" {
@@ -90,6 +92,19 @@ func InitializeNetworkManager() error {
 	return nil
 }
 
+func InitializeLoginctlManager() error {
+	manager, err := loginctl.NewManager()
+	if err != nil {
+		log.Warnf("Failed to initialize loginctl manager: %v", err)
+		return err
+	}
+
+	loginctlManager = manager
+
+	log.Info("Loginctl manager initialized")
+	return nil
+}
+
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
 
@@ -119,6 +134,10 @@ func getCapabilities() Capabilities {
 		caps = append(caps, "network")
 	}
 
+	if loginctlManager != nil {
+		caps = append(caps, "loginctl")
+	}
+
 	return Capabilities{Capabilities: caps}
 }
 
@@ -127,6 +146,10 @@ func Start() error {
 
 	if err := InitializeNetworkManager(); err != nil {
 		log.Warnf("Network manager unavailable: %v", err)
+	}
+
+	if err := InitializeLoginctlManager(); err != nil {
+		log.Warnf("Loginctl manager unavailable: %v", err)
 	}
 
 	socketPath := GetSocketPath()
@@ -166,6 +189,14 @@ func Start() error {
 	log.Info(" network.preference.set      - Set preference (params: preference [auto|wifi|ethernet])")
 	log.Info(" network.info                - Get network info (params: ssid)")
 	log.Info(" network.subscribe           - Subscribe to network state changes (streaming)")
+	log.Info("Loginctl:")
+	log.Info(" loginctl.getState           - Get current session state")
+	log.Info(" loginctl.lock               - Lock session")
+	log.Info(" loginctl.unlock             - Unlock session")
+	log.Info(" loginctl.activate           - Activate session")
+	log.Info(" loginctl.setIdleHint        - Set idle hint (params: idle)")
+	log.Info(" loginctl.terminate          - Terminate session")
+	log.Info(" loginctl.subscribe          - Subscribe to session state changes (streaming)")
 
 	for {
 		conn, err := listener.Accept()
