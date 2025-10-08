@@ -50,9 +50,6 @@ func (m *Manager) monitorChanges() {
 	signals := make(chan *dbus.Signal, 10)
 	conn.Signal(signals)
 
-	ticker := time.NewTicker(30 * time.Second)
-	defer ticker.Stop()
-
 	for {
 		select {
 		case <-m.stopChan:
@@ -64,17 +61,6 @@ func (m *Manager) monitorChanges() {
 			}
 
 			m.handleDBusSignal(sig)
-
-		case <-ticker.C:
-			go func() {
-				m.stateMutex.RLock()
-				enabled := m.state.WiFiEnabled
-				m.stateMutex.RUnlock()
-
-				if enabled {
-					m.updateWiFiNetworks()
-				}
-			}()
 		}
 	}
 }
@@ -103,62 +89,116 @@ func (m *Manager) handleDBusSignal(sig *dbus.Signal) {
 
 	case "org.freedesktop.NetworkManager.Device.Wireless":
 		m.handleWiFiChange(changes)
+
+	case "org.freedesktop.NetworkManager.AccessPoint":
+		m.handleAccessPointChange(changes)
 	}
 }
 
 func (m *Manager) handleNetworkManagerChange(changes map[string]dbus.Variant) {
+	var needsUpdate bool
+
 	for key := range changes {
 		switch key {
-		case "PrimaryConnection":
-			m.updatePrimaryConnection()
-			m.notifySubscribers()
-
+		case "PrimaryConnection", "State", "ActiveConnections":
+			needsUpdate = true
 		case "WirelessEnabled":
 			nm := m.nmConn.(gonetworkmanager.NetworkManager)
 			if enabled, err := nm.GetPropertyWirelessEnabled(); err == nil {
 				m.stateMutex.Lock()
 				m.state.WiFiEnabled = enabled
 				m.stateMutex.Unlock()
-				m.notifySubscribers()
+				needsUpdate = true
 			}
+		default:
+			// Ignore irrelevant properties
+			continue
+		}
+	}
 
-		case "State":
-			m.updatePrimaryConnection()
+	if needsUpdate {
+		m.updatePrimaryConnection()
+		if _, exists := changes["State"]; exists {
 			m.updateEthernetState()
 			m.updateWiFiState()
-			m.notifySubscribers()
 		}
+		m.notifySubscribers()
 	}
 }
 
 func (m *Manager) handleDeviceChange(changes map[string]dbus.Variant) {
+	var needsUpdate bool
+	var stateChanged bool
+
 	for key := range changes {
 		switch key {
 		case "State":
-			m.updateEthernetState()
-			m.updateWiFiState()
-			m.updatePrimaryConnection()
-			m.notifySubscribers()
-
+			stateChanged = true
+			needsUpdate = true
 		case "Ip4Config":
-			m.updateEthernetState()
-			m.updateWiFiState()
-			m.notifySubscribers()
+			needsUpdate = true
+		default:
+			// Ignore irrelevant properties
+			continue
 		}
+	}
+
+	if needsUpdate {
+		m.updateEthernetState()
+		m.updateWiFiState()
+		if stateChanged {
+			m.updatePrimaryConnection()
+		}
+		m.notifySubscribers()
 	}
 }
 
 func (m *Manager) handleWiFiChange(changes map[string]dbus.Variant) {
+	var needsStateUpdate bool
+	var needsNetworkUpdate bool
+
 	for key := range changes {
 		switch key {
 		case "ActiveAccessPoint":
-			m.updateWiFiState()
-			m.updateWiFiNetworks()
-			m.notifySubscribers()
-
+			needsStateUpdate = true
+			needsNetworkUpdate = true
 		case "AccessPoints":
-			m.updateWiFiNetworks()
+			needsNetworkUpdate = true
+		default:
+			// Ignore irrelevant properties
+			continue
 		}
+	}
+
+	if needsStateUpdate {
+		m.updateWiFiState()
+	}
+	if needsNetworkUpdate {
+		m.updateWiFiNetworks()
+	}
+	if needsStateUpdate || needsNetworkUpdate {
+		m.notifySubscribers()
+	}
+}
+
+func (m *Manager) handleAccessPointChange(changes map[string]dbus.Variant) {
+	_, hasStrength := changes["Strength"]
+	if !hasStrength {
+		return
+	}
+
+	m.stateMutex.RLock()
+	oldSignal := m.state.WiFiSignal
+	m.stateMutex.RUnlock()
+
+	m.updateWiFiState()
+
+	m.stateMutex.RLock()
+	newSignal := m.state.WiFiSignal
+	m.stateMutex.RUnlock()
+
+	if signalChangeSignificant(oldSignal, newSignal) {
+		m.notifySubscribers()
 	}
 }
 

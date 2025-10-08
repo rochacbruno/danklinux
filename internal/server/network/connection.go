@@ -42,11 +42,9 @@ func (m *Manager) ConnectWiFi(req ConnectionRequest) error {
 		m.state.ConnectingSSID = ""
 		m.stateMutex.Unlock()
 
-		go func() {
-			m.updateWiFiState()
-			m.updatePrimaryConnection()
-			m.notifySubscribers()
-		}()
+		m.updateWiFiState()
+		m.updatePrimaryConnection()
+		m.notifySubscribers()
 
 		return nil
 	}
@@ -66,11 +64,9 @@ func (m *Manager) ConnectWiFi(req ConnectionRequest) error {
 	m.state.ConnectingSSID = ""
 	m.stateMutex.Unlock()
 
-	go func() {
-		m.updateWiFiState()
-		m.updatePrimaryConnection()
-		m.notifySubscribers()
-	}()
+	m.updateWiFiState()
+	m.updatePrimaryConnection()
+	m.notifySubscribers()
 
 	return nil
 }
@@ -79,15 +75,10 @@ func (m *Manager) createAndConnectWiFi(req ConnectionRequest) error {
 	nm := m.nmConn.(gonetworkmanager.NetworkManager)
 	dev := m.wifiDevice.(gonetworkmanager.Device)
 
-	wifiDev := m.wifiDev
-	if wifiDev == nil {
-		var err error
-		wifiDev, err = gonetworkmanager.NewDeviceWireless(dev.GetPath())
-		if err != nil {
-			return fmt.Errorf("failed to get wireless device: %w", err)
-		}
-		m.wifiDev = wifiDev
+	if err := m.ensureWiFiDevice(); err != nil {
+		return err
 	}
+	wifiDev := m.wifiDev
 
 	w := wifiDev.(gonetworkmanager.DeviceWireless)
 	apPaths, err := w.GetAccessPoints()
@@ -211,11 +202,9 @@ func (m *Manager) DisconnectWiFi() error {
 		return fmt.Errorf("failed to disconnect: %w", err)
 	}
 
-	go func() {
-		m.updateWiFiState()
-		m.updatePrimaryConnection()
-		m.notifySubscribers()
-	}()
+	m.updateWiFiState()
+	m.updatePrimaryConnection()
+	m.notifySubscribers()
 
 	return nil
 }
@@ -231,10 +220,8 @@ func (m *Manager) ForgetWiFiNetwork(ssid string) error {
 		return fmt.Errorf("failed to delete connection: %w", err)
 	}
 
-	go func() {
-		m.updateWiFiNetworks()
-		m.notifySubscribers()
-	}()
+	m.updateWiFiNetworks()
+	m.notifySubscribers()
 
 	return nil
 }
@@ -270,11 +257,9 @@ func (m *Manager) ConnectEthernet() error {
 					return fmt.Errorf("failed to activate ethernet: %w", err)
 				}
 
-				go func() {
-					m.updateEthernetState()
-					m.updatePrimaryConnection()
-					m.notifySubscribers()
-				}()
+				m.updateEthernetState()
+				m.updatePrimaryConnection()
+				m.notifySubscribers()
 
 				return nil
 			}
@@ -292,11 +277,9 @@ func (m *Manager) ConnectEthernet() error {
 		return fmt.Errorf("failed to create and activate ethernet: %w", err)
 	}
 
-	go func() {
-		m.updateEthernetState()
-		m.updatePrimaryConnection()
-		m.notifySubscribers()
-	}()
+	m.updateEthernetState()
+	m.updatePrimaryConnection()
+	m.notifySubscribers()
 
 	return nil
 }
@@ -313,11 +296,9 @@ func (m *Manager) DisconnectEthernet() error {
 		return fmt.Errorf("failed to disconnect: %w", err)
 	}
 
-	go func() {
-		m.updateEthernetState()
-		m.updatePrimaryConnection()
-		m.notifySubscribers()
-	}()
+	m.updateEthernetState()
+	m.updatePrimaryConnection()
+	m.notifySubscribers()
 
 	return nil
 }

@@ -64,18 +64,19 @@ type PriorityUpdate struct {
 }
 
 type Manager struct {
-	state          *NetworkState
-	stateMutex     sync.RWMutex
-	subscribers    map[string]chan NetworkState
-	subMutex       sync.RWMutex
-	stopChan       chan struct{}
-	nmConn         interface{}
-	ethernetDevice interface{}
-	wifiDevice     interface{}
-	settings       interface{}
-	wifiDev        interface{}
-	dirty          chan struct{}
-	notifierWg     sync.WaitGroup
+	state             *NetworkState
+	stateMutex        sync.RWMutex
+	subscribers       map[string]chan NetworkState
+	subMutex          sync.RWMutex
+	stopChan          chan struct{}
+	nmConn            interface{}
+	ethernetDevice    interface{}
+	wifiDevice        interface{}
+	settings          interface{}
+	wifiDev           interface{}
+	dirty             chan struct{}
+	notifierWg        sync.WaitGroup
+	lastNotifiedState *NetworkState
 }
 
 type EventType string

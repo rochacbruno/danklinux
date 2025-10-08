@@ -142,23 +142,35 @@ func (m *Manager) updateEthernetState() error {
 
 	connected := state == gonetworkmanager.NmDeviceStateActivated
 
+	var ip string
+	if connected {
+		ip = m.getDeviceIP(dev)
+	}
+
 	m.stateMutex.Lock()
 	m.state.EthernetDevice = iface
 	m.state.EthernetConnected = connected
+	m.state.EthernetIP = ip
 	m.stateMutex.Unlock()
 
-	if connected {
-		if ip := m.getDeviceIP(dev); ip != "" {
-			m.stateMutex.Lock()
-			m.state.EthernetIP = ip
-			m.stateMutex.Unlock()
-		}
-	} else {
-		m.stateMutex.Lock()
-		m.state.EthernetIP = ""
-		m.stateMutex.Unlock()
+	return nil
+}
+
+func (m *Manager) ensureWiFiDevice() error {
+	if m.wifiDev != nil {
+		return nil
 	}
 
+	if m.wifiDevice == nil {
+		return fmt.Errorf("no WiFi device available")
+	}
+
+	dev := m.wifiDevice.(gonetworkmanager.Device)
+	wifiDev, err := gonetworkmanager.NewDeviceWireless(dev.GetPath())
+	if err != nil {
+		return fmt.Errorf("failed to get wireless device: %w", err)
+	}
+	m.wifiDev = wifiDev
 	return nil
 }
 
@@ -181,52 +193,44 @@ func (m *Manager) updateWiFiState() error {
 
 	connected := state == gonetworkmanager.NmDeviceStateActivated
 
+	var ip, ssid, bssid string
+	var signal uint8
+
+	if connected {
+		if err := m.ensureWiFiDevice(); err == nil && m.wifiDev != nil {
+			w := m.wifiDev.(gonetworkmanager.DeviceWireless)
+			activeAP, err := w.GetPropertyActiveAccessPoint()
+			if err == nil && activeAP != nil && activeAP.GetPath() != "/" {
+				ssid, _ = activeAP.GetPropertySSID()
+				signal, _ = activeAP.GetPropertyStrength()
+				bssid, _ = activeAP.GetPropertyHWAddress()
+			}
+		}
+
+		ip = m.getDeviceIP(dev)
+	}
+
 	m.stateMutex.Lock()
 	m.state.WiFiDevice = iface
 	m.state.WiFiConnected = connected
+	m.state.WiFiIP = ip
+	m.state.WiFiSSID = ssid
+	m.state.WiFiBSSID = bssid
+	m.state.WiFiSignal = signal
 	m.stateMutex.Unlock()
 
-	if connected {
-		wifiDev := m.wifiDev
-		if wifiDev == nil {
-			var err error
-			wifiDev, err = gonetworkmanager.NewDeviceWireless(dev.GetPath())
-			if err == nil {
-				m.wifiDev = wifiDev
-			}
-		}
-
-		if wifiDev != nil {
-			w := wifiDev.(gonetworkmanager.DeviceWireless)
-			activeAP, err := w.GetPropertyActiveAccessPoint()
-			if err == nil && activeAP != nil && activeAP.GetPath() != "/" {
-				ssid, _ := activeAP.GetPropertySSID()
-				strength, _ := activeAP.GetPropertyStrength()
-				bssid, _ := activeAP.GetPropertyHWAddress()
-
-				m.stateMutex.Lock()
-				m.state.WiFiSSID = ssid
-				m.state.WiFiBSSID = bssid
-				m.state.WiFiSignal = strength
-				m.stateMutex.Unlock()
-			}
-		}
-
-		if ip := m.getDeviceIP(dev); ip != "" {
-			m.stateMutex.Lock()
-			m.state.WiFiIP = ip
-			m.stateMutex.Unlock()
-		}
-	} else {
-		m.stateMutex.Lock()
-		m.state.WiFiIP = ""
-		m.state.WiFiSSID = ""
-		m.state.WiFiBSSID = ""
-		m.state.WiFiSignal = 0
-		m.stateMutex.Unlock()
-	}
-
 	return nil
+}
+
+func signalChangeSignificant(old, new uint8) bool {
+	if old == 0 || new == 0 {
+		return true
+	}
+	diff := int(new) - int(old)
+	if diff < 0 {
+		diff = -diff
+	}
+	return diff >= 5
 }
 
 func (m *Manager) getDeviceIP(dev gonetworkmanager.Device) string {
@@ -249,6 +253,71 @@ func (m *Manager) snapshotState() NetworkState {
 	s := *m.state
 	s.WiFiNetworks = append([]WiFiNetwork(nil), m.state.WiFiNetworks...)
 	return s
+}
+
+func stateChangedMeaningfully(old, new *NetworkState) bool {
+	if old.NetworkStatus != new.NetworkStatus {
+		return true
+	}
+	if old.Preference != new.Preference {
+		return true
+	}
+	if old.EthernetConnected != new.EthernetConnected {
+		return true
+	}
+	if old.EthernetIP != new.EthernetIP {
+		return true
+	}
+	if old.WiFiConnected != new.WiFiConnected {
+		return true
+	}
+	if old.WiFiEnabled != new.WiFiEnabled {
+		return true
+	}
+	if old.WiFiSSID != new.WiFiSSID {
+		return true
+	}
+	if old.WiFiBSSID != new.WiFiBSSID {
+		return true
+	}
+	if old.WiFiIP != new.WiFiIP {
+		return true
+	}
+	if !signalChangeSignificant(old.WiFiSignal, new.WiFiSignal) {
+		if old.WiFiSignal != new.WiFiSignal {
+			return false
+		}
+	} else if old.WiFiSignal != new.WiFiSignal {
+		return true
+	}
+	if old.IsConnecting != new.IsConnecting {
+		return true
+	}
+	if old.ConnectingSSID != new.ConnectingSSID {
+		return true
+	}
+	if old.LastError != new.LastError {
+		return true
+	}
+	if len(old.WiFiNetworks) != len(new.WiFiNetworks) {
+		return true
+	}
+
+	for i := range old.WiFiNetworks {
+		oldNet := &old.WiFiNetworks[i]
+		newNet := &new.WiFiNetworks[i]
+		if oldNet.SSID != newNet.SSID {
+			return true
+		}
+		if oldNet.Connected != newNet.Connected {
+			return true
+		}
+		if oldNet.Saved != newNet.Saved {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (m *Manager) GetState() NetworkState {
@@ -290,15 +359,31 @@ func (m *Manager) notifier() {
 				timer.Stop()
 			}
 			timer = time.AfterFunc(minGap, func() {
-				state := m.snapshotState()
 				m.subMutex.RLock()
+				if len(m.subscribers) == 0 {
+					m.subMutex.RUnlock()
+					pending = false
+					return
+				}
+
+				currentState := m.snapshotState()
+
+				if m.lastNotifiedState != nil && !stateChangedMeaningfully(m.lastNotifiedState, &currentState) {
+					m.subMutex.RUnlock()
+					pending = false
+					return
+				}
+
 				for _, ch := range m.subscribers {
 					select {
-					case ch <- state:
+					case ch <- currentState:
 					default:
 					}
 				}
 				m.subMutex.RUnlock()
+
+				stateCopy := currentState
+				m.lastNotifiedState = &stateCopy
 				pending = false
 			})
 		}

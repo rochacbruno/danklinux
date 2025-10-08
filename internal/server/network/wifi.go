@@ -20,16 +20,10 @@ func (m *Manager) ScanWiFi() error {
 		return fmt.Errorf("WiFi is disabled")
 	}
 
-	wifiDev := m.wifiDev
-	if wifiDev == nil {
-		dev := m.wifiDevice.(gonetworkmanager.Device)
-		var err error
-		wifiDev, err = gonetworkmanager.NewDeviceWireless(dev.GetPath())
-		if err != nil {
-			return fmt.Errorf("failed to get wireless device: %w", err)
-		}
-		m.wifiDev = wifiDev
+	if err := m.ensureWiFiDevice(); err != nil {
+		return err
 	}
+	wifiDev := m.wifiDev
 
 	w := wifiDev.(gonetworkmanager.DeviceWireless)
 	err := w.RequestScan()
@@ -45,16 +39,10 @@ func (m *Manager) updateWiFiNetworks() error {
 		return fmt.Errorf("no WiFi device available")
 	}
 
-	wifiDev := m.wifiDev
-	if wifiDev == nil {
-		dev := m.wifiDevice.(gonetworkmanager.Device)
-		var err error
-		wifiDev, err = gonetworkmanager.NewDeviceWireless(dev.GetPath())
-		if err != nil {
-			return fmt.Errorf("failed to get wireless device: %w", err)
-		}
-		m.wifiDev = wifiDev
+	if err := m.ensureWiFiDevice(); err != nil {
+		return err
 	}
+	wifiDev := m.wifiDev
 
 	w := wifiDev.(gonetworkmanager.DeviceWireless)
 	apPaths, err := w.GetAccessPoints()
@@ -308,16 +296,10 @@ func (m *Manager) GetNetworkInfoDetailed(ssid string) (*NetworkInfoResponse, err
 		return nil, fmt.Errorf("no WiFi device available")
 	}
 
-	wifiDev := m.wifiDev
-	if wifiDev == nil {
-		dev := m.wifiDevice.(gonetworkmanager.Device)
-		var err error
-		wifiDev, err = gonetworkmanager.NewDeviceWireless(dev.GetPath())
-		if err != nil {
-			return nil, fmt.Errorf("failed to get wireless device: %w", err)
-		}
-		m.wifiDev = wifiDev
+	if err := m.ensureWiFiDevice(); err != nil {
+		return nil, err
 	}
+	wifiDev := m.wifiDev
 
 	w := wifiDev.(gonetworkmanager.DeviceWireless)
 	apPaths, err := w.GetAccessPoints()

@@ -142,12 +142,10 @@ func (m *Manager) reactivateConnections() error {
 		}
 	}
 
-	go func() {
-		m.updateEthernetState()
-		m.updateWiFiState()
-		m.updatePrimaryConnection()
-		m.notifySubscribers()
-	}()
+	m.updateEthernetState()
+	m.updateWiFiState()
+	m.updatePrimaryConnection()
+	m.notifySubscribers()
 
 	return nil
 }
