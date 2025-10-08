@@ -122,18 +122,6 @@ func (m *Manager) createAndConnectWiFi(req ConnectionRequest) error {
 		return fmt.Errorf("access point not found: %s", req.SSID)
 	}
 
-	settings := make(map[string]map[string]interface{})
-
-	settings["connection"] = map[string]interface{}{
-		"id":   req.SSID,
-		"type": "802-11-wireless",
-	}
-
-	settings["802-11-wireless"] = map[string]interface{}{
-		"ssid": []byte(req.SSID),
-		"mode": "infrastructure",
-	}
-
 	flags, _ := targetAP.GetPropertyFlags()
 	wpaFlags, _ := targetAP.GetPropertyWPAFlags()
 	rsnFlags, _ := targetAP.GetPropertyRSNFlags()
@@ -142,22 +130,40 @@ func (m *Manager) createAndConnectWiFi(req ConnectionRequest) error {
 		flags, wpaFlags, rsnFlags)
 
 	// NM80211ApSecurityFlags constants
-	const KeyMgmt8021x = uint32(512) // KeyMgmt8021x indicates enterprise WiFi
-	const KeyMgmtPsk = uint32(256)   // KeyMgmtPsk indicates personal WiFi
+	const KeyMgmt8021x = uint32(512) // Enterprise WiFi (802.1X)
+	const KeyMgmtPsk = uint32(256)   // WPA2-Personal (PSK)
+	const KeyMgmtSae = uint32(1024)  // WPA3-Personal (SAE)
 
 	isEnterprise := (wpaFlags&KeyMgmt8021x) != 0 || (rsnFlags&KeyMgmt8021x) != 0
 	isPsk := (wpaFlags&KeyMgmtPsk) != 0 || (rsnFlags&KeyMgmtPsk) != 0
+	isSae := (wpaFlags&KeyMgmtSae) != 0 || (rsnFlags&KeyMgmtSae) != 0
 
 	secured := flags != uint32(gonetworkmanager.Nm80211APFlagsNone) ||
 		wpaFlags != uint32(gonetworkmanager.Nm80211APSecNone) ||
 		rsnFlags != uint32(gonetworkmanager.Nm80211APSecNone)
 
-	log.Printf("[createAndConnectWiFi] Network analysis - secured: %v, isEnterprise: %v, isPsk: %v",
-		secured, isEnterprise, isPsk)
+	log.Printf("[createAndConnectWiFi] Network analysis - secured: %v, isEnterprise: %v, isPsk: %v, isSae: %v",
+		secured, isEnterprise, isPsk, isSae)
+
+	settings := make(map[string]map[string]interface{})
+
+	settings["connection"] = map[string]interface{}{
+		"id":   req.SSID,
+		"type": "802-11-wireless",
+	}
+
+	settings["ipv4"] = map[string]interface{}{"method": "auto"}
+	settings["ipv6"] = map[string]interface{}{"method": "auto"}
 
 	if secured {
-		// Prefer enterprise if detected or username provided
-		if isEnterprise || req.Username != "" {
+		settings["802-11-wireless"] = map[string]interface{}{
+			"ssid":     []byte(req.SSID),
+			"mode":     "infrastructure",
+			"security": "802-11-wireless-security",
+		}
+
+		switch {
+		case isEnterprise || req.Username != "":
 			log.Printf("[createAndConnectWiFi] Configuring WPA-EAP (enterprise) with username: %s", req.Username)
 
 			if req.Username == "" {
@@ -170,35 +176,53 @@ func (m *Manager) createAndConnectWiFi(req ConnectionRequest) error {
 			}
 
 			settings["802-1x"] = map[string]interface{}{
-				"eap":                []string{"peap"},
-				"phase2-auth":        "mschapv2",
-				"identity":           req.Username,
-				"password":           req.Password,
-				"anonymous-identity": "",
+				"eap":             []string{"peap"},
+				"phase2-auth":     "mschapv2",
+				"identity":        req.Username,
+				"password":        req.Password,
+				"system-ca-certs": true,
 			}
-			log.Printf("[createAndConnectWiFi] WPA-EAP settings configured: eap=peap, phase2-auth=mschapv2, identity=%s", req.Username)
-		} else if isPsk || req.Password != "" {
-			log.Printf("[createAndConnectWiFi] Configuring WPA-PSK (personal)")
+			log.Printf("[createAndConnectWiFi] WPA-EAP settings configured: eap=peap, phase2-auth=mschapv2, identity=%s, system-ca-certs=true", req.Username)
+
+		case isSae:
+			log.Printf("[createAndConnectWiFi] Configuring WPA3-SAE (personal)")
+			settings["802-11-wireless-security"] = map[string]interface{}{
+				"key-mgmt": "sae",
+				"psk":      req.Password,
+				"pmf":      int32(2), // WPA3 requires PMF: 2=required, 1=optional, 0=disabled
+			}
+
+		case isPsk:
+			log.Printf("[createAndConnectWiFi] Configuring WPA2-PSK (personal)")
 			settings["802-11-wireless-security"] = map[string]interface{}{
 				"key-mgmt": "wpa-psk",
 				"psk":      req.Password,
 			}
-		} else {
-			log.Printf("[createAndConnectWiFi] ERROR: Network is secured but no password provided")
-			return fmt.Errorf("network is secured but no password provided")
+
+		default:
+			log.Printf("[createAndConnectWiFi] ERROR: Secured network with unknown key management (rsn=0x%x, wpa=0x%x)", rsnFlags, wpaFlags)
+			return fmt.Errorf("secured network but not SAE/PSK/802.1X (rsn=0x%x wpa=0x%x)", rsnFlags, wpaFlags)
 		}
 	} else {
+		// Open network
+		settings["802-11-wireless"] = map[string]interface{}{
+			"ssid": []byte(req.SSID),
+			"mode": "infrastructure",
+		}
 		log.Printf("[createAndConnectWiFi] Network is open (no security)")
 	}
 
-	log.Printf("[createAndConnectWiFi] Calling AddAndActivateConnection with settings: %+v", settings)
-	_, err = nm.AddAndActivateConnection(settings, dev)
+	log.Printf("[createAndConnectWiFi] Calling AddAndActivateWirelessConnection with settings: %+v", settings)
+	log.Printf("[createAndConnectWiFi] Using access point: %s", targetAP.GetPath())
+
+	_, err = nm.AddAndActivateWirelessConnection(settings, dev, targetAP)
 	if err != nil {
-		log.Printf("[createAndConnectWiFi] ERROR: AddAndActivateConnection failed: %v", err)
+		log.Printf("[createAndConnectWiFi] ERROR: AddAndActivateWirelessConnection failed: %v", err)
+		log.Printf("[createAndConnectWiFi] ERROR: Connection settings that failed: %+v", settings)
 		return fmt.Errorf("failed to connect: %w", err)
 	}
 
-	log.Printf("[createAndConnectWiFi] Successfully added and activated connection")
+	log.Printf("[createAndConnectWiFi] Successfully added and activated wireless connection")
 	return nil
 }
 
