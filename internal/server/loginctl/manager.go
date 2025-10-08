@@ -252,4 +252,7 @@ func (m *Manager) Close() {
 	}
 	m.subscribers = make(map[string]chan SessionState)
 	m.subMutex.Unlock()
+	if m.conn != nil {
+		m.conn.Close()
+	}
 }

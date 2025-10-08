@@ -160,6 +160,18 @@ func getCapabilities() Capabilities {
 	return Capabilities{Capabilities: caps}
 }
 
+func cleanupManagers() {
+	if networkManager != nil {
+		networkManager.Close()
+	}
+	if loginctlManager != nil {
+		loginctlManager.Close()
+	}
+	if freedesktopManager != nil {
+		freedesktopManager.Close()
+	}
+}
+
 func Start(printDocs bool) error {
 	cleanupStaleSockets()
 
@@ -171,6 +183,7 @@ func Start(printDocs bool) error {
 		return err
 	}
 	defer listener.Close()
+	defer cleanupManagers()
 
 	go func() {
 		if err := InitializeNetworkManager(); err != nil {
