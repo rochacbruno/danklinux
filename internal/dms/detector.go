@@ -50,6 +50,12 @@ func NewDetector() (*Detector, error) {
 func (d *Detector) IsDMSInstalled() bool {
 	dmsPath := filepath.Join(d.homeDir, ".config/quickshell/dms")
 	_, err := os.Stat(dmsPath)
+	if err != nil {
+		// Check xdg dir
+		// ! May not be the best way, but arch+fedora installs it here
+		dmsPath = "/etc/xdg/quickshell/dms"
+		_, err = os.Stat(dmsPath)
+	}
 	return err == nil
 }
 
