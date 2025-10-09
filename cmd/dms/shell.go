@@ -150,7 +150,7 @@ func runShellDaemon() {
 	isDaemonChild := os.Getenv("DMS_DAEMON_CHILD") == "1"
 
 	if !isDaemonChild {
-		cmd := exec.Command(os.Args[0], "run", "-d")
+		cmd := exec.Command(os.Args[0], os.Args[1:]...)
 		cmd.Env = append(os.Environ(), "DMS_DAEMON_CHILD=1")
 
 		cmd.SysProcAttr = &syscall.SysProcAttr{
