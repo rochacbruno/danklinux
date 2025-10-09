@@ -46,19 +46,25 @@ func installGreeter() error {
 		fmt.Printf("✓ Selected compositor: %s\n", selectedCompositor)
 	}
 
-	// Step 4: Copy greeter files
+	// Step 4: Setup dms-greeter group and permissions
+	fmt.Println("\nSetting up dms-greeter group and permissions...")
+	if err := greeter.SetupDMSGroup(logFunc, ""); err != nil {
+		return err
+	}
+
+	// Step 5: Copy greeter files
 	fmt.Println("\nCopying greeter files...")
 	if err := greeter.CopyGreeterFiles(dmsPath, selectedCompositor, logFunc, ""); err != nil {
 		return err
 	}
 
-	// Step 5: Configure greetd
+	// Step 6: Configure greetd
 	fmt.Println("\nConfiguring greetd...")
 	if err := greeter.ConfigureGreetd(dmsPath, logFunc, ""); err != nil {
 		return err
 	}
 
-	// Step 6: Sync DMS configs
+	// Step 7: Sync DMS configs
 	fmt.Println("\nSynchronizing DMS configurations...")
 	if err := greeter.SyncDMSConfigs(dmsPath, logFunc, ""); err != nil {
 		return err

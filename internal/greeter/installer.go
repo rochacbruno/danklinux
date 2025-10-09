@@ -225,37 +225,87 @@ func CopyGreeterFiles(dmsPath, compositor string, logFunc func(string), sudoPass
 	return nil
 }
 
-// SyncDMSConfigs creates symlinks to sync DMS configs to greetd
+func SetupDMSGroup(logFunc func(string), sudoPassword string) error {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("failed to get user home directory: %w", err)
+	}
+
+	currentUser := os.Getenv("USER")
+	if currentUser == "" {
+		currentUser = os.Getenv("LOGNAME")
+	}
+	if currentUser == "" {
+		return fmt.Errorf("failed to determine current user")
+	}
+
+	if err := runSudoCmd(sudoPassword, "groupadd", "-f", "dms-greeter"); err != nil {
+		return fmt.Errorf("failed to create dms-greeter group: %w", err)
+	}
+	logFunc("✓ Created dms-greeter group")
+
+	if err := runSudoCmd(sudoPassword, "usermod", "-aG", "dms-greeter", "greeter"); err != nil {
+		return fmt.Errorf("failed to add greeter to dms-greeter group: %w", err)
+	}
+	logFunc("✓ Added greeter user to dms-greeter group")
+
+	if err := runSudoCmd(sudoPassword, "usermod", "-aG", "dms-greeter", currentUser); err != nil {
+		return fmt.Errorf("failed to add %s to dms-greeter group: %w", currentUser, err)
+	}
+	logFunc(fmt.Sprintf("✓ Added %s to dms-greeter group", currentUser))
+
+	configDirs := []struct {
+		path string
+		desc string
+	}{
+		{filepath.Join(homeDir, ".config", "DankMaterialShell"), "DankMaterialShell config"},
+		{filepath.Join(homeDir, ".local", "state", "DankMaterialShell"), "DankMaterialShell state"},
+		{filepath.Join(homeDir, ".cache", "quickshell"), "quickshell cache"},
+		{filepath.Join(homeDir, ".config", "quickshell"), "quickshell config"},
+	}
+
+	for _, dir := range configDirs {
+		if _, err := os.Stat(dir.path); os.IsNotExist(err) {
+			if err := os.MkdirAll(dir.path, 0755); err != nil {
+				logFunc(fmt.Sprintf("⚠ Warning: Could not create %s: %v", dir.path, err))
+				continue
+			}
+		}
+
+		if err := runSudoCmd(sudoPassword, "chgrp", "-R", "dms-greeter", dir.path); err != nil {
+			logFunc(fmt.Sprintf("⚠ Warning: Failed to set group for %s: %v", dir.desc, err))
+			continue
+		}
+
+		if err := runSudoCmd(sudoPassword, "chmod", "-R", "g+rX", dir.path); err != nil {
+			logFunc(fmt.Sprintf("⚠ Warning: Failed to set permissions for %s: %v", dir.desc, err))
+			continue
+		}
+
+		logFunc(fmt.Sprintf("✓ Set group permissions for %s", dir.desc))
+	}
+
+	return nil
+}
+
 func SyncDMSConfigs(dmsPath string, logFunc func(string), sudoPassword string) error {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return fmt.Errorf("failed to get user home directory: %w", err)
 	}
 
-	// Determine if DMS is in a home directory or system directory
-	var greeterUser string
-	if strings.HasPrefix(dmsPath, "/home/") || strings.HasPrefix(dmsPath, homeDir) {
-		// DMS is in a home directory, use the actual user
-		greeterUser = os.Getenv("USER")
-		if greeterUser == "" {
-			greeterUser = os.Getenv("LOGNAME")
-		}
-		if greeterUser == "" {
-			return fmt.Errorf("failed to determine current user")
-		}
-	} else {
-		// DMS is in system directory, use greeter user
-		greeterUser = "greeter"
-	}
-
 	if err := runSudoCmd(sudoPassword, "mkdir", "-p", "/etc/greetd/.dms"); err != nil {
 		return fmt.Errorf("failed to create /etc/greetd/.dms: %w", err)
 	}
 
-	if err := runSudoCmd(sudoPassword, "chown", "-R", greeterUser, "/etc/greetd/.dms"); err != nil {
+	if err := runSudoCmd(sudoPassword, "chown", "-R", "greeter:dms-greeter", "/etc/greetd/.dms"); err != nil {
 		return fmt.Errorf("failed to chown /etc/greetd/.dms: %w", err)
 	}
-	logFunc(fmt.Sprintf("✓ Created /etc/greetd/.dms directory (owner: %s)", greeterUser))
+
+	if err := runSudoCmd(sudoPassword, "chmod", "-R", "770", "/etc/greetd/.dms"); err != nil {
+		return fmt.Errorf("failed to chmod /etc/greetd/.dms: %w", err)
+	}
+	logFunc("✓ Created /etc/greetd/.dms directory (owner: greeter, group: dms-greeter)")
 
 	symlinks := []struct {
 		source string
@@ -308,7 +358,6 @@ func SyncDMSConfigs(dmsPath string, logFunc func(string), sudoPassword string) e
 	return nil
 }
 
-// ConfigureGreetd configures the greetd config.toml file
 func ConfigureGreetd(dmsPath string, logFunc func(string), sudoPassword string) error {
 	configPath := "/etc/greetd/config.toml"
 
@@ -320,36 +369,15 @@ func ConfigureGreetd(dmsPath string, logFunc func(string), sudoPassword string) 
 		logFunc(fmt.Sprintf("✓ Backed up existing config to %s", backupPath))
 	}
 
-	// Determine the correct user based on DMS path
-	homeDir, _ := os.UserHomeDir()
-	var greeterUser string
-	if strings.HasPrefix(dmsPath, "/home/") || strings.HasPrefix(dmsPath, homeDir) {
-		greeterUser = os.Getenv("USER")
-		if greeterUser == "" {
-			greeterUser = os.Getenv("LOGNAME")
-		}
-		if greeterUser == "" {
-			return fmt.Errorf("failed to determine current user")
-		}
-	} else {
-		greeterUser = "greeter"
-	}
-
 	var configContent string
 	if data, err := os.ReadFile(configPath); err == nil {
 		configContent = string(data)
 	} else {
 		configContent = `[terminal]
-# The VT to run the greeter on. Can be "next", "current" or a number
-# designating the VT.
 vt = 1
 
-# The default session, also known as the greeter.
 [default_session]
 
-# The user to run the command as. The privileges this user must have depends
-# on the greeter. A graphical greeter may for example require the user to be
-# in the video group.
 user = "greeter"
 `
 	}
@@ -358,11 +386,9 @@ user = "greeter"
 	var newLines []string
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
-		// Remove old command lines
 		if !strings.HasPrefix(trimmed, "command =") && !strings.HasPrefix(trimmed, "command=") {
-			// Update user line if needed
 			if strings.HasPrefix(trimmed, "user =") || strings.HasPrefix(trimmed, "user=") {
-				newLines = append(newLines, fmt.Sprintf(`user = "%s"`, greeterUser))
+				newLines = append(newLines, `user = "greeter"`)
 			} else {
 				newLines = append(newLines, line)
 			}
@@ -404,7 +430,7 @@ user = "greeter"
 		return fmt.Errorf("failed to move config to /etc/greetd: %w", err)
 	}
 
-	logFunc(fmt.Sprintf("✓ Updated greetd configuration (user: %s)", greeterUser))
+	logFunc("✓ Updated greetd configuration (user: greeter)")
 	return nil
 }
 
