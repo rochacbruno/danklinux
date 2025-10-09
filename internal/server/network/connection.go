@@ -177,7 +177,7 @@ func (m *Manager) createAndConnectWiFi(req ConnectionRequest) error {
 
 			settings["802-1x"] = map[string]interface{}{
 				"eap":             []string{"peap"},
-				"phase2-auth":     "mschapv2",
+				"phase2-autheap":  "mschapv2",
 				"identity":        req.Username,
 				"password":        req.Password,
 				"system-ca-certs": true,
