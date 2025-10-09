@@ -11,6 +11,8 @@ var Version = "dev"
 func init() {
 	// Add flags
 	runCmd.Flags().BoolP("daemon", "d", false, "Run in daemon mode")
+	runCmd.Flags().Bool("daemon-child", false, "Internal flag for daemon child process")
+	runCmd.Flags().MarkHidden("daemon-child")
 
 	// Add subcommands to greeter
 	greeterCmd.AddCommand(greeterInstallCmd)

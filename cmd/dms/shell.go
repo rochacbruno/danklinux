@@ -147,11 +147,20 @@ func killShell() {
 }
 
 func runShellDaemon() {
-	isDaemonChild := os.Getenv("DMS_DAEMON_CHILD") == "1"
+	// Check if this is the daemon child process by looking for the hidden flag
+	isDaemonChild := false
+	for _, arg := range os.Args {
+		if arg == "--daemon-child" {
+			isDaemonChild = true
+			break
+		}
+	}
 
 	if !isDaemonChild {
-		cmd := exec.Command(os.Args[0], os.Args[1:]...)
-		cmd.Env = append(os.Environ(), "DMS_DAEMON_CHILD=1")
+		// Re-exec with the daemon-child flag
+		args := append(os.Args[1:], "--daemon-child")
+		cmd := exec.Command(os.Args[0], args...)
+		cmd.Env = os.Environ()
 
 		cmd.SysProcAttr = &syscall.SysProcAttr{
 			Setsid: true,
