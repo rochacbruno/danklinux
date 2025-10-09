@@ -157,9 +157,7 @@ func runShellDaemon() {
 	}
 
 	if !isDaemonChild {
-		// Re-exec with the daemon-child flag
-		args := append(os.Args[1:], "--daemon-child")
-		cmd := exec.Command(os.Args[0], args...)
+		cmd := exec.Command(os.Args[0], "run", "-d", "--daemon-child")
 		cmd.Env = os.Environ()
 
 		cmd.SysProcAttr = &syscall.SysProcAttr{
