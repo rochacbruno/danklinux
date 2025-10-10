@@ -4,20 +4,51 @@
 
 </div>
 
-# Dank Linux
+# Dank Linux (dms & dankinstall)
 
-A comprehensive installer and management tool for DankMaterialShell, a modern desktop environment built on Quickshell for Wayland compositors.
+A comprehensive installer and management tool for DankMaterialShell, a modern desktop environment built with Quickshell & GO for Wayland compositors.
 
+- **dms** Enriched shell runner
+  - Manages dbus connection for NetworkManager, loginctl, accountsservice, and other interfaces.
+  - Exposes a json socket for interaction with these interfaces
+  - Provides plugin management APIs for the shell
+  - Optionally provides `update` interface - depending on build inputs.
+    - This is intended to be disabled when packaged as part of distribution packages.
 - **dankinstall** Installs the Dank Linux suite for [niri](https://github.com/YaLTeR/niri) and/or [Hyprland](https://hypr.land)
   - Features the [DankMaterialShell](https://github.com/AvengeMedia/DankMaterialShell)
     - Which features a complete desktop experience with wallpapers, auto theming, notifications, lock screen, etc.
   - Offers up solid out of the box configurations as usable, featured starting points.
   - Can be installed if you already have niri/Hyprland configured
     - Will allow you to keep your existing config, or replace with Dank ones (existing configs always backed up though)
-- **dms** Management wrapper for the Dank Linux Suite
-  - Handle updates
-  - Process ipc commands
-  - Run dank shell
+
+# dms-cli
+
+A part of the DankMaterialShell, that is provided by this repository. It is written in GO, and exposes a suite of APIs over unix socket that interface with dbus via [godbus](https://github.com/godbus/dbus) and also the plugin system.
+
+## Build & Install 
+
+To build the dms CLI (Requires Go 1.24+):
+
+### For distribution package maintainers
+
+This produces a build without the `update` or `greeter` functionality, which are intended for manual installation.
+
+```bash
+make dist
+```
+
+Produces `bin/dms-linux-amd64` and  `bin/dms-linux-arm64`
+
+### Manual Install
+
+```bash
+# Installs to /usr/local/bin/dms
+make && sudo make install
+```
+
+# Dank Linux/dankinstall
+
+Equivalent to installing "dotfiles", but less intrusive as we don't modify anything on the system besides installing some packages and configuring user-level niri and terminal configurations.
 
 ## Quickstart
 

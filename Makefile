@@ -15,7 +15,7 @@ COMMIT=$(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 
 BUILD_LDFLAGS=-ldflags="-s -w -X main.Version=$(VERSION) -X main.buildTime=$(BUILD_TIME) -X main.commit=$(COMMIT)"
 
-.PHONY: all build dankinstall clean install uninstall test fmt vet deps help
+.PHONY: all build dankinstall dist clean install uninstall test fmt vet deps help
 
 # Default target
 all: build
@@ -24,14 +24,26 @@ all: build
 build:
 	@echo "Building $(BINARY_NAME)..."
 	@mkdir -p $(BUILD_DIR)
-	CGO_ENABLED=0 $(GO) build $(BUILD_LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) $(SOURCE_DIR)/*.go
+	CGO_ENABLED=0 $(GO) build $(BUILD_LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) ./$(SOURCE_DIR)
 	@echo "Build complete: $(BUILD_DIR)/$(BINARY_NAME)"
 
 dankinstall:
 	@echo "Building $(BINARY_NAME_INSTALL)..."
 	@mkdir -p $(BUILD_DIR)
-	CGO_ENABLED=0 $(GO) build $(BUILD_LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME_INSTALL) $(SOURCE_DIR_INSTALL)/*.go
+	CGO_ENABLED=0 $(GO) build $(BUILD_LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME_INSTALL) ./$(SOURCE_DIR_INSTALL)
 	@echo "Build complete: $(BUILD_DIR)/$(BINARY_NAME_INSTALL)"
+
+# Build distro binaries for amd64 and arm64 (Linux only, no update/greeter support)
+dist:
+	@echo "Building $(BINARY_NAME) for distribution (amd64 and arm64)..."
+	@mkdir -p $(BUILD_DIR)
+	@echo "Building for linux/amd64..."
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GO) build -tags distro_binary $(BUILD_LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 ./$(SOURCE_DIR)
+	@echo "Building for linux/arm64..."
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 $(GO) build -tags distro_binary $(BUILD_LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64 ./$(SOURCE_DIR)
+	@echo "Distribution builds complete:"
+	@echo "  $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64"
+	@echo "  $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64"
 
 build-all: build dankinstall
 
@@ -76,7 +88,7 @@ deps:
 dev:
 	@echo "Building $(BINARY_NAME) for development..."
 	@mkdir -p $(BUILD_DIR)
-	$(GO) build -o $(BUILD_DIR)/$(BINARY_NAME) $(SOURCE_DIR)/*.go
+	$(GO) build -o $(BUILD_DIR)/$(BINARY_NAME) ./$(SOURCE_DIR)
 	@echo "Development build complete: $(BUILD_DIR)/$(BINARY_NAME)"
 
 check-go:
@@ -91,18 +103,19 @@ version: check-go
 
 help:
 	@echo "Available targets:"
-	@echo "  all        - Build the main binary (dms) (default)"
-	@echo "  build      - Build the main binary (dms)"
-	@echo "  dankinstall - Build dankinstall binary"
-	@echo "  build-all  - Build both binaries"
-	@echo "  install    - Install both binaries to $(INSTALL_DIR)"
-	@echo "  uninstall  - Remove binaries from $(INSTALL_DIR)"
-	@echo "  clean      - Clean build artifacts"
-	@echo "  test       - Run tests"
-	@echo "  fmt        - Format Go code"
-	@echo "  vet        - Run go vet"
-	@echo "  deps       - Update dependencies"
-	@echo "  dev        - Build with debug info"
-	@echo "  check-go   - Check Go version compatibility"
-	@echo "  version    - Show version information"
-	@echo "  help       - Show this help message"
+	@echo "  all          - Build the main binary (dms) (default)"
+	@echo "  build        - Build the main binary (dms)"
+	@echo "  dankinstall  - Build dankinstall binary"
+	@echo "  dist         - Build dms for linux amd64/arm64 (no update/greeter)"
+	@echo "  build-all    - Build both binaries"
+	@echo "  install      - Install both binaries to $(INSTALL_DIR)"
+	@echo "  uninstall    - Remove binaries from $(INSTALL_DIR)"
+	@echo "  clean        - Clean build artifacts"
+	@echo "  test         - Run tests"
+	@echo "  fmt          - Format Go code"
+	@echo "  vet          - Run go vet"
+	@echo "  deps         - Update dependencies"
+	@echo "  dev          - Build with debug info"
+	@echo "  check-go     - Check Go version compatibility"
+	@echo "  version      - Show version information"
+	@echo "  help         - Show this help message"

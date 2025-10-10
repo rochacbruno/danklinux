@@ -1,3 +1,5 @@
+//go:build !distro_binary
+
 package main
 
 import (
