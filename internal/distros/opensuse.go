@@ -421,7 +421,12 @@ func (o *OpenSUSEDistribution) installQuickshell(ctx context.Context, sudoPasswo
 		CommandInfo: "git clone https://github.com/quickshell-mirror/quickshell.git",
 	}
 
-	cloneCmd := exec.CommandContext(ctx, "git", "clone", "--branch", "v0.2.0", "https://github.com/quickshell-mirror/quickshell.git", tmpDir)
+	var cloneCmd *exec.Cmd
+	if forceQuickshellGit {
+		cloneCmd = exec.CommandContext(ctx, "git", "clone", "https://github.com/quickshell-mirror/quickshell.git", tmpDir)
+	} else {
+		cloneCmd = exec.CommandContext(ctx, "git", "clone", "--branch", "v0.2.0", "https://github.com/quickshell-mirror/quickshell.git", tmpDir)
+	}
 	if err := cloneCmd.Run(); err != nil {
 		return fmt.Errorf("failed to clone quickshell: %w", err)
 	}

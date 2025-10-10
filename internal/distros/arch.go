@@ -178,7 +178,7 @@ func (a *ArchDistribution) GetPackageMappingWithVariants(wm deps.WindowManager, 
 }
 
 func (a *ArchDistribution) getQuickshellMapping(variant deps.PackageVariant) PackageMapping {
-	if variant == deps.VariantGit {
+	if forceQuickshellGit || variant == deps.VariantGit {
 		return PackageMapping{Name: "quickshell-git", Repository: RepoTypeAUR}
 	}
 	return PackageMapping{Name: "quickshell", Repository: RepoTypeAUR}

@@ -171,7 +171,7 @@ func (f *FedoraDistribution) GetPackageMappingWithVariants(wm deps.WindowManager
 }
 
 func (f *FedoraDistribution) getQuickshellMapping(variant deps.PackageVariant) PackageMapping {
-	if variant == deps.VariantGit {
+	if forceQuickshellGit || variant == deps.VariantGit {
 		return PackageMapping{Name: "quickshell-git", Repository: RepoTypeCOPR, RepoURL: "errornointernet/quickshell"}
 	}
 	return PackageMapping{Name: "quickshell", Repository: RepoTypeCOPR, RepoURL: "errornointernet/quickshell"}

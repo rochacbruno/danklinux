@@ -15,6 +15,8 @@ import (
 	"github.com/AvengeMedia/danklinux/internal/deps"
 )
 
+const forceQuickshellGit = true
+
 // BaseDistribution provides common functionality for all distributions
 type BaseDistribution struct {
 	logChan      chan<- string
