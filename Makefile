@@ -15,6 +15,9 @@ COMMIT=$(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 
 BUILD_LDFLAGS=-ldflags="-s -w -X main.Version=$(VERSION) -X main.buildTime=$(BUILD_TIME) -X main.commit=$(COMMIT)"
 
+# Architecture to build for dist target (amd64, arm64, or all)
+ARCH ?= all
+
 .PHONY: all build dankinstall dist clean install uninstall test fmt vet deps help
 
 # Default target
@@ -35,6 +38,7 @@ dankinstall:
 
 # Build distro binaries for amd64 and arm64 (Linux only, no update/greeter support)
 dist:
+ifeq ($(ARCH),all)
 	@echo "Building $(BINARY_NAME) for distribution (amd64 and arm64)..."
 	@mkdir -p $(BUILD_DIR)
 	@echo "Building for linux/amd64..."
@@ -44,6 +48,14 @@ dist:
 	@echo "Distribution builds complete:"
 	@echo "  $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64"
 	@echo "  $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64"
+else
+	@echo "Building $(BINARY_NAME) for distribution ($(ARCH))..."
+	@mkdir -p $(BUILD_DIR)
+	@echo "Building for linux/$(ARCH)..."
+	CGO_ENABLED=0 GOOS=linux GOARCH=$(ARCH) $(GO) build -tags distro_binary $(BUILD_LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-$(ARCH) ./$(SOURCE_DIR)
+	@echo "Distribution build complete:"
+	@echo "  $(BUILD_DIR)/$(BINARY_NAME)-linux-$(ARCH)"
+endif
 
 build-all: build dankinstall
 
@@ -107,6 +119,7 @@ help:
 	@echo "  build        - Build the main binary (dms)"
 	@echo "  dankinstall  - Build dankinstall binary"
 	@echo "  dist         - Build dms for linux amd64/arm64 (no update/greeter)"
+	@echo "                 Use ARCH=amd64 or ARCH=arm64 to build only one"
 	@echo "  build-all    - Build both binaries"
 	@echo "  install      - Install both binaries to $(INSTALL_DIR)"
 	@echo "  uninstall    - Remove binaries from $(INSTALL_DIR)"
