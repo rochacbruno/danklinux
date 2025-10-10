@@ -155,72 +155,63 @@ func EnsureGreetdInstalled(logFunc func(string), sudoPassword string) error {
 	return nil
 }
 
-// CopyGreeterFiles copies the appropriate greeter files based on compositor
+// CopyGreeterFiles installs the dms-greeter wrapper and sets up cache directory
 func CopyGreeterFiles(dmsPath, compositor string, logFunc func(string), sudoPassword string) error {
-	assetsDir := filepath.Join(dmsPath, "Modules", "Greetd", "assets")
+	// Check if dms-greeter is already in PATH
+	if commandExists("dms-greeter") {
+		logFunc("✓ dms-greeter wrapper already installed")
+	} else {
+		// Install the wrapper script
+		assetsDir := filepath.Join(dmsPath, "Modules", "Greetd", "assets")
+		wrapperSrc := filepath.Join(assetsDir, "dms-greeter")
 
-	if _, err := os.Stat(assetsDir); os.IsNotExist(err) {
-		return fmt.Errorf("greeter assets not found at %s", assetsDir)
-	}
+		if _, err := os.Stat(wrapperSrc); os.IsNotExist(err) {
+			return fmt.Errorf("dms-greeter wrapper not found at %s", wrapperSrc)
+		}
 
-	var configSrc, scriptSrc string
-	var configDst string
+		wrapperDst := "/usr/local/bin/dms-greeter"
+		if err := runSudoCmd(sudoPassword, "cp", wrapperSrc, wrapperDst); err != nil {
+			return fmt.Errorf("failed to copy dms-greeter wrapper: %w", err)
+		}
+		logFunc(fmt.Sprintf("✓ Installed dms-greeter wrapper to %s", wrapperDst))
 
-	switch strings.ToLower(compositor) {
-	case "niri":
-		configSrc = filepath.Join(assetsDir, "dms-niri.kdl")
-		scriptSrc = filepath.Join(assetsDir, "greet-niri.sh")
-		configDst = "/etc/greetd/dms-niri.kdl"
-	case "hyprland":
-		configSrc = filepath.Join(assetsDir, "dms-hypr.conf")
-		scriptSrc = filepath.Join(assetsDir, "greet-hyprland.sh")
-		configDst = "/etc/greetd/dms-hypr.conf"
-	default:
-		return fmt.Errorf("unsupported compositor: %s", compositor)
-	}
+		if err := runSudoCmd(sudoPassword, "chmod", "+x", wrapperDst); err != nil {
+			return fmt.Errorf("failed to make wrapper executable: %w", err)
+		}
 
-	if err := runSudoCmd(sudoPassword, "mkdir", "-p", "/etc/greetd"); err != nil {
-		return fmt.Errorf("failed to create /etc/greetd: %w", err)
-	}
+		// Set SELinux context on Fedora and openSUSE
+		osInfo, err := distros.GetOSInfo()
+		if err == nil {
+			if config, exists := distros.Registry[osInfo.Distribution.ID]; exists && (config.Family == distros.FamilyFedora || config.Family == distros.FamilySUSE) {
+				if err := runSudoCmd(sudoPassword, "semanage", "fcontext", "-a", "-t", "bin_t", wrapperDst); err != nil {
+					logFunc(fmt.Sprintf("⚠ Warning: Failed to set SELinux fcontext: %v", err))
+				} else {
+					logFunc("✓ Set SELinux fcontext for dms-greeter")
+				}
 
-	if err := runSudoCmd(sudoPassword, "cp", configSrc, configDst); err != nil {
-		return fmt.Errorf("failed to copy config file: %w", err)
-	}
-	logFunc(fmt.Sprintf("✓ Copied %s to %s", filepath.Base(configSrc), configDst))
-
-	scriptDst := "/etc/greetd/start-dms.sh"
-	if err := runSudoCmd(sudoPassword, "cp", scriptSrc, scriptDst); err != nil {
-		return fmt.Errorf("failed to copy script file: %w", err)
-	}
-	logFunc(fmt.Sprintf("✓ Copied %s to %s", filepath.Base(scriptSrc), scriptDst))
-
-	if err := runSudoCmd(sudoPassword, "chmod", "+x", scriptDst); err != nil {
-		return fmt.Errorf("failed to make script executable: %w", err)
-	}
-
-	// Set SELinux context on Fedora and openSUSE
-	osInfo, err := distros.GetOSInfo()
-	if err == nil {
-		if config, exists := distros.Registry[osInfo.Distribution.ID]; exists && (config.Family == distros.FamilyFedora || config.Family == distros.FamilySUSE) {
-			if err := runSudoCmd(sudoPassword, "semanage", "fcontext", "-a", "-t", "bin_t", scriptDst); err != nil {
-				logFunc(fmt.Sprintf("⚠ Warning: Failed to set SELinux fcontext: %v", err))
-			} else {
-				logFunc("✓ Set SELinux fcontext for start-dms.sh")
-			}
-
-			if err := runSudoCmd(sudoPassword, "restorecon", "-v", scriptDst); err != nil {
-				logFunc(fmt.Sprintf("⚠ Warning: Failed to restore SELinux context: %v", err))
-			} else {
-				logFunc("✓ Restored SELinux context for start-dms.sh")
+				if err := runSudoCmd(sudoPassword, "restorecon", "-v", wrapperDst); err != nil {
+					logFunc(fmt.Sprintf("⚠ Warning: Failed to restore SELinux context: %v", err))
+				} else {
+					logFunc("✓ Restored SELinux context for dms-greeter")
+				}
 			}
 		}
 	}
 
-	sedCmd := fmt.Sprintf("s|_DMS_PATH_|%s|g", dmsPath)
-	if err := runSudoCmd(sudoPassword, "sed", "-i", sedCmd, configDst); err != nil {
-		return fmt.Errorf("failed to update DMS path in config: %w", err)
+	// Create cache directory with proper permissions
+	cacheDir := "/var/cache/dms-greeter"
+	if err := runSudoCmd(sudoPassword, "mkdir", "-p", cacheDir); err != nil {
+		return fmt.Errorf("failed to create cache directory: %w", err)
 	}
-	logFunc(fmt.Sprintf("✓ Updated DMS path to %s", dmsPath))
+
+	if err := runSudoCmd(sudoPassword, "chown", "greeter:greeter", cacheDir); err != nil {
+		return fmt.Errorf("failed to set cache directory owner: %w", err)
+	}
+
+	if err := runSudoCmd(sudoPassword, "chmod", "750", cacheDir); err != nil {
+		return fmt.Errorf("failed to set cache directory permissions: %w", err)
+	}
+	logFunc(fmt.Sprintf("✓ Created cache directory %s (owner: greeter:greeter, permissions: 750)", cacheDir))
 
 	return nil
 }
@@ -239,20 +230,11 @@ func SetupDMSGroup(logFunc func(string), sudoPassword string) error {
 		return fmt.Errorf("failed to determine current user")
 	}
 
-	if err := runSudoCmd(sudoPassword, "groupadd", "-f", "dms-greeter"); err != nil {
-		return fmt.Errorf("failed to create dms-greeter group: %w", err)
+	// Add current user to greeter group for file access permissions
+	if err := runSudoCmd(sudoPassword, "usermod", "-aG", "greeter", currentUser); err != nil {
+		return fmt.Errorf("failed to add %s to greeter group: %w", currentUser, err)
 	}
-	logFunc("✓ Created dms-greeter group")
-
-	if err := runSudoCmd(sudoPassword, "usermod", "-aG", "dms-greeter", "greeter"); err != nil {
-		return fmt.Errorf("failed to add greeter to dms-greeter group: %w", err)
-	}
-	logFunc("✓ Added greeter user to dms-greeter group")
-
-	if err := runSudoCmd(sudoPassword, "usermod", "-aG", "dms-greeter", currentUser); err != nil {
-		return fmt.Errorf("failed to add %s to dms-greeter group: %w", currentUser, err)
-	}
-	logFunc(fmt.Sprintf("✓ Added %s to dms-greeter group", currentUser))
+	logFunc(fmt.Sprintf("✓ Added %s to greeter group (logout/login required for changes to take effect)", currentUser))
 
 	configDirs := []struct {
 		path string
@@ -272,7 +254,7 @@ func SetupDMSGroup(logFunc func(string), sudoPassword string) error {
 			}
 		}
 
-		if err := runSudoCmd(sudoPassword, "chgrp", "-R", "dms-greeter", dir.path); err != nil {
+		if err := runSudoCmd(sudoPassword, "chgrp", "-R", "greeter", dir.path); err != nil {
 			logFunc(fmt.Sprintf("⚠ Warning: Failed to set group for %s: %v", dir.desc, err))
 			continue
 		}
@@ -294,18 +276,7 @@ func SyncDMSConfigs(dmsPath string, logFunc func(string), sudoPassword string) e
 		return fmt.Errorf("failed to get user home directory: %w", err)
 	}
 
-	if err := runSudoCmd(sudoPassword, "mkdir", "-p", "/etc/greetd/.dms"); err != nil {
-		return fmt.Errorf("failed to create /etc/greetd/.dms: %w", err)
-	}
-
-	if err := runSudoCmd(sudoPassword, "chown", "-R", "greeter:dms-greeter", "/etc/greetd/.dms"); err != nil {
-		return fmt.Errorf("failed to chown /etc/greetd/.dms: %w", err)
-	}
-
-	if err := runSudoCmd(sudoPassword, "chmod", "-R", "770", "/etc/greetd/.dms"); err != nil {
-		return fmt.Errorf("failed to chmod /etc/greetd/.dms: %w", err)
-	}
-	logFunc("✓ Created /etc/greetd/.dms directory (owner: greeter, group: dms-greeter)")
+	cacheDir := "/var/cache/dms-greeter"
 
 	symlinks := []struct {
 		source string
@@ -314,17 +285,17 @@ func SyncDMSConfigs(dmsPath string, logFunc func(string), sudoPassword string) e
 	}{
 		{
 			source: filepath.Join(homeDir, ".config", "DankMaterialShell", "settings.json"),
-			target: "/etc/greetd/.dms/settings.json",
+			target: filepath.Join(cacheDir, "settings.json"),
 			desc:   "core settings (theme, clock formats, etc)",
 		},
 		{
 			source: filepath.Join(homeDir, ".local", "state", "DankMaterialShell", "session.json"),
-			target: "/etc/greetd/.dms/session.json",
+			target: filepath.Join(cacheDir, "session.json"),
 			desc:   "state (wallpaper configuration)",
 		},
 		{
 			source: filepath.Join(homeDir, ".cache", "quickshell", "dankshell", "dms-colors.json"),
-			target: "/etc/greetd/.dms/colors.json",
+			target: filepath.Join(cacheDir, "colors.json"),
 			desc:   "wallpaper based theming",
 		},
 	}
@@ -358,7 +329,7 @@ func SyncDMSConfigs(dmsPath string, logFunc func(string), sudoPassword string) e
 	return nil
 }
 
-func ConfigureGreetd(dmsPath string, logFunc func(string), sudoPassword string) error {
+func ConfigureGreetd(dmsPath, compositor string, logFunc func(string), sudoPassword string) error {
 	configPath := "/etc/greetd/config.toml"
 
 	if _, err := os.Stat(configPath); err == nil {
@@ -395,6 +366,16 @@ user = "greeter"
 		}
 	}
 
+	// Determine wrapper command path
+	wrapperCmd := "dms-greeter"
+	if !commandExists("dms-greeter") {
+		wrapperCmd = "/usr/local/bin/dms-greeter"
+	}
+
+	// Build command based on compositor and dms path
+	compositorLower := strings.ToLower(compositor)
+	command := fmt.Sprintf(`command = "%s --command %s -p %s"`, wrapperCmd, compositorLower, dmsPath)
+
 	var finalLines []string
 	inDefaultSession := false
 	commandAdded := false
@@ -409,14 +390,14 @@ user = "greeter"
 
 		if inDefaultSession && !commandAdded && trimmed != "" && !strings.HasPrefix(trimmed, "[") {
 			if !strings.HasPrefix(trimmed, "#") && !strings.HasPrefix(trimmed, "user") {
-				finalLines = append(finalLines, `command = "/etc/greetd/start-dms.sh"`)
+				finalLines = append(finalLines, command)
 				commandAdded = true
 			}
 		}
 	}
 
 	if !commandAdded {
-		finalLines = append(finalLines, `command = "/etc/greetd/start-dms.sh"`)
+		finalLines = append(finalLines, command)
 	}
 
 	newConfig := strings.Join(finalLines, "\n")
@@ -430,7 +411,7 @@ user = "greeter"
 		return fmt.Errorf("failed to move config to /etc/greetd: %w", err)
 	}
 
-	logFunc("✓ Updated greetd configuration (user: greeter)")
+	logFunc(fmt.Sprintf("✓ Updated greetd configuration (user: greeter, command: %s --command %s -p %s)", wrapperCmd, compositorLower, dmsPath))
 	return nil
 }
 

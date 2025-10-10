@@ -62,7 +62,7 @@ func installGreeter() error {
 
 	// Step 6: Configure greetd
 	fmt.Println("\nConfiguring greetd...")
-	if err := greeter.ConfigureGreetd(dmsPath, logFunc, ""); err != nil {
+	if err := greeter.ConfigureGreetd(dmsPath, selectedCompositor, logFunc, ""); err != nil {
 		return err
 	}
 

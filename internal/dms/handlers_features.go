@@ -378,7 +378,7 @@ func performGreeterInstallSteps(progressChan chan greeterProgressMsg, logFunc fu
 	}
 
 	progressChan <- greeterProgressMsg{step: "Configuring greetd..."}
-	if err := greeter.ConfigureGreetd(dmsPath, logFunc, sudoPassword); err != nil {
+	if err := greeter.ConfigureGreetd(dmsPath, compositor, logFunc, sudoPassword); err != nil {
 		return err
 	}
 
