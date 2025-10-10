@@ -1,5 +1,3 @@
-//go:build distro_binary
-
 package dms
 
 import (

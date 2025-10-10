@@ -1,12 +1,11 @@
-//go:build distro_binary
+//go:build !distro_binary
 
 package dms
 
 import (
-	"os/exec"
-	"time"
+	"errors"
 
-	"github.com/AvengeMedia/danklinux/internal/log"
+	"github.com/AvengeMedia/danklinux/internal/distros"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -28,6 +27,9 @@ func (m Model) updateMainMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			selectedLabel := m.menuItems[m.selectedItem].Label
 
 			switch selectedAction {
+			case StateUpdate:
+				m.state = StateUpdate
+				m.selectedUpdateDep = 0
 			case StateShell:
 				if selectedLabel == "Terminate Shell" {
 					terminateShell()
@@ -46,6 +48,9 @@ func (m Model) updateMainMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.state = StatePluginsMenu
 				m.selectedPluginsMenuItem = 0
 				m.pluginsMenuItems = m.buildPluginsMenuItems()
+			case StateGreeterMenu:
+				m.state = StateGreeterMenu
+				m.selectedGreeterItem = 0
 			case StateAbout:
 				m.state = StateAbout
 			}
@@ -54,48 +59,22 @@ func (m Model) updateMainMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m Model) updateShellView(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
-	case "ctrl+c", "q":
-		return m, tea.Quit
-	case "esc":
-		m.state = StateMainMenu
-	default:
-		// TODO: Launch shell and exit TUI
-		return m, tea.Quit
+func runInteractiveMode(detector *Detector, version string) error {
+	if !detector.IsDMSInstalled() {
+		return errors.New("DMS not installed")
 	}
-	return m, nil
+
+	model := NewModel(version)
+	p := tea.NewProgram(model, tea.WithAltScreen())
+	if _, err := p.Run(); err != nil {
+		return err
+	}
+	return nil
 }
 
-func (m Model) updateAboutView(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
-	case "ctrl+c", "q", "esc":
-		if msg.String() == "esc" {
-			m.state = StateMainMenu
-		} else {
-			return m, tea.Quit
-		}
+func checkDistroSupport(detector *Detector) error {
+	if detector == nil {
+		return &distros.UnsupportedDistributionError{}
 	}
-	return m, nil
-}
-
-func terminateShell() {
-	patterns := []string{"dms run", "qs -c dms"}
-	for _, pattern := range patterns {
-		cmd := exec.Command("pkill", "-f", pattern)
-		cmd.Run()
-	}
-}
-
-func startShellDaemon() {
-	cmd := exec.Command("dms", "run", "-d")
-	if err := cmd.Start(); err != nil {
-		log.Errorf("Error starting daemon: %v", err)
-	}
-}
-
-func restartShell() {
-	terminateShell()
-	time.Sleep(500 * time.Millisecond)
-	startShellDaemon()
+	return nil
 }

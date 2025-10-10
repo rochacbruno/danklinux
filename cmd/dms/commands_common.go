@@ -1,28 +1,14 @@
-//go:build distro_binary
-
 package main
 
 import (
-	"errors"
 	"fmt"
-	"os"
 	"strings"
 
-	"github.com/AvengeMedia/danklinux/internal/distros"
-	"github.com/AvengeMedia/danklinux/internal/dms"
 	"github.com/AvengeMedia/danklinux/internal/log"
 	"github.com/AvengeMedia/danklinux/internal/plugins"
 	"github.com/AvengeMedia/danklinux/internal/server"
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 )
-
-var rootCmd = &cobra.Command{
-	Use:   "dms",
-	Short: "DankLinux Manager",
-	Long:  "DankLinux Management CLI\n\nThe DMS management interface provides an overview of your installed\ncomponents and allows you to manage your setup.",
-	Run:   runInteractiveMode,
-}
 
 var versionCmd = &cobra.Command{
 	Use:   "version",
@@ -134,32 +120,9 @@ var pluginsUninstallCmd = &cobra.Command{
 	},
 }
 
-func runInteractiveMode(cmd *cobra.Command, args []string) {
-	detector, err := dms.NewDetector()
-	if err != nil && !errors.Is(err, &distros.UnsupportedDistributionError{}) {
-		log.Fatalf("Error initializing DMS detector: %v", err)
-	} else if (errors.Is(err, &distros.UnsupportedDistributionError{})) {
-		log.Error("Interactive mode is not supported on this distribution.")
-		log.Info("Please run 'dms --help' for available commands.")
-		os.Exit(1)
-	}
-
-	if !detector.IsDMSInstalled() {
-		log.Error("DankMaterialShell (DMS) is not detected as installed on this system.")
-		log.Info("Please install DMS using dankinstall before using this management interface.")
-		os.Exit(1)
-	}
-
-	model := dms.NewModel(Version)
-	p := tea.NewProgram(model, tea.WithAltScreen())
-	if _, err := p.Run(); err != nil {
-		log.Fatalf("Error running program: %v", err)
-	}
-}
-
 func runVersion(cmd *cobra.Command, args []string) {
 	printASCII()
-	fmt.Printf("DankLinux Manager %s\n", Version)
+	fmt.Printf("DankLinux Manager v%s\n", Version)
 }
 
 func startDebugServer() error {
