@@ -16,6 +16,7 @@ import (
 )
 
 const forceQuickshellGit = true
+const forceDMSGit = false
 
 // BaseDistribution provides common functionality for all distributions
 type BaseDistribution struct {

@@ -768,6 +768,21 @@ func (m *ManualPackageInstaller) installDankMaterialShell(ctx context.Context, s
 		if err := cloneCmd.Run(); err != nil {
 			return fmt.Errorf("failed to clone DankMaterialShell: %w", err)
 		}
+
+		if !forceDMSGit {
+			fetchCmd := exec.CommandContext(ctx, "git", "-C", dmsPath, "fetch", "--tags")
+			if err := fetchCmd.Run(); err == nil {
+				tagCmd := exec.CommandContext(ctx, "git", "-C", dmsPath, "describe", "--tags", "--abbrev=0", "origin/master")
+				if tagOutput, err := tagCmd.Output(); err == nil {
+					latestTag := strings.TrimSpace(string(tagOutput))
+					checkoutCmd := exec.CommandContext(ctx, "git", "-C", dmsPath, "checkout", latestTag)
+					if err := checkoutCmd.Run(); err == nil {
+						m.log(fmt.Sprintf("Checked out latest tag: %s", latestTag))
+					}
+				}
+			}
+		}
+
 		m.log("DankMaterialShell config cloned successfully")
 	} else {
 		// Config exists, update it

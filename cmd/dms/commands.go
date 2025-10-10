@@ -227,9 +227,21 @@ func runUpdate() {
 }
 
 func updateArchLinux() error {
-	// Check if dms-shell-git is installed via pacman
-	if !isPackageInstalled("dms-shell-git") {
-		fmt.Println("Info: dms-shell-git package not found in installed packages.")
+	homeDir, err := os.UserHomeDir()
+	if err == nil {
+		dmsPath := filepath.Join(homeDir, ".config", "quickshell", "dms")
+		if _, err := os.Stat(dmsPath); err == nil {
+			return updateOtherDistros()
+		}
+	}
+
+	var packageName string
+	if isPackageInstalled("dms-shell-bin") {
+		packageName = "dms-shell-bin"
+	} else if isPackageInstalled("dms-shell-git") {
+		packageName = "dms-shell-git"
+	} else {
+		fmt.Println("Info: Neither dms-shell-bin nor dms-shell-git package found.")
 		fmt.Println("Info: Falling back to git-based update method...")
 		return updateOtherDistros()
 	}
@@ -239,10 +251,10 @@ func updateArchLinux() error {
 
 	if commandExists("yay") {
 		helper = "yay"
-		updateCmd = exec.Command("yay", "-S", "dms-shell-git")
+		updateCmd = exec.Command("yay", "-S", packageName)
 	} else if commandExists("paru") {
 		helper = "paru"
-		updateCmd = exec.Command("paru", "-S", "dms-shell-git")
+		updateCmd = exec.Command("paru", "-S", packageName)
 	} else {
 		fmt.Println("Error: Neither yay nor paru found - please install an AUR helper")
 		fmt.Println("Info: Falling back to git-based update method...")
@@ -254,10 +266,10 @@ func updateArchLinux() error {
 		return errdefs.ErrUpdateCancelled
 	}
 
-	fmt.Printf("\nRunning: %s -S dms-shell-git\n", helper)
+	fmt.Printf("\nRunning: %s -S %s\n", helper, packageName)
 	updateCmd.Stdout = os.Stdout
 	updateCmd.Stderr = os.Stderr
-	err := updateCmd.Run()
+	err = updateCmd.Run()
 	if err != nil {
 		fmt.Printf("Error: Failed to update using %s: %v\n", helper, err)
 	}
@@ -303,7 +315,6 @@ func updateOtherDistros() error {
 	fmt.Println("\nThis will update:")
 	fmt.Println("  1. The dms binary from GitHub releases")
 	fmt.Println("  2. DankMaterialShell configuration using git")
-	fmt.Println("\nYour current configuration will be backed up to a timestamped branch.")
 	if !confirmUpdate() {
 		return errdefs.ErrUpdateCancelled
 	}
@@ -317,39 +328,146 @@ func updateOtherDistros() error {
 	}
 
 	fmt.Println("\n=== Updating DMS shell configuration ===")
-	timestamp := time.Now().Unix()
-	backupBranch := fmt.Sprintf("master-%d", timestamp)
 
 	if err := os.Chdir(dmsPath); err != nil {
 		return fmt.Errorf("failed to change to DMS directory: %w", err)
 	}
 
-	fmt.Printf("Creating backup branch: %s\n", backupBranch)
-	backupCmd := exec.Command("git", "branch", "-M", "master", backupBranch)
-	backupCmd.Stdout = os.Stdout
-	backupCmd.Stderr = os.Stderr
-	if err := backupCmd.Run(); err != nil {
-		return fmt.Errorf("failed to create backup branch: %w", err)
+	statusCmd := exec.Command("git", "status", "--porcelain")
+	statusOutput, _ := statusCmd.Output()
+	hasLocalChanges := len(strings.TrimSpace(string(statusOutput))) > 0
+
+	currentRefCmd := exec.Command("git", "symbolic-ref", "-q", "HEAD")
+	currentRefOutput, _ := currentRefCmd.Output()
+	onBranch := len(currentRefOutput) > 0
+
+	var currentTag string
+	var currentBranch string
+
+	if !onBranch {
+		tagCmd := exec.Command("git", "describe", "--exact-match", "--tags", "HEAD")
+		if tagOutput, err := tagCmd.Output(); err == nil {
+			currentTag = strings.TrimSpace(string(tagOutput))
+		}
+	} else {
+		branchCmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
+		if branchOutput, err := branchCmd.Output(); err == nil {
+			currentBranch = strings.TrimSpace(string(branchOutput))
+		}
 	}
 
 	fmt.Println("Fetching latest changes...")
-	fetchCmd := exec.Command("git", "fetch")
+	fetchCmd := exec.Command("git", "fetch", "origin", "--tags", "--force")
 	fetchCmd.Stdout = os.Stdout
 	fetchCmd.Stderr = os.Stderr
 	if err := fetchCmd.Run(); err != nil {
 		return fmt.Errorf("failed to fetch changes: %w", err)
 	}
 
-	fmt.Println("Checking out latest master branch...")
-	checkoutCmd := exec.Command("git", "checkout", "-b", "master", "origin/master")
-	checkoutCmd.Stdout = os.Stdout
-	checkoutCmd.Stderr = os.Stderr
-	if err := checkoutCmd.Run(); err != nil {
-		return fmt.Errorf("failed to checkout new master: %w", err)
+	if currentTag != "" {
+		latestTagCmd := exec.Command("git", "tag", "-l", "v0.1.*", "--sort=-version:refname")
+		latestTagOutput, err := latestTagCmd.Output()
+		if err != nil {
+			return fmt.Errorf("failed to get latest tag: %w", err)
+		}
+
+		tags := strings.Split(strings.TrimSpace(string(latestTagOutput)), "\n")
+		if len(tags) == 0 || tags[0] == "" {
+			return fmt.Errorf("no v0.1.* tags found")
+		}
+		latestTag := tags[0]
+
+		if latestTag == currentTag {
+			fmt.Printf("Already on latest tag: %s\n", currentTag)
+			return nil
+		}
+
+		fmt.Printf("Current tag: %s\n", currentTag)
+		fmt.Printf("Latest tag: %s\n", latestTag)
+
+		if hasLocalChanges {
+			fmt.Println("\nWarning: You have local changes in your DMS configuration.")
+			if offerReclone(dmsPath) {
+				return nil
+			}
+			return errdefs.ErrUpdateCancelled
+		}
+
+		fmt.Printf("Updating to %s...\n", latestTag)
+		checkoutCmd := exec.Command("git", "checkout", latestTag)
+		checkoutCmd.Stdout = os.Stdout
+		checkoutCmd.Stderr = os.Stderr
+		if err := checkoutCmd.Run(); err != nil {
+			fmt.Printf("Error: Failed to checkout %s: %v\n", latestTag, err)
+			if offerReclone(dmsPath) {
+				return nil
+			}
+			return fmt.Errorf("update cancelled")
+		}
+
+		fmt.Printf("\nUpdate complete! Updated from %s to %s\n", currentTag, latestTag)
+		return nil
 	}
 
-	fmt.Printf("\nUpdate complete! (previous version backed up as branch '%s')\n", backupBranch)
+	if currentBranch == "" {
+		currentBranch = "master"
+	}
+
+	fmt.Printf("Current branch: %s\n", currentBranch)
+
+	if hasLocalChanges {
+		fmt.Println("\nWarning: You have local changes in your DMS configuration.")
+		if offerReclone(dmsPath) {
+			return nil
+		}
+		return errdefs.ErrUpdateCancelled
+	}
+
+	pullCmd := exec.Command("git", "pull", "origin", currentBranch)
+	pullCmd.Stdout = os.Stdout
+	pullCmd.Stderr = os.Stderr
+	if err := pullCmd.Run(); err != nil {
+		fmt.Printf("Error: Failed to pull latest changes: %v\n", err)
+		if offerReclone(dmsPath) {
+			return nil
+		}
+		return fmt.Errorf("update cancelled")
+	}
+
+	fmt.Println("\nUpdate complete!")
 	return nil
+}
+
+func offerReclone(dmsPath string) bool {
+	fmt.Println("\nWould you like to backup and re-clone the repository? (y/N): ")
+	reader := bufio.NewReader(os.Stdin)
+	response, err := reader.ReadString('\n')
+	if err != nil || !strings.HasPrefix(strings.ToLower(strings.TrimSpace(response)), "y") {
+		return false
+	}
+
+	timestamp := time.Now().Unix()
+	backupPath := fmt.Sprintf("%s.backup-%d", dmsPath, timestamp)
+
+	fmt.Printf("Backing up current directory to %s...\n", backupPath)
+	if err := os.Rename(dmsPath, backupPath); err != nil {
+		fmt.Printf("Error: Failed to backup directory: %v\n", err)
+		return false
+	}
+
+	fmt.Println("Cloning fresh copy...")
+	cloneCmd := exec.Command("git", "clone", "https://github.com/AvengeMedia/DankMaterialShell.git", dmsPath)
+	cloneCmd.Stdout = os.Stdout
+	cloneCmd.Stderr = os.Stderr
+	if err := cloneCmd.Run(); err != nil {
+		fmt.Printf("Error: Failed to clone repository: %v\n", err)
+		fmt.Printf("Restoring backup...\n")
+		os.Rename(backupPath, dmsPath)
+		return false
+	}
+
+	fmt.Printf("Successfully re-cloned repository (backup at %s)\n", backupPath)
+	return true
 }
 
 func commandExists(cmd string) bool {

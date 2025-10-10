@@ -400,8 +400,30 @@ func (m Model) renderProgressView() string {
 
 		b.WriteString("\n")
 		b.WriteString(errorStyle.Render(fmt.Sprintf("✗ Update failed: %v", m.updateProgress.err)))
-		b.WriteString("\n\n")
+		b.WriteString("\n")
 
+		if len(m.updateLogs) > 0 {
+			b.WriteString("\n")
+			logHeader := lipgloss.NewStyle().Foreground(lipgloss.Color("#888888")).Render("Error Logs:")
+			b.WriteString(logHeader)
+			b.WriteString("\n")
+
+			maxLines := 15
+			startIdx := 0
+			if len(m.updateLogs) > maxLines {
+				startIdx = len(m.updateLogs) - maxLines
+			}
+
+			logStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#888888"))
+			for i := startIdx; i < len(m.updateLogs); i++ {
+				if m.updateLogs[i] != "" {
+					b.WriteString(logStyle.Render("  " + m.updateLogs[i]))
+					b.WriteString("\n")
+				}
+			}
+		}
+
+		b.WriteString("\n")
 		instructionStyle := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#888888"))
 		b.WriteString(instructionStyle.Render("Press Esc to go back"))
