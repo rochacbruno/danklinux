@@ -38,6 +38,10 @@ func NewManager() (*Manager, error) {
 		return nil, err
 	}
 
+	if err := m.acquireSleepInhibitor(); err != nil {
+		fmt.Fprintf(os.Stderr, "sleep inhibitor unavailable: %v\n", err)
+	}
+
 	m.notifierWg.Add(1)
 	go m.notifier()
 
@@ -145,6 +149,42 @@ func (m *Manager) getProperty(prop string, dest interface{}) error {
 		return err
 	}
 	return variant.Store(dest)
+}
+
+func (m *Manager) acquireSleepInhibitor() error {
+	m.inhibitMu.Lock()
+	defer m.inhibitMu.Unlock()
+
+	if m.inhibitFile != nil {
+		return nil
+	}
+	obj := m.conn.Object("org.freedesktop.login1", "/org/freedesktop/login1")
+
+	var fd dbus.UnixFD
+	call := obj.Call("org.freedesktop.login1.Manager.Inhibit", 0,
+		"sleep", "DankMaterialShell", "Lock before suspend", "delay")
+	if call.Err != nil {
+		return call.Err
+	}
+	if err := call.Store(&fd); err != nil {
+		return err
+	}
+	f := os.NewFile(uintptr(fd), "logind-sleep-inhibit")
+	if f == nil {
+		return fmt.Errorf("failed to wrap inhibitor fd")
+	}
+	m.inhibitFile = f
+	return nil
+}
+
+func (m *Manager) releaseSleepInhibitor() {
+	m.inhibitMu.Lock()
+	f := m.inhibitFile
+	m.inhibitFile = nil
+	m.inhibitMu.Unlock()
+	if f != nil {
+		_ = f.Close()
+	}
 }
 
 func (m *Manager) snapshotState() SessionState {
@@ -406,6 +446,8 @@ func (m *Manager) Close() {
 	m.notifierWg.Wait()
 
 	m.stopSignalPump()
+
+	m.releaseSleepInhibitor()
 
 	m.subMutex.Lock()
 	for _, ch := range m.subscribers {

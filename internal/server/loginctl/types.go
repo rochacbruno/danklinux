@@ -1,7 +1,9 @@
 package loginctl
 
 import (
+	"os"
 	"sync"
+	"sync/atomic"
 
 	"github.com/godbus/dbus/v5"
 )
@@ -58,4 +60,7 @@ type Manager struct {
 	lastNotifiedState *SessionState
 	signals           chan *dbus.Signal
 	sigWG             sync.WaitGroup
+	inhibitMu         sync.Mutex
+	inhibitFile       *os.File
+	lockBeforeSuspend atomic.Bool
 }

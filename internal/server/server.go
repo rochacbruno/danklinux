@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 
 	"github.com/AvengeMedia/danklinux/internal/log"
@@ -18,8 +19,20 @@ import (
 	"github.com/AvengeMedia/danklinux/internal/server/network"
 )
 
+const APIVersion = 1
+
 type Capabilities struct {
 	Capabilities []string `json:"capabilities"`
+}
+
+type ServerInfo struct {
+	APIVersion   int      `json:"apiVersion"`
+	Capabilities []string `json:"capabilities"`
+}
+
+type ServiceEvent struct {
+	Service string      `json:"service"`
+	Data    interface{} `json:"data"`
 }
 
 var networkManager *network.Manager
@@ -160,6 +173,156 @@ func getCapabilities() Capabilities {
 	return Capabilities{Capabilities: caps}
 }
 
+func getServerInfo() ServerInfo {
+	caps := []string{"plugins"}
+
+	if networkManager != nil {
+		caps = append(caps, "network")
+	}
+
+	if loginctlManager != nil {
+		caps = append(caps, "loginctl")
+	}
+
+	if freedesktopManager != nil {
+		caps = append(caps, "freedesktop")
+	}
+
+	return ServerInfo{
+		APIVersion:   APIVersion,
+		Capabilities: caps,
+	}
+}
+
+func handleSubscribe(conn net.Conn, req models.Request) {
+	clientID := fmt.Sprintf("meta-client-%p", conn)
+
+	var services []string
+	if servicesParam, ok := req.Params["services"].([]interface{}); ok {
+		for _, s := range servicesParam {
+			if str, ok := s.(string); ok {
+				services = append(services, str)
+			}
+		}
+	}
+
+	if len(services) == 0 {
+		services = []string{"all"}
+	}
+
+	subscribeAll := false
+	for _, s := range services {
+		if s == "all" {
+			subscribeAll = true
+			break
+		}
+	}
+
+	var wg sync.WaitGroup
+	eventChan := make(chan ServiceEvent, 256)
+	stopChan := make(chan struct{})
+
+	shouldSubscribe := func(service string) bool {
+		if subscribeAll {
+			return true
+		}
+		for _, s := range services {
+			if s == service {
+				return true
+			}
+		}
+		return false
+	}
+
+	if shouldSubscribe("network") && networkManager != nil {
+		wg.Add(1)
+		netChan := networkManager.Subscribe(clientID + "-network")
+		go func() {
+			defer wg.Done()
+			defer networkManager.Unsubscribe(clientID + "-network")
+
+			initialState := networkManager.GetState()
+			select {
+			case eventChan <- ServiceEvent{Service: "network", Data: initialState}:
+			case <-stopChan:
+				return
+			}
+
+			for {
+				select {
+				case state, ok := <-netChan:
+					if !ok {
+						return
+					}
+					select {
+					case eventChan <- ServiceEvent{Service: "network", Data: state}:
+					case <-stopChan:
+						return
+					}
+				case <-stopChan:
+					return
+				}
+			}
+		}()
+	}
+
+	if shouldSubscribe("loginctl") && loginctlManager != nil {
+		wg.Add(1)
+		loginChan := loginctlManager.Subscribe(clientID + "-loginctl")
+		go func() {
+			defer wg.Done()
+			defer loginctlManager.Unsubscribe(clientID + "-loginctl")
+
+			initialState := loginctlManager.GetState()
+			select {
+			case eventChan <- ServiceEvent{Service: "loginctl", Data: initialState}:
+			case <-stopChan:
+				return
+			}
+
+			for {
+				select {
+				case state, ok := <-loginChan:
+					if !ok {
+						return
+					}
+					select {
+					case eventChan <- ServiceEvent{Service: "loginctl", Data: state}:
+					case <-stopChan:
+						return
+					}
+				case <-stopChan:
+					return
+				}
+			}
+		}()
+	}
+
+	go func() {
+		wg.Wait()
+		close(eventChan)
+	}()
+
+	info := getServerInfo()
+	if err := json.NewEncoder(conn).Encode(models.Response[ServiceEvent]{
+		ID:     req.ID,
+		Result: &ServiceEvent{Service: "server", Data: info},
+	}); err != nil {
+		close(stopChan)
+		return
+	}
+
+	for event := range eventChan {
+		if err := json.NewEncoder(conn).Encode(models.Response[ServiceEvent]{
+			ID:     req.ID,
+			Result: &event,
+		}); err != nil {
+			close(stopChan)
+			return
+		}
+	}
+}
+
 func cleanupManagers() {
 	if networkManager != nil {
 		networkManager.Close()
@@ -209,7 +372,9 @@ func Start(printDocs bool) error {
 	log.Info("Response format: {\"id\": <any>, \"result\": {...}} or {\"id\": <any>, \"error\": \"...\"}")
 	if printDocs {
 		log.Info("Available methods:")
-		log.Info("  ping - Test connection")
+		log.Info("  ping          - Test connection")
+		log.Info("  getServerInfo - Get server info (API version and capabilities)")
+		log.Info("  subscribe     - Subscribe to multiple services (params: services [default: all])")
 		log.Info("Plugins:")
 		log.Info(" plugins.list                - List all plugins")
 		log.Info(" plugins.listInstalled       - List installed plugins")
@@ -238,6 +403,7 @@ func Start(printDocs bool) error {
 		log.Info(" loginctl.unlock             - Unlock session")
 		log.Info(" loginctl.activate           - Activate session")
 		log.Info(" loginctl.setIdleHint        - Set idle hint (params: idle)")
+		log.Info(" loginctl.setLockBeforeSuspend - Set lock before suspend (params: enabled)")
 		log.Info(" loginctl.terminate          - Terminate session")
 		log.Info(" loginctl.subscribe          - Subscribe to session state changes (streaming)")
 		log.Info("Freedesktop:")

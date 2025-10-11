@@ -43,3 +43,7 @@ func (m *Manager) Terminate() error {
 	}
 	return nil
 }
+
+func (m *Manager) SetLockBeforeSuspend(enabled bool) {
+	m.lockBeforeSuspend.Store(enabled)
+}

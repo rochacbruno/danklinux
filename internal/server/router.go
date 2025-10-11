@@ -66,6 +66,11 @@ func RouteRequest(conn net.Conn, req models.Request) {
 	switch req.Method {
 	case "ping":
 		models.Respond(conn, req.ID, "pong")
+	case "getServerInfo":
+		info := getServerInfo()
+		models.Respond(conn, req.ID, info)
+	case "subscribe":
+		handleSubscribe(conn, req)
 	default:
 		models.RespondError(conn, req.ID, fmt.Sprintf("unknown method: %s", req.Method))
 	}

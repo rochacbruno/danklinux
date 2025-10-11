@@ -23,6 +23,11 @@ func (m *Manager) handleDBusSignal(sig *dbus.Signal) {
 	case "org.freedesktop.login1.Manager.PrepareForSleep":
 		if len(sig.Body) > 0 {
 			if preparing, ok := sig.Body[0].(bool); ok {
+				if preparing {
+					if m.lockBeforeSuspend.Load() {
+						_ = m.Lock()
+					}
+				}
 				m.stateMutex.Lock()
 				m.state.PreparingForSleep = preparing
 				m.stateMutex.Unlock()
@@ -40,6 +45,7 @@ func (m *Manager) handleDBusSignal(sig *dbus.Signal) {
 			newOwner, _ := sig.Body[2].(string)
 			if name == "org.freedesktop.login1" && oldOwner != "" && newOwner != "" {
 				_ = m.updateSessionState()
+				_ = m.acquireSleepInhibitor()
 				m.notifySubscribers()
 			}
 		}

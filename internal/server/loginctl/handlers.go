@@ -31,6 +31,8 @@ func HandleRequest(conn net.Conn, req Request, manager *Manager) {
 		handleActivate(conn, req, manager)
 	case "loginctl.setIdleHint":
 		handleSetIdleHint(conn, req, manager)
+	case "loginctl.setLockBeforeSuspend":
+		handleSetLockBeforeSuspend(conn, req, manager)
 	case "loginctl.terminate":
 		handleTerminate(conn, req, manager)
 	case "loginctl.subscribe":
@@ -81,6 +83,17 @@ func handleSetIdleHint(conn net.Conn, req Request, manager *Manager) {
 		return
 	}
 	models.Respond(conn, req.ID, SuccessResult{Success: true, Message: "idle hint set"})
+}
+
+func handleSetLockBeforeSuspend(conn net.Conn, req Request, manager *Manager) {
+	enabled, ok := req.Params["enabled"].(bool)
+	if !ok {
+		models.RespondError(conn, req.ID, "missing or invalid 'enabled' parameter")
+		return
+	}
+
+	manager.SetLockBeforeSuspend(enabled)
+	models.Respond(conn, req.ID, SuccessResult{Success: true, Message: "lock before suspend set"})
 }
 
 func handleTerminate(conn net.Conn, req Request, manager *Manager) {
