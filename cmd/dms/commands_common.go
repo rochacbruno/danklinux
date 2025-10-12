@@ -122,7 +122,7 @@ var pluginsUninstallCmd = &cobra.Command{
 
 func runVersion(cmd *cobra.Command, args []string) {
 	printASCII()
-	fmt.Printf("DankLinux Manager v%s\n", Version)
+	fmt.Printf("DankLinux Manager %s\n", Version)
 }
 
 func startDebugServer() error {
