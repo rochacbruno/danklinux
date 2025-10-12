@@ -5,6 +5,9 @@ import (
 )
 
 func (m *Manager) Lock() error {
+	if m.sessionObj == nil {
+		return fmt.Errorf("session object not available")
+	}
 	err := m.sessionObj.Call("org.freedesktop.login1.Session.Lock", 0).Err
 	if err != nil {
 		return fmt.Errorf("failed to lock session: %w", err)

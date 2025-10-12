@@ -158,6 +158,9 @@ func (m *Manager) acquireSleepInhibitor() error {
 	if m.inhibitFile != nil {
 		return nil
 	}
+	if m.conn == nil {
+		return fmt.Errorf("dbus connection not available")
+	}
 	obj := m.conn.Object("org.freedesktop.login1", "/org/freedesktop/login1")
 
 	var fd dbus.UnixFD
