@@ -19,7 +19,7 @@ import (
 	"github.com/AvengeMedia/danklinux/internal/server/network"
 )
 
-const APIVersion = 1
+const APIVersion = 2
 
 type Capabilities struct {
 	Capabilities []string `json:"capabilities"`
@@ -404,6 +404,7 @@ func Start(printDocs bool) error {
 		log.Info(" loginctl.activate           - Activate session")
 		log.Info(" loginctl.setIdleHint        - Set idle hint (params: idle)")
 		log.Info(" loginctl.setLockBeforeSuspend - Set lock before suspend (params: enabled)")
+		log.Info(" loginctl.lockerReady        - Signal locker UI is ready (releases sleep inhibitor)")
 		log.Info(" loginctl.terminate          - Terminate session")
 		log.Info(" loginctl.subscribe          - Subscribe to session state changes (streaming)")
 		log.Info("Freedesktop:")

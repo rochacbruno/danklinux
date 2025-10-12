@@ -1,6 +1,8 @@
 package loginctl
 
 import (
+	"time"
+
 	"github.com/godbus/dbus/v5"
 )
 
@@ -21,19 +23,35 @@ func (m *Manager) handleDBusSignal(sig *dbus.Signal) {
 		m.notifySubscribers()
 
 	case "org.freedesktop.login1.Manager.PrepareForSleep":
-		if len(sig.Body) > 0 {
-			if preparing, ok := sig.Body[0].(bool); ok {
-				if preparing {
-					if m.lockBeforeSuspend.Load() {
-						_ = m.Lock()
-					}
-				}
-				m.stateMutex.Lock()
-				m.state.PreparingForSleep = preparing
-				m.stateMutex.Unlock()
-				m.notifySubscribers()
-			}
+		if len(sig.Body) == 0 {
+			return
 		}
+		preparing, _ := sig.Body[0].(bool)
+
+		if preparing {
+			m.inSleepCycle.Store(true)
+
+			if m.lockBeforeSuspend.Load() {
+				_ = m.Lock()
+			}
+
+			readyCh := m.newLockerReadyCh()
+			go func() {
+				select {
+				case <-readyCh:
+				case <-time.After(2 * time.Second):
+				}
+				m.releaseSleepInhibitor()
+			}()
+		} else {
+			m.inSleepCycle.Store(false)
+			_ = m.acquireSleepInhibitor()
+		}
+
+		m.stateMutex.Lock()
+		m.state.PreparingForSleep = preparing
+		m.stateMutex.Unlock()
+		m.notifySubscribers()
 
 	case "org.freedesktop.DBus.Properties.PropertiesChanged":
 		m.handlePropertiesChanged(sig)
@@ -45,7 +63,9 @@ func (m *Manager) handleDBusSignal(sig *dbus.Signal) {
 			newOwner, _ := sig.Body[2].(string)
 			if name == "org.freedesktop.login1" && oldOwner != "" && newOwner != "" {
 				_ = m.updateSessionState()
-				_ = m.acquireSleepInhibitor()
+				if !m.inSleepCycle.Load() {
+					_ = m.acquireSleepInhibitor()
+				}
 				m.notifySubscribers()
 			}
 		}

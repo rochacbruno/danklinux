@@ -33,6 +33,8 @@ func HandleRequest(conn net.Conn, req Request, manager *Manager) {
 		handleSetIdleHint(conn, req, manager)
 	case "loginctl.setLockBeforeSuspend":
 		handleSetLockBeforeSuspend(conn, req, manager)
+	case "loginctl.lockerReady":
+		handleLockerReady(conn, req, manager)
 	case "loginctl.terminate":
 		handleTerminate(conn, req, manager)
 	case "loginctl.subscribe":
@@ -94,6 +96,13 @@ func handleSetLockBeforeSuspend(conn net.Conn, req Request, manager *Manager) {
 
 	manager.SetLockBeforeSuspend(enabled)
 	models.Respond(conn, req.ID, SuccessResult{Success: true, Message: "lock before suspend set"})
+}
+
+func handleLockerReady(conn net.Conn, req Request, manager *Manager) {
+	if manager.inSleepCycle.Load() {
+		manager.signalLockerReady()
+	}
+	models.Respond(conn, req.ID, SuccessResult{Success: true, Message: "ok"})
 }
 
 func handleTerminate(conn net.Conn, req Request, manager *Manager) {

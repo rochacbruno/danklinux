@@ -187,6 +187,23 @@ func (m *Manager) releaseSleepInhibitor() {
 	}
 }
 
+func (m *Manager) newLockerReadyCh() chan struct{} {
+	m.lockerReadyChMu.Lock()
+	defer m.lockerReadyChMu.Unlock()
+	m.lockerReadyCh = make(chan struct{})
+	return m.lockerReadyCh
+}
+
+func (m *Manager) signalLockerReady() {
+	m.lockerReadyChMu.Lock()
+	ch := m.lockerReadyCh
+	if ch != nil {
+		close(ch)
+		m.lockerReadyCh = nil
+	}
+	m.lockerReadyChMu.Unlock()
+}
+
 func (m *Manager) snapshotState() SessionState {
 	m.stateMutex.RLock()
 	defer m.stateMutex.RUnlock()

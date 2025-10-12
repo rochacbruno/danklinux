@@ -63,4 +63,7 @@ type Manager struct {
 	inhibitMu         sync.Mutex
 	inhibitFile       *os.File
 	lockBeforeSuspend atomic.Bool
+	inSleepCycle      atomic.Bool
+	lockerReadyChMu   sync.Mutex
+	lockerReadyCh     chan struct{}
 }
