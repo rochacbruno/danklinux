@@ -414,8 +414,8 @@ func (m *Manager) startSignalPump() error {
 	conn.Signal(signals)
 
 	if err := conn.AddMatchSignal(
-		dbus.WithMatchObjectPath("/org/freedesktop/NetworkManager"),
-		dbus.WithMatchInterface("org.freedesktop.DBus.Properties"),
+		dbus.WithMatchObjectPath(dbus.ObjectPath(dbusNMPath)),
+		dbus.WithMatchInterface(dbusPropsInterface),
 		dbus.WithMatchMember("PropertiesChanged"),
 	); err != nil {
 		conn.RemoveSignal(signals)
@@ -427,12 +427,12 @@ func (m *Manager) startSignalPump() error {
 		dev := m.wifiDevice.(gonetworkmanager.Device)
 		if err := conn.AddMatchSignal(
 			dbus.WithMatchObjectPath(dbus.ObjectPath(dev.GetPath())),
-			dbus.WithMatchInterface("org.freedesktop.DBus.Properties"),
+			dbus.WithMatchInterface(dbusPropsInterface),
 			dbus.WithMatchMember("PropertiesChanged"),
 		); err != nil {
 			_ = conn.RemoveMatchSignal(
-				dbus.WithMatchObjectPath("/org/freedesktop/NetworkManager"),
-				dbus.WithMatchInterface("org.freedesktop.DBus.Properties"),
+				dbus.WithMatchObjectPath(dbus.ObjectPath(dbusNMPath)),
+				dbus.WithMatchInterface(dbusPropsInterface),
 				dbus.WithMatchMember("PropertiesChanged"),
 			)
 			conn.RemoveSignal(signals)
@@ -445,19 +445,19 @@ func (m *Manager) startSignalPump() error {
 		dev := m.ethernetDevice.(gonetworkmanager.Device)
 		if err := conn.AddMatchSignal(
 			dbus.WithMatchObjectPath(dbus.ObjectPath(dev.GetPath())),
-			dbus.WithMatchInterface("org.freedesktop.DBus.Properties"),
+			dbus.WithMatchInterface(dbusPropsInterface),
 			dbus.WithMatchMember("PropertiesChanged"),
 		); err != nil {
 			_ = conn.RemoveMatchSignal(
-				dbus.WithMatchObjectPath("/org/freedesktop/NetworkManager"),
-				dbus.WithMatchInterface("org.freedesktop.DBus.Properties"),
+				dbus.WithMatchObjectPath(dbus.ObjectPath(dbusNMPath)),
+				dbus.WithMatchInterface(dbusPropsInterface),
 				dbus.WithMatchMember("PropertiesChanged"),
 			)
 			if m.wifiDevice != nil {
 				dev := m.wifiDevice.(gonetworkmanager.Device)
 				_ = conn.RemoveMatchSignal(
 					dbus.WithMatchObjectPath(dbus.ObjectPath(dev.GetPath())),
-					dbus.WithMatchInterface("org.freedesktop.DBus.Properties"),
+					dbus.WithMatchInterface(dbusPropsInterface),
 					dbus.WithMatchMember("PropertiesChanged"),
 				)
 			}
@@ -492,41 +492,39 @@ func (m *Manager) stopSignalPump() {
 	if m.dbusConn == nil {
 		return
 	}
-	conn := m.dbusConn.(*dbus.Conn)
 
-	_ = conn.RemoveMatchSignal(
-		dbus.WithMatchObjectPath("/org/freedesktop/NetworkManager"),
-		dbus.WithMatchInterface("org.freedesktop.DBus.Properties"),
+	_ = m.dbusConn.RemoveMatchSignal(
+		dbus.WithMatchObjectPath(dbus.ObjectPath(dbusNMPath)),
+		dbus.WithMatchInterface(dbusPropsInterface),
 		dbus.WithMatchMember("PropertiesChanged"),
 	)
 
 	if m.wifiDevice != nil {
 		dev := m.wifiDevice.(gonetworkmanager.Device)
-		_ = conn.RemoveMatchSignal(
+		_ = m.dbusConn.RemoveMatchSignal(
 			dbus.WithMatchObjectPath(dbus.ObjectPath(dev.GetPath())),
-			dbus.WithMatchInterface("org.freedesktop.DBus.Properties"),
+			dbus.WithMatchInterface(dbusPropsInterface),
 			dbus.WithMatchMember("PropertiesChanged"),
 		)
 	}
 
 	if m.ethernetDevice != nil {
 		dev := m.ethernetDevice.(gonetworkmanager.Device)
-		_ = conn.RemoveMatchSignal(
+		_ = m.dbusConn.RemoveMatchSignal(
 			dbus.WithMatchObjectPath(dbus.ObjectPath(dev.GetPath())),
-			dbus.WithMatchInterface("org.freedesktop.DBus.Properties"),
+			dbus.WithMatchInterface(dbusPropsInterface),
 			dbus.WithMatchMember("PropertiesChanged"),
 		)
 	}
 
 	if m.signals != nil {
-		signals := m.signals.(chan *dbus.Signal)
-		conn.RemoveSignal(signals)
-		close(signals)
+		m.dbusConn.RemoveSignal(m.signals)
+		close(m.signals)
 	}
 
 	m.sigWG.Wait()
 
-	conn.Close()
+	m.dbusConn.Close()
 }
 
 func (m *Manager) Close() {

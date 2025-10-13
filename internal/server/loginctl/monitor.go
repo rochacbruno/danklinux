@@ -6,21 +6,21 @@ import (
 
 func (m *Manager) handleDBusSignal(sig *dbus.Signal) {
 	switch sig.Name {
-	case "org.freedesktop.login1.Session.Lock":
+	case dbusSessionInterface + ".Lock":
 		m.stateMutex.Lock()
 		m.state.Locked = true
 		m.state.LockedHint = true
 		m.stateMutex.Unlock()
 		m.notifySubscribers()
 
-	case "org.freedesktop.login1.Session.Unlock":
+	case dbusSessionInterface + ".Unlock":
 		m.stateMutex.Lock()
 		m.state.Locked = false
 		m.state.LockedHint = false
 		m.stateMutex.Unlock()
 		m.notifySubscribers()
 
-	case "org.freedesktop.login1.Manager.PrepareForSleep":
+	case dbusManagerInterface + ".PrepareForSleep":
 		if len(sig.Body) == 0 {
 			return
 		}
@@ -50,7 +50,7 @@ func (m *Manager) handleDBusSignal(sig *dbus.Signal) {
 		m.stateMutex.Unlock()
 		m.notifySubscribers()
 
-	case "org.freedesktop.DBus.Properties.PropertiesChanged":
+	case dbusPropsInterface + ".PropertiesChanged":
 		m.handlePropertiesChanged(sig)
 
 	case "org.freedesktop.DBus.NameOwnerChanged":
@@ -58,7 +58,7 @@ func (m *Manager) handleDBusSignal(sig *dbus.Signal) {
 			name, _ := sig.Body[0].(string)
 			oldOwner, _ := sig.Body[1].(string)
 			newOwner, _ := sig.Body[2].(string)
-			if name == "org.freedesktop.login1" && oldOwner != "" && newOwner != "" {
+			if name == dbusDest && oldOwner != "" && newOwner != "" {
 				_ = m.updateSessionState()
 				if !m.inSleepCycle.Load() {
 					_ = m.acquireSleepInhibitor()
@@ -75,7 +75,7 @@ func (m *Manager) handlePropertiesChanged(sig *dbus.Signal) {
 	}
 
 	iface, ok := sig.Body[0].(string)
-	if !ok || iface != "org.freedesktop.login1.Session" {
+	if !ok || iface != dbusSessionInterface {
 		return
 	}
 

@@ -2,6 +2,8 @@ package network
 
 import (
 	"sync"
+
+	"github.com/godbus/dbus/v5"
 )
 
 type NetworkStatus string
@@ -77,8 +79,8 @@ type Manager struct {
 	dirty             chan struct{}
 	notifierWg        sync.WaitGroup
 	lastNotifiedState *NetworkState
-	dbusConn          interface{}
-	signals           interface{}
+	dbusConn          *dbus.Conn
+	signals           chan *dbus.Signal
 	sigWG             sync.WaitGroup
 }
 

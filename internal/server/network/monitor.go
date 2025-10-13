@@ -23,16 +23,16 @@ func (m *Manager) handleDBusSignal(sig *dbus.Signal) {
 	}
 
 	switch iface {
-	case "org.freedesktop.NetworkManager":
+	case dbusNMInterface:
 		m.handleNetworkManagerChange(changes)
 
-	case "org.freedesktop.NetworkManager.Device":
+	case dbusNMDeviceInterface:
 		m.handleDeviceChange(changes)
 
-	case "org.freedesktop.NetworkManager.Device.Wireless":
+	case dbusNMWirelessInterface:
 		m.handleWiFiChange(changes)
 
-	case "org.freedesktop.NetworkManager.AccessPoint":
+	case dbusNMAccessPointInterface:
 		m.handleAccessPointChange(changes)
 	}
 }

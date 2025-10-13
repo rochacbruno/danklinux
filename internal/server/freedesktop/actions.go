@@ -10,90 +10,90 @@ import (
 )
 
 func (m *Manager) SetIconFile(iconPath string) error {
-	if !m.state.Accounts.Available {
+	if !m.state.Accounts.Available || m.accountsObj == nil {
 		return fmt.Errorf("accounts service not available")
 	}
 
-	err := m.accountsObj.Call("org.freedesktop.Accounts.User.SetIconFile", 0, iconPath).Err
+	err := m.accountsObj.Call(dbusAccountsUserInterface+".SetIconFile", 0, iconPath).Err
 	if err != nil {
 		return fmt.Errorf("failed to set icon file: %w", err)
 	}
 
-	m.updateAccountsState()
+	_ = m.updateAccountsState()
 	return nil
 }
 
 func (m *Manager) SetRealName(name string) error {
-	if !m.state.Accounts.Available {
+	if !m.state.Accounts.Available || m.accountsObj == nil {
 		return fmt.Errorf("accounts service not available")
 	}
 
-	err := m.accountsObj.Call("org.freedesktop.Accounts.User.SetRealName", 0, name).Err
+	err := m.accountsObj.Call(dbusAccountsUserInterface+".SetRealName", 0, name).Err
 	if err != nil {
 		return fmt.Errorf("failed to set real name: %w", err)
 	}
 
-	m.updateAccountsState()
+	_ = m.updateAccountsState()
 	return nil
 }
 
 func (m *Manager) SetEmail(email string) error {
-	if !m.state.Accounts.Available {
+	if !m.state.Accounts.Available || m.accountsObj == nil {
 		return fmt.Errorf("accounts service not available")
 	}
 
-	err := m.accountsObj.Call("org.freedesktop.Accounts.User.SetEmail", 0, email).Err
+	err := m.accountsObj.Call(dbusAccountsUserInterface+".SetEmail", 0, email).Err
 	if err != nil {
 		return fmt.Errorf("failed to set email: %w", err)
 	}
 
-	m.updateAccountsState()
+	_ = m.updateAccountsState()
 	return nil
 }
 
 func (m *Manager) SetLanguage(language string) error {
-	if !m.state.Accounts.Available {
+	if !m.state.Accounts.Available || m.accountsObj == nil {
 		return fmt.Errorf("accounts service not available")
 	}
 
-	err := m.accountsObj.Call("org.freedesktop.Accounts.User.SetLanguage", 0, language).Err
+	err := m.accountsObj.Call(dbusAccountsUserInterface+".SetLanguage", 0, language).Err
 	if err != nil {
 		return fmt.Errorf("failed to set language: %w", err)
 	}
 
-	m.updateAccountsState()
+	_ = m.updateAccountsState()
 	return nil
 }
 
 func (m *Manager) SetLocation(location string) error {
-	if !m.state.Accounts.Available {
+	if !m.state.Accounts.Available || m.accountsObj == nil {
 		return fmt.Errorf("accounts service not available")
 	}
 
-	err := m.accountsObj.Call("org.freedesktop.Accounts.User.SetLocation", 0, location).Err
+	err := m.accountsObj.Call(dbusAccountsUserInterface+".SetLocation", 0, location).Err
 	if err != nil {
 		return fmt.Errorf("failed to set location: %w", err)
 	}
 
-	m.updateAccountsState()
+	_ = m.updateAccountsState()
 	return nil
 }
 
 func (m *Manager) GetUserIconFile(username string) (string, error) {
-	if !m.state.Accounts.Available {
+	if m.systemConn == nil {
 		return "", fmt.Errorf("accounts service not available")
 	}
 
-	accountsManager := m.systemConn.Object("org.freedesktop.Accounts", "/org/freedesktop/Accounts")
+	accountsManager := m.systemConn.Object(dbusAccountsDest, dbus.ObjectPath(dbusAccountsPath))
 
 	var userPath dbus.ObjectPath
-	err := accountsManager.Call("org.freedesktop.Accounts.FindUserByName", 0, username).Store(&userPath)
+	err := accountsManager.Call(dbusAccountsInterface+".FindUserByName", 0, username).Store(&userPath)
 	if err != nil {
 		return "", fmt.Errorf("user not found: %w", err)
 	}
 
-	userObj := m.systemConn.Object("org.freedesktop.Accounts", userPath)
-	variant, err := userObj.GetProperty("org.freedesktop.Accounts.User.IconFile")
+	userObj := m.systemConn.Object(dbusAccountsDest, userPath)
+	variant, err := userObj.GetProperty(dbusAccountsUserInterface + ".IconFile")
 	if err != nil {
 		return "", err
 	}

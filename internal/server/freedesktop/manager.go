@@ -1,6 +1,7 @@
 package freedesktop
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"sync"
@@ -37,10 +38,10 @@ func NewManager() (*Manager, error) {
 }
 
 func (m *Manager) initializeAccounts() error {
-	accountsManager := m.systemConn.Object("org.freedesktop.Accounts", "/org/freedesktop/Accounts")
+	accountsManager := m.systemConn.Object(dbusAccountsDest, dbus.ObjectPath(dbusAccountsPath))
 
 	var userPath dbus.ObjectPath
-	err := accountsManager.Call("org.freedesktop.Accounts.FindUserById", 0, int64(m.currentUID)).Store(&userPath)
+	err := accountsManager.Call(dbusAccountsInterface+".FindUserById", 0, int64(m.currentUID)).Store(&userPath)
 	if err != nil {
 		m.stateMutex.Lock()
 		m.state.Accounts.Available = false
@@ -48,7 +49,7 @@ func (m *Manager) initializeAccounts() error {
 		return err
 	}
 
-	m.accountsObj = m.systemConn.Object("org.freedesktop.Accounts", userPath)
+	m.accountsObj = m.systemConn.Object(dbusAccountsDest, userPath)
 
 	m.stateMutex.Lock()
 	m.state.Accounts.Available = true
@@ -56,7 +57,9 @@ func (m *Manager) initializeAccounts() error {
 	m.state.Accounts.UID = m.currentUID
 	m.stateMutex.Unlock()
 
-	m.updateAccountsState()
+	if err := m.updateAccountsState(); err != nil {
+		return fmt.Errorf("failed to update accounts state: %w", err)
+	}
 
 	return nil
 }
@@ -69,10 +72,10 @@ func (m *Manager) initializeSettings() error {
 		return fmt.Errorf("no session bus connection")
 	}
 
-	m.settingsObj = m.sessionConn.Object("org.freedesktop.portal.Desktop", "/org/freedesktop/portal/desktop")
+	m.settingsObj = m.sessionConn.Object(dbusPortalDest, dbus.ObjectPath(dbusPortalPath))
 
 	var variant dbus.Variant
-	err := m.settingsObj.Call("org.freedesktop.portal.Settings.ReadOne", 0, "org.freedesktop.appearance", "color-scheme").Store(&variant)
+	err := m.settingsObj.Call(dbusPortalSettingsInterface+".ReadOne", 0, "org.freedesktop.appearance", "color-scheme").Store(&variant)
 	if err != nil {
 		m.stateMutex.Lock()
 		m.state.Settings.Available = false
@@ -84,41 +87,93 @@ func (m *Manager) initializeSettings() error {
 	m.state.Settings.Available = true
 	m.stateMutex.Unlock()
 
-	m.updateSettingsState()
+	if err := m.updateSettingsState(); err != nil {
+		return fmt.Errorf("failed to update settings state: %w", err)
+	}
 
 	return nil
 }
 
 func (m *Manager) updateAccountsState() error {
-	if !m.state.Accounts.Available {
+	if !m.state.Accounts.Available || m.accountsObj == nil {
 		return fmt.Errorf("accounts service not available")
+	}
+
+	ctx := context.Background()
+	props, err := m.getAccountProperties(ctx)
+	if err != nil {
+		return err
 	}
 
 	m.stateMutex.Lock()
 	defer m.stateMutex.Unlock()
 
-	m.getAccountProperty("IconFile", &m.state.Accounts.IconFile)
-	m.getAccountProperty("RealName", &m.state.Accounts.RealName)
-	m.getAccountProperty("UserName", &m.state.Accounts.UserName)
-	m.getAccountProperty("AccountType", &m.state.Accounts.AccountType)
-	m.getAccountProperty("HomeDirectory", &m.state.Accounts.HomeDirectory)
-	m.getAccountProperty("Shell", &m.state.Accounts.Shell)
-	m.getAccountProperty("Email", &m.state.Accounts.Email)
-	m.getAccountProperty("Language", &m.state.Accounts.Language)
-	m.getAccountProperty("Location", &m.state.Accounts.Location)
-	m.getAccountProperty("Locked", &m.state.Accounts.Locked)
-	m.getAccountProperty("PasswordMode", &m.state.Accounts.PasswordMode)
+	if v, ok := props["IconFile"]; ok {
+		if val, ok := v.Value().(string); ok {
+			m.state.Accounts.IconFile = val
+		}
+	}
+	if v, ok := props["RealName"]; ok {
+		if val, ok := v.Value().(string); ok {
+			m.state.Accounts.RealName = val
+		}
+	}
+	if v, ok := props["UserName"]; ok {
+		if val, ok := v.Value().(string); ok {
+			m.state.Accounts.UserName = val
+		}
+	}
+	if v, ok := props["AccountType"]; ok {
+		if val, ok := v.Value().(int32); ok {
+			m.state.Accounts.AccountType = val
+		}
+	}
+	if v, ok := props["HomeDirectory"]; ok {
+		if val, ok := v.Value().(string); ok {
+			m.state.Accounts.HomeDirectory = val
+		}
+	}
+	if v, ok := props["Shell"]; ok {
+		if val, ok := v.Value().(string); ok {
+			m.state.Accounts.Shell = val
+		}
+	}
+	if v, ok := props["Email"]; ok {
+		if val, ok := v.Value().(string); ok {
+			m.state.Accounts.Email = val
+		}
+	}
+	if v, ok := props["Language"]; ok {
+		if val, ok := v.Value().(string); ok {
+			m.state.Accounts.Language = val
+		}
+	}
+	if v, ok := props["Location"]; ok {
+		if val, ok := v.Value().(string); ok {
+			m.state.Accounts.Location = val
+		}
+	}
+	if v, ok := props["Locked"]; ok {
+		if val, ok := v.Value().(bool); ok {
+			m.state.Accounts.Locked = val
+		}
+	}
+	if v, ok := props["PasswordMode"]; ok {
+		if val, ok := v.Value().(int32); ok {
+			m.state.Accounts.PasswordMode = val
+		}
+	}
 
 	return nil
 }
 
 func (m *Manager) updateSettingsState() error {
-	if !m.state.Settings.Available {
+	if !m.state.Settings.Available || m.settingsObj == nil {
 		return fmt.Errorf("settings portal not available")
 	}
 
 	var variant dbus.Variant
-	err := m.settingsObj.Call("org.freedesktop.portal.Settings.ReadOne", 0, "org.freedesktop.appearance", "color-scheme").Store(&variant)
+	err := m.settingsObj.Call(dbusPortalSettingsInterface+".ReadOne", 0, "org.freedesktop.appearance", "color-scheme").Store(&variant)
 	if err != nil {
 		return err
 	}
@@ -132,12 +187,22 @@ func (m *Manager) updateSettingsState() error {
 	return nil
 }
 
-func (m *Manager) getAccountProperty(prop string, dest interface{}) error {
-	variant, err := m.accountsObj.GetProperty("org.freedesktop.Accounts.User." + prop)
+func (m *Manager) getAccountProperties(ctx context.Context) (map[string]dbus.Variant, error) {
+	var props map[string]dbus.Variant
+	err := m.accountsObj.CallWithContext(ctx, dbusPropsInterface+".GetAll", 0, dbusAccountsUserInterface).Store(&props)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return variant.Store(dest)
+	return props, nil
+}
+
+func (m *Manager) getAccountProperty(ctx context.Context, property string) (*dbus.Variant, error) {
+	var prop dbus.Variant
+	err := m.accountsObj.CallWithContext(ctx, dbusPropsInterface+".Get", 0, dbusAccountsUserInterface, property).Store(&prop)
+	if err != nil {
+		return nil, err
+	}
+	return &prop, nil
 }
 
 func (m *Manager) GetState() FreedeskState {

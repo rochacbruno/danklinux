@@ -21,7 +21,7 @@ scrollback-limit = 3023
 
 # Terminal features
 mouse-hide-while-typing = true
-copy-on-select = true
+copy-on-select = false
 confirm-close-surface = false
 
 # Disable annoying copied to clipboard

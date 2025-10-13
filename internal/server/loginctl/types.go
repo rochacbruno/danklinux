@@ -53,8 +53,9 @@ type Manager struct {
 	subMutex          sync.RWMutex
 	stopChan          chan struct{}
 	conn              *dbus.Conn
-	sessionObj        dbus.BusObject
+	sessionPath       dbus.ObjectPath
 	managerObj        dbus.BusObject
+	sessionObj        dbus.BusObject
 	dirty             chan struct{}
 	notifierWg        sync.WaitGroup
 	lastNotifiedState *SessionState

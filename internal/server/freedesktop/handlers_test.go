@@ -11,6 +11,7 @@ import (
 	mockdbus "github.com/AvengeMedia/danklinux/internal/mocks/github.com/godbus/dbus/v5"
 	"github.com/godbus/dbus/v5"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -51,6 +52,23 @@ func (m *mockNetConn) getResponse() (*models.Response[json.RawMessage], error) {
 	var resp models.Response[json.RawMessage]
 	err := json.NewDecoder(m.writeBuf).Decode(&resp)
 	return &resp, err
+}
+
+func mockGetAllAccountsProperties() *dbus.Call {
+	props := map[string]dbus.Variant{
+		"IconFile":      dbus.MakeVariant("/path/to/icon.png"),
+		"RealName":      dbus.MakeVariant("Test"),
+		"UserName":      dbus.MakeVariant("test"),
+		"AccountType":   dbus.MakeVariant(int32(0)),
+		"HomeDirectory": dbus.MakeVariant("/home/test"),
+		"Shell":         dbus.MakeVariant("/bin/bash"),
+		"Email":         dbus.MakeVariant(""),
+		"Language":      dbus.MakeVariant(""),
+		"Location":      dbus.MakeVariant(""),
+		"Locked":        dbus.MakeVariant(false),
+		"PasswordMode":  dbus.MakeVariant(int32(1)),
+	}
+	return &dbus.Call{Err: nil, Body: []interface{}{props}}
 }
 
 func TestRespondError_Freedesktop(t *testing.T) {
@@ -145,18 +163,7 @@ func TestHandleSetIconFile(t *testing.T) {
 		mockAccountsObj := mockdbus.NewMockBusObject(t)
 		mockCall := &dbus.Call{Err: nil}
 		mockAccountsObj.EXPECT().Call("org.freedesktop.Accounts.User.SetIconFile", dbus.Flags(0), "/path/to/icon.png").Return(mockCall)
-		// updateAccountsState() calls getAccountProperty for all properties
-		mockAccountsObj.EXPECT().GetProperty("org.freedesktop.Accounts.User.IconFile").Return(dbus.MakeVariant("/path/to/icon.png"), nil)
-		mockAccountsObj.EXPECT().GetProperty("org.freedesktop.Accounts.User.RealName").Return(dbus.MakeVariant("Test"), nil)
-		mockAccountsObj.EXPECT().GetProperty("org.freedesktop.Accounts.User.UserName").Return(dbus.MakeVariant("test"), nil)
-		mockAccountsObj.EXPECT().GetProperty("org.freedesktop.Accounts.User.AccountType").Return(dbus.MakeVariant(int32(0)), nil)
-		mockAccountsObj.EXPECT().GetProperty("org.freedesktop.Accounts.User.HomeDirectory").Return(dbus.MakeVariant("/home/test"), nil)
-		mockAccountsObj.EXPECT().GetProperty("org.freedesktop.Accounts.User.Shell").Return(dbus.MakeVariant("/bin/bash"), nil)
-		mockAccountsObj.EXPECT().GetProperty("org.freedesktop.Accounts.User.Email").Return(dbus.MakeVariant(""), nil)
-		mockAccountsObj.EXPECT().GetProperty("org.freedesktop.Accounts.User.Language").Return(dbus.MakeVariant(""), nil)
-		mockAccountsObj.EXPECT().GetProperty("org.freedesktop.Accounts.User.Location").Return(dbus.MakeVariant(""), nil)
-		mockAccountsObj.EXPECT().GetProperty("org.freedesktop.Accounts.User.Locked").Return(dbus.MakeVariant(false), nil)
-		mockAccountsObj.EXPECT().GetProperty("org.freedesktop.Accounts.User.PasswordMode").Return(dbus.MakeVariant(int32(1)), nil)
+		mockAccountsObj.EXPECT().CallWithContext(mock.Anything, "org.freedesktop.DBus.Properties.GetAll", dbus.Flags(0), "org.freedesktop.Accounts.User").Return(mockGetAllAccountsProperties())
 
 		manager := &Manager{
 			state: &FreedeskState{
@@ -248,17 +255,7 @@ func TestHandleSetRealName(t *testing.T) {
 		mockAccountsObj := mockdbus.NewMockBusObject(t)
 		mockCall := &dbus.Call{Err: nil}
 		mockAccountsObj.EXPECT().Call("org.freedesktop.Accounts.User.SetRealName", dbus.Flags(0), "New Name").Return(mockCall)
-		mockAccountsObj.EXPECT().GetProperty("org.freedesktop.Accounts.User.IconFile").Return(dbus.MakeVariant(""), nil)
-		mockAccountsObj.EXPECT().GetProperty("org.freedesktop.Accounts.User.RealName").Return(dbus.MakeVariant("New Name"), nil)
-		mockAccountsObj.EXPECT().GetProperty("org.freedesktop.Accounts.User.UserName").Return(dbus.MakeVariant("test"), nil)
-		mockAccountsObj.EXPECT().GetProperty("org.freedesktop.Accounts.User.AccountType").Return(dbus.MakeVariant(int32(0)), nil)
-		mockAccountsObj.EXPECT().GetProperty("org.freedesktop.Accounts.User.HomeDirectory").Return(dbus.MakeVariant("/home/test"), nil)
-		mockAccountsObj.EXPECT().GetProperty("org.freedesktop.Accounts.User.Shell").Return(dbus.MakeVariant("/bin/bash"), nil)
-		mockAccountsObj.EXPECT().GetProperty("org.freedesktop.Accounts.User.Email").Return(dbus.MakeVariant(""), nil)
-		mockAccountsObj.EXPECT().GetProperty("org.freedesktop.Accounts.User.Language").Return(dbus.MakeVariant(""), nil)
-		mockAccountsObj.EXPECT().GetProperty("org.freedesktop.Accounts.User.Location").Return(dbus.MakeVariant(""), nil)
-		mockAccountsObj.EXPECT().GetProperty("org.freedesktop.Accounts.User.Locked").Return(dbus.MakeVariant(false), nil)
-		mockAccountsObj.EXPECT().GetProperty("org.freedesktop.Accounts.User.PasswordMode").Return(dbus.MakeVariant(int32(1)), nil)
+		mockAccountsObj.EXPECT().CallWithContext(mock.Anything, "org.freedesktop.DBus.Properties.GetAll", dbus.Flags(0), "org.freedesktop.Accounts.User").Return(mockGetAllAccountsProperties())
 
 		manager := &Manager{
 			state: &FreedeskState{
@@ -321,17 +318,7 @@ func TestHandleSetEmail(t *testing.T) {
 		mockAccountsObj := mockdbus.NewMockBusObject(t)
 		mockCall := &dbus.Call{Err: nil}
 		mockAccountsObj.EXPECT().Call("org.freedesktop.Accounts.User.SetEmail", dbus.Flags(0), "test@example.com").Return(mockCall)
-		mockAccountsObj.EXPECT().GetProperty("org.freedesktop.Accounts.User.IconFile").Return(dbus.MakeVariant(""), nil)
-		mockAccountsObj.EXPECT().GetProperty("org.freedesktop.Accounts.User.RealName").Return(dbus.MakeVariant(""), nil)
-		mockAccountsObj.EXPECT().GetProperty("org.freedesktop.Accounts.User.UserName").Return(dbus.MakeVariant("test"), nil)
-		mockAccountsObj.EXPECT().GetProperty("org.freedesktop.Accounts.User.AccountType").Return(dbus.MakeVariant(int32(0)), nil)
-		mockAccountsObj.EXPECT().GetProperty("org.freedesktop.Accounts.User.HomeDirectory").Return(dbus.MakeVariant("/home/test"), nil)
-		mockAccountsObj.EXPECT().GetProperty("org.freedesktop.Accounts.User.Shell").Return(dbus.MakeVariant("/bin/bash"), nil)
-		mockAccountsObj.EXPECT().GetProperty("org.freedesktop.Accounts.User.Email").Return(dbus.MakeVariant("test@example.com"), nil)
-		mockAccountsObj.EXPECT().GetProperty("org.freedesktop.Accounts.User.Language").Return(dbus.MakeVariant(""), nil)
-		mockAccountsObj.EXPECT().GetProperty("org.freedesktop.Accounts.User.Location").Return(dbus.MakeVariant(""), nil)
-		mockAccountsObj.EXPECT().GetProperty("org.freedesktop.Accounts.User.Locked").Return(dbus.MakeVariant(false), nil)
-		mockAccountsObj.EXPECT().GetProperty("org.freedesktop.Accounts.User.PasswordMode").Return(dbus.MakeVariant(int32(1)), nil)
+		mockAccountsObj.EXPECT().CallWithContext(mock.Anything, "org.freedesktop.DBus.Properties.GetAll", dbus.Flags(0), "org.freedesktop.Accounts.User").Return(mockGetAllAccountsProperties())
 
 		manager := &Manager{
 			state: &FreedeskState{
