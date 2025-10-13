@@ -37,6 +37,10 @@ func HandleRequest(conn net.Conn, req Request, manager *Manager) {
 		handleGetUserIconFile(conn, req, manager)
 	case "freedesktop.settings.getColorScheme":
 		handleGetColorScheme(conn, req, manager)
+	case "freedesktop.settings.setColorScheme":
+		handleSetColorScheme(conn, req, manager)
+	case "freedesktop.settings.setIconTheme":
+		handleSetIconTheme(conn, req, manager)
 	default:
 		models.RespondError(conn, req.ID, fmt.Sprintf("unknown method: %s", req.Method))
 	}
@@ -146,4 +150,34 @@ func handleGetColorScheme(conn net.Conn, req Request, manager *Manager) {
 
 	state := manager.GetState()
 	models.Respond(conn, req.ID, map[string]uint32{"colorScheme": state.Settings.ColorScheme})
+}
+
+func handleSetColorScheme(conn net.Conn, req Request, manager *Manager) {
+	preferDark, ok := req.Params["preferDark"].(bool)
+	if !ok {
+		models.RespondError(conn, req.ID, "missing or invalid 'preferDark' parameter")
+		return
+	}
+
+	if err := manager.SetColorScheme(preferDark); err != nil {
+		models.RespondError(conn, req.ID, err.Error())
+		return
+	}
+
+	models.Respond(conn, req.ID, SuccessResult{Success: true, Message: "color scheme set"})
+}
+
+func handleSetIconTheme(conn net.Conn, req Request, manager *Manager) {
+	iconTheme, ok := req.Params["iconTheme"].(string)
+	if !ok {
+		models.RespondError(conn, req.ID, "missing or invalid 'iconTheme' parameter")
+		return
+	}
+
+	if err := manager.SetIconTheme(iconTheme); err != nil {
+		models.RespondError(conn, req.ID, err.Error())
+		return
+	}
+
+	models.Respond(conn, req.ID, SuccessResult{Success: true, Message: "icon theme set"})
 }

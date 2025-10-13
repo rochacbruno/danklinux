@@ -19,7 +19,7 @@ import (
 	"github.com/AvengeMedia/danklinux/internal/server/network"
 )
 
-const APIVersion = 2
+const APIVersion = 3
 
 type Capabilities struct {
 	Capabilities []string `json:"capabilities"`
@@ -417,6 +417,7 @@ func Start(printDocs bool) error {
 		log.Info(" freedesktop.accounts.getUserIconFile  - Get user icon (params: username)")
 		log.Info(" freedesktop.settings.setColorScheme   - Set color scheme (params: preferDark)")
 		log.Info(" freedesktop.settings.getColorScheme   - Get color scheme")
+		log.Info(" freedesktop.settings.setIconTheme     - Set icon theme (params: iconTheme)")
 	}
 
 	for {
