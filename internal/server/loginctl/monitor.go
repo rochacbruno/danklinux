@@ -1,8 +1,6 @@
 package loginctl
 
 import (
-	"time"
-
 	"github.com/godbus/dbus/v5"
 )
 
@@ -39,7 +37,6 @@ func (m *Manager) handleDBusSignal(sig *dbus.Signal) {
 			go func() {
 				select {
 				case <-readyCh:
-				case <-time.After(2 * time.Second):
 				}
 				m.releaseSleepInhibitor()
 			}()
