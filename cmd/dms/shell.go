@@ -30,7 +30,11 @@ func runShellInteractive() {
 		}
 	}()
 
-	cmd := exec.CommandContext(ctx, "qs", "-c", "dms")
+	qsArgs := []string{"qs", "-c", "dms"}
+	if os.Getenv("DMS_VERBOSE_LOGS") == "1" {
+		qsArgs = append(qsArgs, "-vv")
+	}
+	cmd := exec.CommandContext(ctx, qsArgs[0], qsArgs[1:]...)
 	cmd.Env = append(os.Environ(), "DMS_SOCKET="+socketPath)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
