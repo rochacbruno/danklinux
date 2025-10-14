@@ -3,9 +3,7 @@ package distros
 import (
 	"context"
 	"fmt"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 
 	"github.com/AvengeMedia/danklinux/internal/deps"
@@ -460,40 +458,6 @@ func (d *DebianDistribution) installRust(ctx context.Context, sudoPassword strin
 	}
 
 	return nil
-}
-
-func (d *DebianDistribution) installZig(ctx context.Context, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
-	if d.commandExists("zig") {
-		return nil
-	}
-
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("failed to get user home directory: %w", err)
-	}
-
-	cacheDir := filepath.Join(homeDir, ".cache", "dankinstall")
-	if err := os.MkdirAll(cacheDir, 0755); err != nil {
-		return fmt.Errorf("failed to create cache directory: %w", err)
-	}
-
-	zigUrl := "https://ziglang.org/download/0.11.0/zig-linux-x86_64-0.11.0.tar.xz"
-	zigTmp := filepath.Join(cacheDir, "zig.tar.xz")
-
-	downloadCmd := exec.CommandContext(ctx, "curl", "-L", zigUrl, "-o", zigTmp)
-	if err := d.runWithProgress(downloadCmd, progressChan, PhaseSystemPackages, 0.84, 0.85); err != nil {
-		return fmt.Errorf("failed to download Zig: %w", err)
-	}
-
-	extractCmd := exec.CommandContext(ctx, "bash", "-c",
-		fmt.Sprintf("echo '%s' | sudo -S tar -xf %s -C /opt/", sudoPassword, zigTmp))
-	if err := d.runWithProgress(extractCmd, progressChan, PhaseSystemPackages, 0.85, 0.86); err != nil {
-		return fmt.Errorf("failed to extract Zig: %w", err)
-	}
-
-	linkCmd := exec.CommandContext(ctx, "bash", "-c",
-		fmt.Sprintf("echo '%s' | sudo -S ln -sf /opt/zig-linux-x86_64-0.11.0/zig /usr/local/bin/zig", sudoPassword))
-	return d.runWithProgress(linkCmd, progressChan, PhaseSystemPackages, 0.86, 0.87)
 }
 
 func (d *DebianDistribution) installGo(ctx context.Context, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
