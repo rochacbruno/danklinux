@@ -15,7 +15,7 @@ import (
 	"github.com/AvengeMedia/danklinux/internal/deps"
 )
 
-const forceQuickshellGit = true
+const forceQuickshellGit = false
 const forceDMSGit = false
 
 // BaseDistribution provides common functionality for all distributions
