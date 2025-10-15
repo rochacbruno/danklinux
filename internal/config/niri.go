@@ -224,7 +224,7 @@ window-rule {
 binds {
     // === System & Overview ===
     Mod+D { spawn "niri" "msg" "action" "toggle-overview"; }
-    Mod+O repeat=false { toggle-overview; }
+    Mod+Tab repeat=false { toggle-overview; }
     Mod+Shift+Slash { show-hotkey-overlay; }
     
     // === Application Launchers ===
