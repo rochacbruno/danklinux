@@ -15,16 +15,18 @@ func (m *Manager) handleDBusSignal(sig *dbus.Signal) {
 		m.stateMutex.Unlock()
 		m.notifySubscribers()
 
-		// Start a 1-second timer to release the inhibitor
+		// Start a 1-second timer to release the inhibitor (only if enabled)
 		// This allows lockerReady to be called, or releases it automatically for custom lock screens
-		m.lockTimerMu.Lock()
-		if m.lockTimer != nil {
-			m.lockTimer.Stop()
+		if m.sleepInhibitorEnabled.Load() {
+			m.lockTimerMu.Lock()
+			if m.lockTimer != nil {
+				m.lockTimer.Stop()
+			}
+			m.lockTimer = time.AfterFunc(1*time.Second, func() {
+				m.releaseSleepInhibitor()
+			})
+			m.lockTimerMu.Unlock()
 		}
-		m.lockTimer = time.AfterFunc(1*time.Second, func() {
-			m.releaseSleepInhibitor()
-		})
-		m.lockTimerMu.Unlock()
 
 	case dbusSessionInterface + ".Unlock":
 		m.stateMutex.Lock()
@@ -41,7 +43,7 @@ func (m *Manager) handleDBusSignal(sig *dbus.Signal) {
 		}
 		m.lockTimerMu.Unlock()
 
-		// Re-acquire the sleep inhibitor
+		// Re-acquire the sleep inhibitor (acquireSleepInhibitor checks the enabled flag)
 		_ = m.acquireSleepInhibitor()
 
 	case dbusManagerInterface + ".PrepareForSleep":

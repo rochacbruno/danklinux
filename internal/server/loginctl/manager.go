@@ -33,6 +33,7 @@ func NewManager() (*Manager, error) {
 		dirty:       make(chan struct{}, 1),
 		signals:     make(chan *dbus.Signal, 256),
 	}
+	m.sleepInhibitorEnabled.Store(true)
 
 	if err := m.initialize(); err != nil {
 		conn.Close()
@@ -198,6 +199,10 @@ func (m *Manager) getSessionProperty(ctx context.Context, property string) (*dbu
 }
 
 func (m *Manager) acquireSleepInhibitor() error {
+	if !m.sleepInhibitorEnabled.Load() {
+		return nil
+	}
+
 	m.inhibitMu.Lock()
 	defer m.inhibitMu.Unlock()
 

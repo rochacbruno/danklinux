@@ -50,3 +50,14 @@ func (m *Manager) Terminate() error {
 func (m *Manager) SetLockBeforeSuspend(enabled bool) {
 	m.lockBeforeSuspend.Store(enabled)
 }
+
+func (m *Manager) SetSleepInhibitorEnabled(enabled bool) {
+	m.sleepInhibitorEnabled.Store(enabled)
+	if enabled {
+		// Re-acquire inhibitor if enabled
+		_ = m.acquireSleepInhibitor()
+	} else {
+		// Release inhibitor if disabled
+		m.releaseSleepInhibitor()
+	}
+}

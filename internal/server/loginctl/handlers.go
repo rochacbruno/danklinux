@@ -33,6 +33,8 @@ func HandleRequest(conn net.Conn, req Request, manager *Manager) {
 		handleSetIdleHint(conn, req, manager)
 	case "loginctl.setLockBeforeSuspend":
 		handleSetLockBeforeSuspend(conn, req, manager)
+	case "loginctl.setSleepInhibitorEnabled":
+		handleSetSleepInhibitorEnabled(conn, req, manager)
 	case "loginctl.lockerReady":
 		handleLockerReady(conn, req, manager)
 	case "loginctl.terminate":
@@ -96,6 +98,17 @@ func handleSetLockBeforeSuspend(conn net.Conn, req Request, manager *Manager) {
 
 	manager.SetLockBeforeSuspend(enabled)
 	models.Respond(conn, req.ID, SuccessResult{Success: true, Message: "lock before suspend set"})
+}
+
+func handleSetSleepInhibitorEnabled(conn net.Conn, req Request, manager *Manager) {
+	enabled, ok := req.Params["enabled"].(bool)
+	if !ok {
+		models.RespondError(conn, req.ID, "missing or invalid 'enabled' parameter")
+		return
+	}
+
+	manager.SetSleepInhibitorEnabled(enabled)
+	models.Respond(conn, req.ID, SuccessResult{Success: true, Message: "sleep inhibitor setting updated"})
 }
 
 func handleLockerReady(conn net.Conn, req Request, manager *Manager) {

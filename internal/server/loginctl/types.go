@@ -48,26 +48,27 @@ type SessionEvent struct {
 }
 
 type Manager struct {
-	state             *SessionState
-	stateMutex        sync.RWMutex
-	subscribers       map[string]chan SessionState
-	subMutex          sync.RWMutex
-	stopChan          chan struct{}
-	conn              *dbus.Conn
-	sessionPath       dbus.ObjectPath
-	managerObj        dbus.BusObject
-	sessionObj        dbus.BusObject
-	dirty             chan struct{}
-	notifierWg        sync.WaitGroup
-	lastNotifiedState *SessionState
-	signals           chan *dbus.Signal
-	sigWG             sync.WaitGroup
-	inhibitMu         sync.Mutex
-	inhibitFile       *os.File
-	lockBeforeSuspend atomic.Bool
-	inSleepCycle      atomic.Bool
-	lockerReadyChMu   sync.Mutex
-	lockerReadyCh     chan struct{}
-	lockTimerMu       sync.Mutex
-	lockTimer         *time.Timer
+	state                 *SessionState
+	stateMutex            sync.RWMutex
+	subscribers           map[string]chan SessionState
+	subMutex              sync.RWMutex
+	stopChan              chan struct{}
+	conn                  *dbus.Conn
+	sessionPath           dbus.ObjectPath
+	managerObj            dbus.BusObject
+	sessionObj            dbus.BusObject
+	dirty                 chan struct{}
+	notifierWg            sync.WaitGroup
+	lastNotifiedState     *SessionState
+	signals               chan *dbus.Signal
+	sigWG                 sync.WaitGroup
+	inhibitMu             sync.Mutex
+	inhibitFile           *os.File
+	lockBeforeSuspend     atomic.Bool
+	inSleepCycle          atomic.Bool
+	lockerReadyChMu       sync.Mutex
+	lockerReadyCh         chan struct{}
+	lockTimerMu           sync.Mutex
+	lockTimer             *time.Timer
+	sleepInhibitorEnabled atomic.Bool
 }
