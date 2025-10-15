@@ -4,6 +4,7 @@ import (
 	"os"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/godbus/dbus/v5"
 )
@@ -67,4 +68,6 @@ type Manager struct {
 	inSleepCycle      atomic.Bool
 	lockerReadyChMu   sync.Mutex
 	lockerReadyCh     chan struct{}
+	lockTimerMu       sync.Mutex
+	lockTimer         *time.Timer
 }

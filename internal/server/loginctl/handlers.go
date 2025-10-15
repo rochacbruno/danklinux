@@ -99,6 +99,17 @@ func handleSetLockBeforeSuspend(conn net.Conn, req Request, manager *Manager) {
 }
 
 func handleLockerReady(conn net.Conn, req Request, manager *Manager) {
+	// Cancel the lock timer and release the inhibitor immediately
+	manager.lockTimerMu.Lock()
+	if manager.lockTimer != nil {
+		manager.lockTimer.Stop()
+		manager.lockTimer = nil
+	}
+	manager.lockTimerMu.Unlock()
+
+	manager.releaseSleepInhibitor()
+
+	// Also signal the sleep cycle if we're in one
 	if manager.inSleepCycle.Load() {
 		manager.signalLockerReady()
 	}

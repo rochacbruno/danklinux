@@ -1,6 +1,8 @@
 package loginctl
 
 import (
+	"time"
+
 	"github.com/godbus/dbus/v5"
 )
 
@@ -13,12 +15,34 @@ func (m *Manager) handleDBusSignal(sig *dbus.Signal) {
 		m.stateMutex.Unlock()
 		m.notifySubscribers()
 
+		// Start a 1-second timer to release the inhibitor
+		// This allows lockerReady to be called, or releases it automatically for custom lock screens
+		m.lockTimerMu.Lock()
+		if m.lockTimer != nil {
+			m.lockTimer.Stop()
+		}
+		m.lockTimer = time.AfterFunc(1*time.Second, func() {
+			m.releaseSleepInhibitor()
+		})
+		m.lockTimerMu.Unlock()
+
 	case dbusSessionInterface + ".Unlock":
 		m.stateMutex.Lock()
 		m.state.Locked = false
 		m.state.LockedHint = false
 		m.stateMutex.Unlock()
 		m.notifySubscribers()
+
+		// Cancel the lock timer if it's still running
+		m.lockTimerMu.Lock()
+		if m.lockTimer != nil {
+			m.lockTimer.Stop()
+			m.lockTimer = nil
+		}
+		m.lockTimerMu.Unlock()
+
+		// Re-acquire the sleep inhibitor
+		_ = m.acquireSleepInhibitor()
 
 	case dbusManagerInterface + ".PrepareForSleep":
 		if len(sig.Body) == 0 {
