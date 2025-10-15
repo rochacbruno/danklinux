@@ -89,6 +89,23 @@ func handleConnectWiFi(conn net.Conn, req Request, manager *Manager) {
 		connReq.Username = username
 	}
 
+	// Enterprise WiFi parameters
+	if realmOrDomain, ok := req.Params["realmOrDomain"].(string); ok {
+		connReq.RealmOrDomain = realmOrDomain
+	}
+	if useAtRealm, ok := req.Params["useAtRealm"].(bool); ok {
+		connReq.UseAtRealm = useAtRealm
+	}
+	if anonymousIdentity, ok := req.Params["anonymousIdentity"].(string); ok {
+		connReq.AnonymousIdentity = anonymousIdentity
+	}
+	if domainSuffixMatch, ok := req.Params["domainSuffixMatch"].(string); ok {
+		connReq.DomainSuffixMatch = domainSuffixMatch
+	}
+	if caCertPath, ok := req.Params["caCertPath"].(string); ok {
+		connReq.CACertPath = caCertPath
+	}
+
 	if err := manager.ConnectWiFi(connReq); err != nil {
 		models.RespondError(conn, req.ID, err.Error())
 		return
