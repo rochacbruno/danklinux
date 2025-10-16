@@ -69,7 +69,7 @@ jobs:
         run: |
           set -eux
           cd cmd/dms
-          go build -trimpath -tags distro_release -ldflags "-s -w -X main.Version=${GITHUB_REF#refs/tags/}" \
+          go build -trimpath -tags distro_binary -ldflags "-s -w -X main.Version=${GITHUB_REF#refs/tags/}" \
             -o ../../dms-distropkg-${{ matrix.arch }}
           cd ../..
           gzip -9 -k dms-distropkg-${{ matrix.arch }}
