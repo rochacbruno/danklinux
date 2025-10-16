@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"log"
-	"strings"
 
 	"github.com/Wifx/gonetworkmanager/v2"
 )
@@ -169,14 +168,12 @@ func (m *Manager) createAndConnectWiFi(req ConnectionRequest) error {
 				"key-mgmt": "wpa-eap",
 			}
 
-			id := buildIdentity(req.Username, req.RealmOrDomain, req.UseAtRealm)
-
 			x := map[string]interface{}{
 				"eap":             []string{"peap"},
-				"phase2-autheap":  "mschapv2",
-				"identity":        id,
+				"phase2-auth":     "mschapv2",
+				"identity":        req.Username,
 				"password":        req.Password,
-				"system-ca-certs": true,
+				"system-ca-certs": "no",
 			}
 
 			if req.AnonymousIdentity != "" {
@@ -185,15 +182,11 @@ func (m *Manager) createAndConnectWiFi(req ConnectionRequest) error {
 			if req.DomainSuffixMatch != "" {
 				x["domain-suffix-match"] = req.DomainSuffixMatch
 			}
-			if req.CACertPath != "" {
-				x["ca-cert"] = "file://" + req.CACertPath
-				x["system-ca-certs"] = false
-			}
 
 			settings["802-1x"] = x
 
-			log.Printf("[createAndConnectWiFi] WPA-EAP settings: eap=peap, phase2-autheap=mschapv2, identity=%s, system-ca-certs=%v, domain-suffix-match=%q",
-				id, x["system-ca-certs"], req.DomainSuffixMatch)
+			log.Printf("[createAndConnectWiFi] WPA-EAP settings: eap=peap, phase2-auth=mschapv2, identity=%s, system-ca-certs=%v, domain-suffix-match=%q",
+				req.Username, x["system-ca-certs"], req.DomainSuffixMatch)
 		case isSae:
 			log.Printf("[createAndConnectWiFi] Configuring WPA3-SAE (personal)")
 			settings["802-11-wireless-security"] = map[string]interface{}{
@@ -387,21 +380,4 @@ func (m *Manager) DisconnectEthernet() error {
 	m.notifySubscribers()
 
 	return nil
-}
-
-func buildIdentity(u, realm string, useAt bool) string {
-	if u == "" {
-		return ""
-	}
-	// If user already provided realm format, do not touch.
-	if strings.Contains(u, "@") || strings.Contains(u, `\`) {
-		return u
-	}
-	if realm == "" {
-		return u
-	}
-	if useAt {
-		return fmt.Sprintf("%s@%s", u, realm)
-	}
-	return fmt.Sprintf("%s\\%s", realm, u)
 }

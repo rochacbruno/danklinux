@@ -56,17 +56,11 @@ type NetworkState struct {
 }
 
 type ConnectionRequest struct {
-	SSID     string `json:"ssid"`
-	Password string `json:"password,omitempty"`
-	Username string `json:"username,omitempty"`
-
-	RealmOrDomain string `json:"realmOrDomain,omitempty"`
-	UseAtRealm    bool   `json:"useAtRealm,omitempty"` // append realm to username as @realm
-
+	SSID              string `json:"ssid"`
+	Password          string `json:"password,omitempty"`
+	Username          string `json:"username,omitempty"`
 	AnonymousIdentity string `json:"anonymousIdentity,omitempty"`
 	DomainSuffixMatch string `json:"domainSuffixMatch,omitempty"`
-
-	CACertPath string `json:"caCertPath,omitempty"`
 }
 
 type PriorityUpdate struct {
