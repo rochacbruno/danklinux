@@ -53,6 +53,7 @@ func (m *Manager) handleDBusSignal(sig *dbus.Signal) {
 		preparing, _ := sig.Body[0].(bool)
 
 		if preparing {
+			cycleID := m.sleepCycleID.Add(1)
 			m.inSleepCycle.Store(true)
 
 			if m.lockBeforeSuspend.Load() {
@@ -60,14 +61,15 @@ func (m *Manager) handleDBusSignal(sig *dbus.Signal) {
 			}
 
 			readyCh := m.newLockerReadyCh()
-			go func() {
-				select {
-				case <-readyCh:
+			go func(id uint64, ch <-chan struct{}) {
+				<-ch
+				if m.inSleepCycle.Load() && m.sleepCycleID.Load() == id {
+					m.releaseSleepInhibitor()
 				}
-				m.releaseSleepInhibitor()
-			}()
+			}(cycleID, readyCh)
 		} else {
 			m.inSleepCycle.Store(false)
+			m.signalLockerReady()
 			_ = m.refreshSessionBinding()
 			_ = m.acquireSleepInhibitor()
 		}
