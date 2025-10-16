@@ -101,14 +101,14 @@ curl -fsSL https://install.danklinux.com | sh
 | Package | Source | Notes |
 |---------|---------|-------|
 | System packages | Official repos | Via `dnf` |
-| quickshell | COPR | `errornointernet/quickshell` |
-| matugen | COPR | `solopasha/hyprland` |
+| quickshell | COPR | `avengemedia/danklinux` |
+| matugen | COPR | `avengemedia/danklinux` |
 | dgop | Manual | Built from source with Go |
-| cliphist | COPR | `alternateved/cliphist` |
-| ghostty | COPR | `alternateved/ghostty` |
+| cliphist | COPR | `avengemedia/danklinux` |
+| ghostty | COPR | `avengemedia/danklinux` |
 | hyprland | COPR | `solopasha/hyprland` |
 | niri | COPR | `yalter/niri` |
-| DankMaterialShell | Manual | Git clone to `~/.config/quickshell/dms` |
+| DankMaterialShell | COPR | `avengemedia/dms` |
 
 ### Ubuntu
 
