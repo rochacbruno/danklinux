@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -13,6 +14,84 @@ import (
 	"github.com/AvengeMedia/danklinux/internal/log"
 	"github.com/AvengeMedia/danklinux/internal/server"
 )
+
+func getRuntimeDir() string {
+	if runtime := os.Getenv("XDG_RUNTIME_DIR"); runtime != "" {
+		return runtime
+	}
+	return os.TempDir()
+}
+
+func getPIDFilePath() string {
+	return filepath.Join(getRuntimeDir(), fmt.Sprintf("danklinux-%d.pid", os.Getpid()))
+}
+
+func writePIDFile(childPID int) error {
+	pidFile := getPIDFilePath()
+	return os.WriteFile(pidFile, []byte(strconv.Itoa(childPID)), 0644)
+}
+
+func removePIDFile() {
+	pidFile := getPIDFilePath()
+	os.Remove(pidFile)
+}
+
+func getAllDMSPIDs() []int {
+	dir := getRuntimeDir()
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil
+	}
+
+	var pids []int
+
+	for _, entry := range entries {
+		if !strings.HasPrefix(entry.Name(), "danklinux-") || !strings.HasSuffix(entry.Name(), ".pid") {
+			continue
+		}
+
+		pidFile := filepath.Join(dir, entry.Name())
+		data, err := os.ReadFile(pidFile)
+		if err != nil {
+			continue
+		}
+
+		childPID, err := strconv.Atoi(strings.TrimSpace(string(data)))
+		if err != nil {
+			os.Remove(pidFile)
+			continue
+		}
+
+		// Check if the child process is still alive
+		proc, err := os.FindProcess(childPID)
+		if err != nil {
+			os.Remove(pidFile)
+			continue
+		}
+
+		if err := proc.Signal(syscall.Signal(0)); err != nil {
+			// Process is dead, remove stale PID file
+			os.Remove(pidFile)
+			continue
+		}
+
+		pids = append(pids, childPID)
+
+		// Also get the parent PID from the filename
+		parentPIDStr := strings.TrimPrefix(entry.Name(), "danklinux-")
+		parentPIDStr = strings.TrimSuffix(parentPIDStr, ".pid")
+		if parentPID, err := strconv.Atoi(parentPIDStr); err == nil {
+			// Check if parent is still alive
+			if parentProc, err := os.FindProcess(parentPID); err == nil {
+				if err := parentProc.Signal(syscall.Signal(0)); err == nil {
+					pids = append(pids, parentPID)
+				}
+			}
+		}
+	}
+
+	return pids
+}
 
 func runShellInteractive() {
 	go printASCII()
@@ -43,6 +122,12 @@ func runShellInteractive() {
 	if err := cmd.Start(); err != nil {
 		log.Fatalf("Error starting quickshell: %v", err)
 	}
+
+	// Write PID file for the quickshell child process
+	if err := writePIDFile(cmd.Process.Pid); err != nil {
+		log.Warnf("Failed to write PID file: %v", err)
+	}
+	defer removePIDFile()
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
@@ -78,74 +163,50 @@ func restartShell() {
 }
 
 func killShell() {
-	patterns := []string{
-		"dms run",
-		"qs.*dms",
-		"qs.*DankMaterialShell",
-		"quickshell.*dms",
-		"quickshell.*DankMaterialShell",
-	}
+	// Get all tracked DMS PIDs from PID files
+	pids := getAllDMSPIDs()
 
-	var allPids []string
-	pidChan := make(chan []string, len(patterns))
-
-	for _, pattern := range patterns {
-		go func(p string) {
-			out, err := exec.Command("pgrep", "-f", p).Output()
-			if err != nil {
-				pidChan <- nil
-				return
-			}
-
-			pids := strings.TrimSpace(string(out))
-			if pids != "" {
-				pidChan <- strings.Split(pids, "\n")
-			} else {
-				pidChan <- nil
-			}
-		}(pattern)
-	}
-
-	for i := 0; i < len(patterns); i++ {
-		if pidList := <-pidChan; pidList != nil {
-			allPids = append(allPids, pidList...)
-		}
-	}
-
-	if len(allPids) == 0 {
+	if len(pids) == 0 {
 		log.Info("No running DMS shell instances found.")
 		return
 	}
 
 	currentPid := os.Getpid()
-	uniquePids := make(map[string]bool)
-	for _, pid := range allPids {
-		pid = strings.TrimSpace(pid)
-		if pid != "" {
-			pidInt, err := strconv.Atoi(pid)
-			if err == nil && pidInt != currentPid {
-				uniquePids[pid] = true
-			}
+	uniquePids := make(map[int]bool)
+
+	// Deduplicate and filter out current process
+	for _, pid := range pids {
+		if pid != currentPid {
+			uniquePids[pid] = true
 		}
 	}
 
+	// Kill all tracked processes
 	for pid := range uniquePids {
-		pidInt, err := strconv.Atoi(pid)
+		proc, err := os.FindProcess(pid)
 		if err != nil {
-			log.Errorf("Invalid PID %s: %v", pid, err)
-			continue
-		}
-
-		proc, err := os.FindProcess(pidInt)
-		if err != nil {
-			log.Errorf("Error finding process %s: %v", pid, err)
+			log.Errorf("Error finding process %d: %v", pid, err)
 			continue
 		}
 
 		if err := proc.Kill(); err != nil {
-			log.Errorf("Error killing process %s: %v", pid, err)
+			log.Errorf("Error killing process %d: %v", pid, err)
 		} else {
-			log.Infof("Killed DMS process with PID %s", pid)
+			log.Infof("Killed DMS process with PID %d", pid)
+		}
+	}
+
+	// Clean up any remaining PID files
+	dir := getRuntimeDir()
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return
+	}
+
+	for _, entry := range entries {
+		if strings.HasPrefix(entry.Name(), "danklinux-") && strings.HasSuffix(entry.Name(), ".pid") {
+			pidFile := filepath.Join(dir, entry.Name())
+			os.Remove(pidFile)
 		}
 	}
 }
@@ -205,6 +266,12 @@ func runShellDaemon() {
 	if err := cmd.Start(); err != nil {
 		log.Fatalf("Error starting daemon: %v", err)
 	}
+
+	// Write PID file for the quickshell child process
+	if err := writePIDFile(cmd.Process.Pid); err != nil {
+		log.Warnf("Failed to write PID file: %v", err)
+	}
+	defer removePIDFile()
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
