@@ -68,6 +68,7 @@ func (m *Manager) handleDBusSignal(sig *dbus.Signal) {
 			}()
 		} else {
 			m.inSleepCycle.Store(false)
+			_ = m.refreshSessionBinding()
 			_ = m.acquireSleepInhibitor()
 		}
 

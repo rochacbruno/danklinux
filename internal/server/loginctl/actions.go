@@ -10,7 +10,12 @@ func (m *Manager) Lock() error {
 	}
 	err := m.sessionObj.Call(dbusSessionInterface+".Lock", 0).Err
 	if err != nil {
-		return fmt.Errorf("failed to lock session: %w", err)
+		if refreshErr := m.refreshSessionBinding(); refreshErr == nil {
+			err = m.sessionObj.Call(dbusSessionInterface+".Lock", 0).Err
+		}
+		if err != nil {
+			return fmt.Errorf("failed to lock session: %w", err)
+		}
 	}
 	return nil
 }
@@ -18,7 +23,12 @@ func (m *Manager) Lock() error {
 func (m *Manager) Unlock() error {
 	err := m.sessionObj.Call(dbusSessionInterface+".Unlock", 0).Err
 	if err != nil {
-		return fmt.Errorf("failed to unlock session: %w", err)
+		if refreshErr := m.refreshSessionBinding(); refreshErr == nil {
+			err = m.sessionObj.Call(dbusSessionInterface+".Unlock", 0).Err
+		}
+		if err != nil {
+			return fmt.Errorf("failed to unlock session: %w", err)
+		}
 	}
 	return nil
 }
@@ -26,7 +36,12 @@ func (m *Manager) Unlock() error {
 func (m *Manager) Activate() error {
 	err := m.sessionObj.Call(dbusSessionInterface+".Activate", 0).Err
 	if err != nil {
-		return fmt.Errorf("failed to activate session: %w", err)
+		if refreshErr := m.refreshSessionBinding(); refreshErr == nil {
+			err = m.sessionObj.Call(dbusSessionInterface+".Activate", 0).Err
+		}
+		if err != nil {
+			return fmt.Errorf("failed to activate session: %w", err)
+		}
 	}
 	return nil
 }
@@ -34,7 +49,12 @@ func (m *Manager) Activate() error {
 func (m *Manager) SetIdleHint(idle bool) error {
 	err := m.sessionObj.Call(dbusSessionInterface+".SetIdleHint", 0, idle).Err
 	if err != nil {
-		return fmt.Errorf("failed to set idle hint: %w", err)
+		if refreshErr := m.refreshSessionBinding(); refreshErr == nil {
+			err = m.sessionObj.Call(dbusSessionInterface+".SetIdleHint", 0, idle).Err
+		}
+		if err != nil {
+			return fmt.Errorf("failed to set idle hint: %w", err)
+		}
 	}
 	return nil
 }
@@ -42,7 +62,12 @@ func (m *Manager) SetIdleHint(idle bool) error {
 func (m *Manager) Terminate() error {
 	err := m.sessionObj.Call(dbusSessionInterface+".Terminate", 0).Err
 	if err != nil {
-		return fmt.Errorf("failed to terminate session: %w", err)
+		if refreshErr := m.refreshSessionBinding(); refreshErr == nil {
+			err = m.sessionObj.Call(dbusSessionInterface+".Terminate", 0).Err
+		}
+		if err != nil {
+			return fmt.Errorf("failed to terminate session: %w", err)
+		}
 	}
 	return nil
 }

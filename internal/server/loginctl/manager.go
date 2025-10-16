@@ -86,6 +86,41 @@ func (m *Manager) getSession(id string) (dbus.ObjectPath, error) {
 	return out, nil
 }
 
+func (m *Manager) refreshSessionBinding() error {
+	if m.managerObj == nil || m.conn == nil {
+		return fmt.Errorf("manager not fully initialized")
+	}
+
+	sessionPath, err := m.getSession(m.state.SessionID)
+	if err != nil {
+		return fmt.Errorf("failed to get session path: %w", err)
+	}
+
+	m.stateMutex.RLock()
+	currentPath := m.sessionPath
+	m.stateMutex.RUnlock()
+
+	if sessionPath == currentPath {
+		return nil
+	}
+
+	m.stopSignalPump()
+
+	m.stateMutex.Lock()
+	m.state.SessionPath = string(sessionPath)
+	m.sessionPath = sessionPath
+	m.stateMutex.Unlock()
+
+	m.sessionObj = m.conn.Object(dbusDest, sessionPath)
+
+	if err := m.updateSessionState(); err != nil {
+		return err
+	}
+
+	m.signals = make(chan *dbus.Signal, 256)
+	return m.startSignalPump()
+}
+
 func (m *Manager) updateSessionState() error {
 	ctx := context.Background()
 	props, err := m.getSessionProperties(ctx)
