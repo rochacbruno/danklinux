@@ -133,7 +133,7 @@ func (f *FedoraDistribution) GetPackageMappingWithVariants(wm deps.WindowManager
 	packages := map[string]PackageMapping{
 		// Standard DNF packages
 		"git":                    {Name: "git", Repository: RepoTypeSystem},
-		"ghostty":                {Name: "ghostty", Repository: RepoTypeCOPR, RepoURL: "alternateved/ghostty"},
+		"ghostty":                {Name: "ghostty", Repository: RepoTypeCOPR, RepoURL: "avengemedia/danklinux"},
 		"kitty":                  {Name: "kitty", Repository: RepoTypeSystem},
 		"alacritty":              {Name: "alacritty", Repository: RepoTypeSystem},
 		"wl-clipboard":           {Name: "wl-clipboard", Repository: RepoTypeSystem},
@@ -143,8 +143,8 @@ func (f *FedoraDistribution) GetPackageMappingWithVariants(wm deps.WindowManager
 
 		// COPR packages
 		"quickshell": f.getQuickshellMapping(variants["quickshell"]),
-		"matugen":    {Name: "matugen", Repository: RepoTypeCOPR, RepoURL: "solopasha/hyprland"},
-		"cliphist":   {Name: "cliphist", Repository: RepoTypeCOPR, RepoURL: "alternateved/cliphist"},
+		"matugen":    {Name: "matugen", Repository: RepoTypeCOPR, RepoURL: "avengemedia/danklinux"},
+		"cliphist":   {Name: "cliphist", Repository: RepoTypeCOPR, RepoURL: "avengemedia/danklinux"},
 
 		// Manual builds
 		"dms (DankMaterialShell)": {Name: "dms", Repository: RepoTypeManual, BuildFunc: "installDankMaterialShell"},
@@ -172,9 +172,9 @@ func (f *FedoraDistribution) GetPackageMappingWithVariants(wm deps.WindowManager
 
 func (f *FedoraDistribution) getQuickshellMapping(variant deps.PackageVariant) PackageMapping {
 	if forceQuickshellGit || variant == deps.VariantGit {
-		return PackageMapping{Name: "quickshell-git", Repository: RepoTypeCOPR, RepoURL: "errornointernet/quickshell"}
+		return PackageMapping{Name: "quickshell-git", Repository: RepoTypeCOPR, RepoURL: "avengemedia/danklinux"}
 	}
-	return PackageMapping{Name: "quickshell", Repository: RepoTypeCOPR, RepoURL: "errornointernet/quickshell"}
+	return PackageMapping{Name: "quickshell", Repository: RepoTypeCOPR, RepoURL: "avengemedia/danklinux"}
 }
 
 func (f *FedoraDistribution) getHyprlandMapping(variant deps.PackageVariant) PackageMapping {
@@ -188,7 +188,7 @@ func (f *FedoraDistribution) getHyprpickerMapping(variant deps.PackageVariant) P
 	if variant == deps.VariantGit {
 		return PackageMapping{Name: "hyprpicker-git", Repository: RepoTypeCOPR, RepoURL: "solopasha/hyprland"}
 	}
-	return PackageMapping{Name: "hyprpicker", Repository: RepoTypeCOPR, RepoURL: "solopasha/hyprland"}
+	return PackageMapping{Name: "hyprpicker", Repository: RepoTypeCOPR, RepoURL: "avengemedia/danklinux"}
 }
 
 func (f *FedoraDistribution) getNiriMapping(variant deps.PackageVariant) PackageMapping {
