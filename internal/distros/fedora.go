@@ -142,15 +142,15 @@ func (f *FedoraDistribution) GetPackageMappingWithVariants(wm deps.WindowManager
 		"font-firacode":          {Name: "fira-code-fonts", Repository: RepoTypeSystem},
 
 		// COPR packages
-		"quickshell": f.getQuickshellMapping(variants["quickshell"]),
-		"matugen":    {Name: "matugen", Repository: RepoTypeCOPR, RepoURL: "avengemedia/danklinux"},
-		"cliphist":   {Name: "cliphist", Repository: RepoTypeCOPR, RepoURL: "avengemedia/danklinux"},
+		"quickshell":              f.getQuickshellMapping(variants["quickshell"]),
+		"matugen":                 {Name: "matugen", Repository: RepoTypeCOPR, RepoURL: "avengemedia/danklinux"},
+		"cliphist":                {Name: "cliphist", Repository: RepoTypeCOPR, RepoURL: "avengemedia/danklinux"},
+		"dms (DankMaterialShell)": f.getDmsMapping(variants["dms (DankMaterialShell)"]),
+		"dgop":                    {Name: "dgop", Repository: RepoTypeCOPR, RepoURL: "avengemedia/danklinux"},
+		"font-material-symbols":   {Name: "material-symbols-fonts", Repository: RepoTypeCOPR, RepoURL: "avengemedia/danklinux"},
 
 		// Manual builds
-		"dms (DankMaterialShell)": {Name: "dms", Repository: RepoTypeManual, BuildFunc: "installDankMaterialShell"},
-		"dgop":                    {Name: "dgop", Repository: RepoTypeManual, BuildFunc: "installDgop"},
-		"font-material-symbols":   {Name: "font-material-symbols", Repository: RepoTypeManual, BuildFunc: "installMaterialSymbolsFont"},
-		"font-inter":              {Name: "font-inter", Repository: RepoTypeManual, BuildFunc: "installInterFont"},
+		"font-inter": {Name: "font-inter", Repository: RepoTypeManual, BuildFunc: "installInterFont"},
 	}
 
 	switch wm {
@@ -175,6 +175,13 @@ func (f *FedoraDistribution) getQuickshellMapping(variant deps.PackageVariant) P
 		return PackageMapping{Name: "quickshell-git", Repository: RepoTypeCOPR, RepoURL: "avengemedia/danklinux"}
 	}
 	return PackageMapping{Name: "quickshell", Repository: RepoTypeCOPR, RepoURL: "avengemedia/danklinux"}
+}
+
+func (f *FedoraDistribution) getDmsMapping(variant deps.PackageVariant) PackageMapping {
+	if variant == deps.VariantGit {
+		return PackageMapping{Name: "dms-git", Repository: RepoTypeCOPR, RepoURL: "avengemedia/dms-git"}
+	}
+	return PackageMapping{Name: "dms", Repository: RepoTypeCOPR, RepoURL: "avengemedia/dms"}
 }
 
 func (f *FedoraDistribution) getHyprlandMapping(variant deps.PackageVariant) PackageMapping {
