@@ -416,7 +416,6 @@ func Start(printDocs bool) error {
 		log.Info(" freedesktop.accounts.setLanguage      - Set language (params: language)")
 		log.Info(" freedesktop.accounts.setLocation      - Set location (params: location)")
 		log.Info(" freedesktop.accounts.getUserIconFile  - Get user icon (params: username)")
-		log.Info(" freedesktop.settings.setColorScheme   - Set color scheme (params: preferDark)")
 		log.Info(" freedesktop.settings.getColorScheme   - Get color scheme")
 		log.Info(" freedesktop.settings.setIconTheme     - Set icon theme (params: iconTheme)")
 	}

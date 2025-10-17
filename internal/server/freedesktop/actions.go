@@ -106,34 +106,6 @@ func (m *Manager) GetUserIconFile(username string) (string, error) {
 	return iconFile, nil
 }
 
-func (m *Manager) SetColorScheme(preferDark bool) error {
-	mode := "default"
-	if preferDark {
-		mode = "prefer-dark"
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-
-	check := exec.CommandContext(ctx, "gsettings", "writable", "org.gnome.desktop.interface", "color-scheme")
-	if err := check.Run(); err == nil {
-		cmd := exec.CommandContext(ctx, "gsettings", "set", "org.gnome.desktop.interface", "color-scheme", mode)
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("gsettings set failed: %w", err)
-		}
-		m.updateSettingsState()
-		return nil
-	}
-
-	checkDconf := exec.CommandContext(ctx, "dconf", "write", "/org/gnome/desktop/interface/color-scheme", fmt.Sprintf("'%s'", mode))
-	if err := checkDconf.Run(); err != nil {
-		return fmt.Errorf("both gsettings and dconf unavailable or failed: %w", err)
-	}
-
-	m.updateSettingsState()
-	return nil
-}
-
 func (m *Manager) SetIconTheme(iconTheme string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
