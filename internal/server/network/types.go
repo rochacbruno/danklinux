@@ -42,6 +42,7 @@ type NetworkState struct {
 	EthernetIP        string               `json:"ethernetIP"`
 	EthernetDevice    string               `json:"ethernetDevice"`
 	EthernetConnected bool                 `json:"ethernetConnected"`
+	EthernetConnectionUuid   string        `json:"ethernetConnectionUuid"`
 	WiFiIP            string               `json:"wifiIP"`
 	WiFiDevice        string               `json:"wifiDevice"`
 	WiFiConnected     bool                 `json:"wifiConnected"`
@@ -50,6 +51,7 @@ type NetworkState struct {
 	WiFiBSSID         string               `json:"wifiBSSID"`
 	WiFiSignal        uint8                `json:"wifiSignal"`
 	WiFiNetworks      []WiFiNetwork        `json:"wifiNetworks"`
+	WiredConnections  []WiredConnection    `json:"wiredConnections"`
 	IsConnecting      bool                 `json:"isConnecting"`
 	ConnectingSSID    string               `json:"connectingSSID"`
 	LastError         string               `json:"lastError"`
@@ -61,6 +63,14 @@ type ConnectionRequest struct {
 	Username          string `json:"username,omitempty"`
 	AnonymousIdentity string `json:"anonymousIdentity,omitempty"`
 	DomainSuffixMatch string `json:"domainSuffixMatch,omitempty"`
+}
+
+type WiredConnection struct {
+	Path     dbus.ObjectPath	`json:"path"`
+	ID       string				`json:"id"`
+	UUID     string				`json:"uuid"`
+	Type     string				`json:"type"`
+	IsActive bool				`json:"isActive"`
 }
 
 type PriorityUpdate struct {

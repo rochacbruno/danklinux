@@ -65,9 +65,16 @@ func (m *Manager) initialize() error {
 
 		switch devType {
 		case gonetworkmanager.NmDeviceTypeEthernet:
+			if managed, _ :=  dev.GetPropertyManaged(); !managed {
+				continue
+			} 
 			m.ethernetDevice = dev
 			if err := m.updateEthernetState(); err != nil {
 				continue
+			}
+			err := m.listEthernetConnections()
+			if err != nil {
+				return fmt.Errorf("failed to get wired configurations: %w", err)
 			}
 
 		case gonetworkmanager.NmDeviceTypeWifi:
@@ -257,6 +264,7 @@ func (m *Manager) snapshotState() NetworkState {
 	defer m.stateMutex.RUnlock()
 	s := *m.state
 	s.WiFiNetworks = append([]WiFiNetwork(nil), m.state.WiFiNetworks...)
+	s.WiredConnections = append([]WiredConnection(nil), m.state.WiredConnections...)
 	return s
 }
 
@@ -307,6 +315,9 @@ func stateChangedMeaningfully(old, new *NetworkState) bool {
 	if len(old.WiFiNetworks) != len(new.WiFiNetworks) {
 		return true
 	}
+	if len(old.WiredConnections) != len(new.WiredConnections) {
+		return true
+	}
 
 	for i := range old.WiFiNetworks {
 		oldNet := &old.WiFiNetworks[i]
@@ -318,6 +329,17 @@ func stateChangedMeaningfully(old, new *NetworkState) bool {
 			return true
 		}
 		if oldNet.Saved != newNet.Saved {
+			return true
+		}
+	}
+
+	for i := range old.WiredConnections {
+		oldNet := &old.WiredConnections[i]
+		newNet := &new.WiredConnections[i]
+		if oldNet.ID != newNet.ID {
+			return true
+		}
+		if oldNet.IsActive != newNet.IsActive {
 			return true
 		}
 	}

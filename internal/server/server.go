@@ -19,7 +19,7 @@ import (
 	"github.com/AvengeMedia/danklinux/internal/server/network"
 )
 
-const APIVersion = 4
+const APIVersion = 5
 
 type Capabilities struct {
 	Capabilities []string `json:"capabilities"`
@@ -393,6 +393,7 @@ func Start(printDocs bool) error {
 		log.Info(" network.wifi.enable         - Enable WiFi")
 		log.Info(" network.wifi.disable        - Disable WiFi")
 		log.Info(" network.ethernet.connect    - Connect Ethernet")
+		log.Info(" network.ethernet.connect.config - Connect Ethernet to a specific configuration")
 		log.Info(" network.ethernet.disconnect - Disconnect Ethernet")
 		log.Info(" network.preference.set      - Set preference (params: preference [auto|wifi|ethernet])")
 		log.Info(" network.info                - Get network info (params: ssid)")

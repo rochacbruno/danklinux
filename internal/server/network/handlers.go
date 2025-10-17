@@ -39,6 +39,8 @@ func HandleRequest(conn net.Conn, req Request, manager *Manager) {
 		handleEnableWiFi(conn, req, manager)
 	case "network.wifi.disable":
 		handleDisableWiFi(conn, req, manager)
+	case "network.ethernet.connect.config":
+		handleConnectEthernetSpecificConfig(conn, req, manager)
 	case "network.ethernet.connect":
 		handleConnectEthernet(conn, req, manager)
 	case "network.ethernet.disconnect":
@@ -47,6 +49,8 @@ func HandleRequest(conn net.Conn, req Request, manager *Manager) {
 		handleSetPreference(conn, req, manager)
 	case "network.info":
 		handleGetNetworkInfo(conn, req, manager)
+	case "network.ethernet.info":
+		handleGetWiredNetworkInfo(conn, req, manager)
 	case "network.subscribe":
 		handleSubscribe(conn, req, manager)
 	default:
@@ -154,6 +158,19 @@ func handleDisableWiFi(conn net.Conn, req Request, manager *Manager) {
 	models.Respond(conn, req.ID, map[string]bool{"enabled": false})
 }
 
+func handleConnectEthernetSpecificConfig(conn net.Conn, req Request, manager *Manager) {
+	uuid, ok := req.Params["uuid"].(string)
+	if !ok {
+		models.RespondError(conn, req.ID, "missing or invalid 'uuid' parameter")
+		return
+	}
+	if err := manager.activateConnection(uuid); err != nil {
+		models.RespondError(conn, req.ID, err.Error())
+		return
+	}
+	models.Respond(conn, req.ID, SuccessResult{Success: true, Message: "connecting"})
+}
+
 func handleConnectEthernet(conn net.Conn, req Request, manager *Manager) {
 	if err := manager.ConnectEthernet(); err != nil {
 		models.RespondError(conn, req.ID, err.Error())
@@ -193,6 +210,22 @@ func handleGetNetworkInfo(conn net.Conn, req Request, manager *Manager) {
 	}
 
 	network, err := manager.GetNetworkInfoDetailed(ssid)
+	if err != nil {
+		models.RespondError(conn, req.ID, err.Error())
+		return
+	}
+
+	models.Respond(conn, req.ID, network)
+}
+
+func handleGetWiredNetworkInfo(conn net.Conn, req Request, manager *Manager) {
+	uuid, ok := req.Params["uuid"].(string)
+	if !ok {
+		models.RespondError(conn, req.ID, "missing or invalid 'uuid' parameter")
+		return
+	}
+
+	network, err := manager.GetWiredNetworkInfoDetailed(uuid)
 	if err != nil {
 		models.RespondError(conn, req.ID, err.Error())
 		return

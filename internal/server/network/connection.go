@@ -337,6 +337,7 @@ func (m *Manager) ConnectEthernet() error {
 				}
 
 				m.updateEthernetState()
+				m.listEthernetConnections()
 				m.updatePrimaryConnection()
 				m.notifySubscribers()
 
@@ -357,6 +358,7 @@ func (m *Manager) ConnectEthernet() error {
 	}
 
 	m.updateEthernetState()
+	m.listEthernetConnections()
 	m.updatePrimaryConnection()
 	m.notifySubscribers()
 
@@ -376,6 +378,7 @@ func (m *Manager) DisconnectEthernet() error {
 	}
 
 	m.updateEthernetState()
+	m.listEthernetConnections()
 	m.updatePrimaryConnection()
 	m.notifySubscribers()
 
