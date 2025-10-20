@@ -11,6 +11,7 @@ import (
 	"github.com/AvengeMedia/danklinux/internal/server/models"
 	"github.com/AvengeMedia/danklinux/internal/server/network"
 	serverPlugins "github.com/AvengeMedia/danklinux/internal/server/plugins"
+	"github.com/AvengeMedia/danklinux/internal/server/wayland"
 )
 
 func RouteRequest(conn net.Conn, req models.Request) {
@@ -60,6 +61,20 @@ func RouteRequest(conn net.Conn, req models.Request) {
 			Params: req.Params,
 		}
 		freedesktop.HandleRequest(conn, freedeskReq, freedesktopManager)
+		return
+	}
+
+	if strings.HasPrefix(req.Method, "wayland.") {
+		if waylandManager == nil {
+			models.RespondError(conn, req.ID, "wayland manager not initialized")
+			return
+		}
+		waylandReq := wayland.Request{
+			ID:     req.ID,
+			Method: req.Method,
+			Params: req.Params,
+		}
+		wayland.HandleRequest(conn, waylandReq, waylandManager)
 		return
 	}
 

@@ -17,9 +17,10 @@ import (
 	"github.com/AvengeMedia/danklinux/internal/server/loginctl"
 	"github.com/AvengeMedia/danklinux/internal/server/models"
 	"github.com/AvengeMedia/danklinux/internal/server/network"
+	"github.com/AvengeMedia/danklinux/internal/server/wayland"
 )
 
-const APIVersion = 5
+const APIVersion = 6
 
 type Capabilities struct {
 	Capabilities []string `json:"capabilities"`
@@ -38,6 +39,7 @@ type ServiceEvent struct {
 var networkManager *network.Manager
 var loginctlManager *loginctl.Manager
 var freedesktopManager *freedesktop.Manager
+var waylandManager *wayland.Manager
 
 func getSocketDir() string {
 	if runtime := os.Getenv("XDG_RUNTIME_DIR"); runtime != "" {
@@ -133,6 +135,21 @@ func InitializeFreedeskManager() error {
 	return nil
 }
 
+func InitializeWaylandManager() error {
+	log.Info("Attempting to initialize Wayland gamma control...")
+	config := wayland.DefaultConfig()
+	manager, err := wayland.NewManager(config)
+	if err != nil {
+		log.Errorf("Failed to initialize wayland manager: %v", err)
+		return err
+	}
+
+	waylandManager = manager
+
+	log.Info("Wayland gamma control initialized successfully")
+	return nil
+}
+
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
 
@@ -170,6 +187,10 @@ func getCapabilities() Capabilities {
 		caps = append(caps, "freedesktop")
 	}
 
+	if waylandManager != nil {
+		caps = append(caps, "gamma")
+	}
+
 	return Capabilities{Capabilities: caps}
 }
 
@@ -186,6 +207,10 @@ func getServerInfo() ServerInfo {
 
 	if freedesktopManager != nil {
 		caps = append(caps, "freedesktop")
+	}
+
+	if waylandManager != nil {
+		caps = append(caps, "gamma")
 	}
 
 	return ServerInfo{
@@ -298,6 +323,38 @@ func handleSubscribe(conn net.Conn, req models.Request) {
 		}()
 	}
 
+	if shouldSubscribe("gamma") && waylandManager != nil {
+		wg.Add(1)
+		waylandChan := waylandManager.Subscribe(clientID + "-gamma")
+		go func() {
+			defer wg.Done()
+			defer waylandManager.Unsubscribe(clientID + "-gamma")
+
+			initialState := waylandManager.GetState()
+			select {
+			case eventChan <- ServiceEvent{Service: "gamma", Data: initialState}:
+			case <-stopChan:
+				return
+			}
+
+			for {
+				select {
+				case state, ok := <-waylandChan:
+					if !ok {
+						return
+					}
+					select {
+					case eventChan <- ServiceEvent{Service: "gamma", Data: state}:
+					case <-stopChan:
+						return
+					}
+				case <-stopChan:
+					return
+				}
+			}
+		}()
+	}
+
 	go func() {
 		wg.Wait()
 		close(eventChan)
@@ -333,6 +390,9 @@ func cleanupManagers() {
 	if freedesktopManager != nil {
 		freedesktopManager.Close()
 	}
+	if waylandManager != nil {
+		waylandManager.Close()
+	}
 }
 
 func Start(printDocs bool) error {
@@ -365,6 +425,10 @@ func Start(printDocs bool) error {
 			log.Warnf("Freedesktop manager unavailable: %v", err)
 		}
 	}()
+
+	if err := InitializeWaylandManager(); err != nil {
+		log.Warnf("Wayland manager unavailable: %v", err)
+	}
 
 	log.Infof("DMS API Server listening on: %s", socketPath)
 	log.Info("Protocol: JSON over Unix socket")
@@ -419,6 +483,14 @@ func Start(printDocs bool) error {
 		log.Info(" freedesktop.accounts.getUserIconFile  - Get user icon (params: username)")
 		log.Info(" freedesktop.settings.getColorScheme   - Get color scheme")
 		log.Info(" freedesktop.settings.setIconTheme     - Set icon theme (params: iconTheme)")
+		log.Info("Wayland:")
+		log.Info(" wayland.gamma.getState                - Get current gamma control state")
+		log.Info(" wayland.gamma.setTemperature          - Set temperature range (params: low, high)")
+		log.Info(" wayland.gamma.setLocation             - Set location (params: latitude, longitude)")
+		log.Info(" wayland.gamma.setManualTimes          - Set manual times (params: sunrise, sunset)")
+		log.Info(" wayland.gamma.setGamma                - Set gamma value (params: gamma)")
+		log.Info(" wayland.gamma.setEnabled              - Enable/disable gamma control (params: enabled)")
+		log.Info(" wayland.gamma.subscribe               - Subscribe to gamma state changes (streaming)")
 	}
 
 	for {

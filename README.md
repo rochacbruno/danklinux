@@ -25,7 +25,7 @@ A comprehensive installer and management tool for DankMaterialShell, a modern de
 
 A part of the DankMaterialShell, that is provided by this repository. It is written in GO, and exposes a suite of APIs over unix socket that interface with dbus via [godbus](https://github.com/godbus/dbus) and also the plugin system.
 
-## Build & Install 
+## Build & Install
 
 To build the dms CLI (Requires Go 1.24+):
 
@@ -45,6 +45,18 @@ Produces `bin/dms-linux-amd64` and  `bin/dms-linux-arm64`
 # Installs to /usr/local/bin/dms
 make && sudo make install
 ```
+
+### Wayland Protocol Bindings
+
+The gamma control functionality uses Wayland protocol bindings generated from the protocol XML definition. To regenerate the Go bindings from `internal/proto/xml/wlr-gamma-control-unstable-v1.xml`:
+
+```bash
+go install github.com/rajveermalviya/go-wayland/cmd/go-wayland-scanner@latest
+go-wayland-scanner -i internal/proto/xml/wlr-gamma-control-unstable-v1.xml \
+  -pkg wlr_gamma_control -o internal/proto/wlr_gamma_control/gamma_control.go
+```
+
+This is only needed if modifying the protocol or updating to a newer version.
 
 # Dank Linux/dankinstall
 

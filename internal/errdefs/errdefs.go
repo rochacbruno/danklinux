@@ -8,6 +8,13 @@ const (
 	ErrTypeUnsupportedDistribution
 	ErrTypeUnsupportedVersion
 	ErrTypeUpdateCancelled
+	ErrTypeInvalidTemperature
+	ErrTypeInvalidGamma
+	ErrTypeInvalidLocation
+	ErrTypeInvalidManualTimes
+	ErrTypeNoWaylandDisplay
+	ErrTypeNoGammaControl
+	ErrTypeNotInitialized
 	ErrTypeGeneric
 )
 
@@ -27,4 +34,13 @@ func NewCustomError(errType ErrorType, message string) error {
 	}
 }
 
-var ErrUpdateCancelled = NewCustomError(ErrTypeUpdateCancelled, "update cancelled by user")
+var (
+	ErrUpdateCancelled     = NewCustomError(ErrTypeUpdateCancelled, "update cancelled by user")
+	ErrInvalidTemperature  = NewCustomError(ErrTypeInvalidTemperature, "temperature must be between 1000 and 10000")
+	ErrInvalidGamma        = NewCustomError(ErrTypeInvalidGamma, "gamma must be between 0 and 10")
+	ErrInvalidLocation     = NewCustomError(ErrTypeInvalidLocation, "invalid latitude/longitude")
+	ErrInvalidManualTimes  = NewCustomError(ErrTypeInvalidManualTimes, "both sunrise and sunset must be set or neither")
+	ErrNoWaylandDisplay    = NewCustomError(ErrTypeNoWaylandDisplay, "no wayland display available")
+	ErrNoGammaControl      = NewCustomError(ErrTypeNoGammaControl, "compositor does not support gamma control")
+	ErrNotInitialized      = NewCustomError(ErrTypeNotInitialized, "manager not initialized")
+)
