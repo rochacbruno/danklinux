@@ -148,8 +148,9 @@ func (m *Manager) createAndConnectWiFi(req ConnectionRequest) error {
 	settings := make(map[string]map[string]interface{})
 
 	settings["connection"] = map[string]interface{}{
-		"id":   req.SSID,
-		"type": "802-11-wireless",
+		"id":          req.SSID,
+		"type":        "802-11-wireless",
+		"autoconnect": true,
 	}
 
 	settings["ipv4"] = map[string]interface{}{"method": "auto"}
@@ -173,7 +174,8 @@ func (m *Manager) createAndConnectWiFi(req ConnectionRequest) error {
 				"phase2-auth":     "mschapv2",
 				"identity":        req.Username,
 				"password":        req.Password,
-				"system-ca-certs": "no",
+				"password-flags":  0,
+				"system-ca-certs": false,
 			}
 
 			if req.AnonymousIdentity != "" {
@@ -187,19 +189,22 @@ func (m *Manager) createAndConnectWiFi(req ConnectionRequest) error {
 
 			log.Printf("[createAndConnectWiFi] WPA-EAP settings: eap=peap, phase2-auth=mschapv2, identity=%s, system-ca-certs=%v, domain-suffix-match=%q",
 				req.Username, x["system-ca-certs"], req.DomainSuffixMatch)
-		case isSae:
-			log.Printf("[createAndConnectWiFi] Configuring WPA3-SAE (personal)")
-			settings["802-11-wireless-security"] = map[string]interface{}{
-				"key-mgmt": "sae",
-				"psk":      req.Password,
-				"pmf":      "required",
-			}
 
 		case isPsk:
 			log.Printf("[createAndConnectWiFi] Configuring WPA2-PSK (personal)")
 			settings["802-11-wireless-security"] = map[string]interface{}{
-				"key-mgmt": "wpa-psk",
-				"psk":      req.Password,
+				"key-mgmt":  "wpa-psk",
+				"psk":       req.Password,
+				"psk-flags": uint32(0),
+			}
+
+		case isSae:
+			log.Printf("[createAndConnectWiFi] Configuring WPA3-SAE (personal)")
+			settings["802-11-wireless-security"] = map[string]interface{}{
+				"key-mgmt":  "sae",
+				"psk":       req.Password,
+				"psk-flags": uint32(0),
+				"pmf":       "required",
 			}
 
 		default:
