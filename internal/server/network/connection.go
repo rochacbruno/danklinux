@@ -182,6 +182,7 @@ func (m *Manager) createAndConnectWiFi(req ConnectionRequest) error {
 		case isSae:
 			sec := map[string]interface{}{
 				"key-mgmt": "sae",
+				"pmf":      "required",
 			}
 			if req.Interactive {
 				sec["psk-flags"] = uint32(1)

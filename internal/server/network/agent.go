@@ -2,10 +2,12 @@ package network
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"time"
 
+	"github.com/AvengeMedia/danklinux/internal/errdefs"
 	"github.com/godbus/dbus/v5"
 )
 
@@ -46,6 +48,10 @@ const introspectXML = `
 		<method name="DeleteSecrets">
 			<arg type="a{sa{sv}}" name="connection" direction="in"/>
 			<arg type="o" name="connection_path" direction="in"/>
+		</method>
+		<method name="DeleteSecrets2">
+			<arg type="o" name="connection_path" direction="in"/>
+			<arg type="s" name="setting" direction="in"/>
 		</method>
 		<method name="CancelGetSecrets">
 			<arg type="o" name="connection_path" direction="in"/>
@@ -97,7 +103,7 @@ func NewSecretAgent(prompts PromptBroker, manager *Manager) (*SecretAgent, error
 func (a *SecretAgent) Close() {
 	if a.conn != nil {
 		mgr := a.conn.Object("org.freedesktop.NetworkManager", dbus.ObjectPath(nmAgentManagerPath))
-		_ = mgr.Call(nmAgentManagerIface+".Unregister", 0).Err
+		_ = mgr.Call(nmAgentManagerIface+".Unregister", 0, a.id).Err
 		a.conn.Close()
 	}
 }
@@ -141,10 +147,13 @@ func (a *SecretAgent) GetSecrets(
 	reply, err := a.prompts.Wait(ctx, token)
 	if err != nil {
 		log.Printf("[SecretAgent] Prompt failed or cancelled: %v", err)
-		if reply.Cancel {
-			return nil, dbus.NewError(nmSecretAgentIface+".UserCanceled", nil)
+		if errors.Is(err, errdefs.ErrSecretPromptTimeout) {
+			return nil, dbus.NewError("org.freedesktop.NetworkManager.SecretAgent.Error.Failed", nil)
 		}
-		return nil, dbus.MakeFailedError(err)
+		if reply.Cancel || errors.Is(err, errdefs.ErrSecretPromptCancelled) {
+			return nil, dbus.NewError("org.freedesktop.NetworkManager.SecretAgent.Error.UserCanceled", nil)
+		}
+		return nil, dbus.NewError("org.freedesktop.NetworkManager.SecretAgent.Error.Failed", nil)
 	}
 
 	out := nmSettingMap{}
@@ -154,10 +163,76 @@ func (a *SecretAgent) GetSecrets(
 	}
 	out[settingName] = sec
 
+	if reply.Save {
+		if err := a.saveConnectionSecrets(path, settingName, reply.Secrets); err != nil {
+			log.Printf("[SecretAgent] Warning: failed to save secrets to connection: %v", err)
+		}
+	}
+
 	if settingName == "802-1x" {
 		log.Printf("[SecretAgent] Returning 802-1x enterprise secrets with %d fields", len(sec))
 	}
 	return out, nil
+}
+
+func (a *SecretAgent) saveConnectionSecrets(path dbus.ObjectPath, settingName string, secrets map[string]string) error {
+	nmConn := a.conn.Object("org.freedesktop.NetworkManager", path)
+
+	var settings map[string]map[string]dbus.Variant
+	if call := nmConn.Call("org.freedesktop.NetworkManager.Settings.Connection.GetSettings", 0); call.Err != nil {
+		return fmt.Errorf("GetSettings: %w", call.Err)
+	} else if err := call.Store(&settings); err != nil {
+		return fmt.Errorf("GetSettings decode: %w", err)
+	}
+
+	switch settingName {
+	case "802-11-wireless-security":
+		sec := settings["802-11-wireless-security"]
+		if sec == nil {
+			sec = map[string]dbus.Variant{}
+		}
+		if psk, ok := secrets["psk"]; ok {
+			sec["psk"] = dbus.MakeVariant(psk)
+			sec["psk-flags"] = dbus.MakeVariant(uint32(0))
+		}
+		settings["802-11-wireless-security"] = sec
+
+	case "802-1x":
+		sec := settings["802-1x"]
+		if sec == nil {
+			sec = map[string]dbus.Variant{}
+		}
+		if id, ok := secrets["identity"]; ok {
+			sec["identity"] = dbus.MakeVariant(id)
+		}
+		if pw, ok := secrets["password"]; ok {
+			sec["password"] = dbus.MakeVariant(pw)
+			sec["password-flags"] = dbus.MakeVariant(uint32(0))
+		}
+		settings["802-1x"] = sec
+	}
+
+	if ipv6 := settings["ipv6"]; ipv6 != nil {
+		delete(ipv6, "addresses")
+		delete(ipv6, "routes")
+		delete(ipv6, "address-data")
+		delete(ipv6, "route-data")
+		settings["ipv6"] = ipv6
+	}
+	if ipv4 := settings["ipv4"]; ipv4 != nil {
+		delete(ipv4, "addresses")
+		delete(ipv4, "routes")
+		delete(ipv4, "address-data")
+		delete(ipv4, "route-data")
+		settings["ipv4"] = ipv4
+	}
+
+	if call := nmConn.Call("org.freedesktop.NetworkManager.Settings.Connection.Update", 0, settings); call.Err != nil {
+		return fmt.Errorf("Update: %w", call.Err)
+	}
+
+	log.Printf("[SecretAgent] Successfully saved secrets to connection: %s", path)
+	return nil
 }
 
 func (a *SecretAgent) SaveSecrets(conn map[string]nmVariantMap, path dbus.ObjectPath) *dbus.Error {
@@ -167,6 +242,11 @@ func (a *SecretAgent) SaveSecrets(conn map[string]nmVariantMap, path dbus.Object
 
 func (a *SecretAgent) DeleteSecrets(conn map[string]nmVariantMap, path dbus.ObjectPath) *dbus.Error {
 	log.Printf("[SecretAgent] DeleteSecrets called: path=%s", path)
+	return nil
+}
+
+func (a *SecretAgent) DeleteSecrets2(path dbus.ObjectPath, setting string) *dbus.Error {
+	log.Printf("[SecretAgent] DeleteSecrets2 (alternate) called: path=%s, setting=%s", path, setting)
 	return nil
 }
 
