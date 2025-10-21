@@ -339,9 +339,13 @@ func (m *Manager) setupOutputControls(outputs []*wlclient.Output, manager *wlr_g
 				state.failed = false
 				log.Infof("Output %d gamma_size=%d", state.id, e.Size)
 
-				if m.allOutputsReady() {
-					m.triggerUpdate()
-				}
+				m.transitionMutex.RLock()
+				currentTemp := m.currentTemp
+				m.transitionMutex.RUnlock()
+
+				m.post(func() {
+					m.applyNowOnActor(currentTemp)
+				})
 			})
 
 			control.SetFailedHandler(func(e wlr_gamma_control.ZwlrGammaControlV1FailedEvent) {
@@ -420,9 +424,13 @@ func (m *Manager) addOutputControl(output *wlclient.Output) error {
 		outState.failed = false
 		log.Infof("Output %d gamma_size=%d", outState.id, e.Size)
 
-		if m.allOutputsReady() {
-			m.triggerUpdate()
-		}
+		m.transitionMutex.RLock()
+		currentTemp := m.currentTemp
+		m.transitionMutex.RUnlock()
+
+		m.post(func() {
+			m.applyNowOnActor(currentTemp)
+		})
 	})
 
 	control.SetFailedHandler(func(e wlr_gamma_control.ZwlrGammaControlV1FailedEvent) {
@@ -610,6 +618,15 @@ func (m *Manager) startTransition(targetTemp int) {
 }
 
 func (m *Manager) recreateOutputControl(out *outputState) error {
+	m.outputsMutex.RLock()
+	_, exists := m.outputs[out.id]
+	m.outputsMutex.RUnlock()
+
+	if !exists {
+		log.Debugf("Output %d no longer exists, skipping recreation", out.id)
+		return nil
+	}
+
 	gammaMgr, ok := m.gammaControl.(*wlr_gamma_control.ZwlrGammaControlManagerV1)
 	if !ok || gammaMgr == nil {
 		return fmt.Errorf("gamma control manager not available")
@@ -626,6 +643,14 @@ func (m *Manager) recreateOutputControl(out *outputState) error {
 		state.rampSize = e.Size
 		state.failed = false
 		log.Infof("Output %d gamma_size=%d (recreated)", state.id, e.Size)
+
+		m.transitionMutex.RLock()
+		currentTemp := m.currentTemp
+		m.transitionMutex.RUnlock()
+
+		m.post(func() {
+			m.applyNowOnActor(currentTemp)
+		})
 	})
 
 	control.SetFailedHandler(func(e wlr_gamma_control.ZwlrGammaControlV1FailedEvent) {
