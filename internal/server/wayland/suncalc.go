@@ -13,10 +13,11 @@ const (
 )
 
 func CalculateSunTimes(lat, lon float64, date time.Time) SunTimes {
-	year, month, day := date.Date()
+	utcDate := date.UTC()
+	year, month, day := utcDate.Date()
 	loc := date.Location()
 
-	dayOfYear := date.YearDay()
+	dayOfYear := utcDate.YearDay()
 
 	gamma := 2 * math.Pi / 365 * float64(dayOfYear-1)
 
@@ -42,14 +43,14 @@ func CalculateSunTimes(lat, lon float64, date time.Time) SunTimes {
 
 	if cosHourAngle > 1 {
 		return SunTimes{
-			Sunrise: time.Date(year, month, day, 0, 0, 0, 0, loc),
-			Sunset:  time.Date(year, month, day, 0, 0, 0, 0, loc),
+			Sunrise: time.Date(year, month, day, 0, 0, 0, 0, time.UTC).In(loc),
+			Sunset:  time.Date(year, month, day, 0, 0, 0, 0, time.UTC).In(loc),
 		}
 	}
 	if cosHourAngle < -1 {
 		return SunTimes{
-			Sunrise: time.Date(year, month, day, 0, 0, 0, 0, loc),
-			Sunset:  time.Date(year, month, day, 23, 59, 59, 0, loc),
+			Sunrise: time.Date(year, month, day, 0, 0, 0, 0, time.UTC).In(loc),
+			Sunset:  time.Date(year, month, day, 23, 59, 59, 0, time.UTC).In(loc),
 		}
 	}
 
@@ -58,8 +59,8 @@ func CalculateSunTimes(lat, lon float64, date time.Time) SunTimes {
 	sunriseTime := solarNoon - hourAngle/15.0 - lon/15.0 - eqTime/60.0
 	sunsetTime := solarNoon + hourAngle/15.0 - lon/15.0 - eqTime/60.0
 
-	sunrise := timeOfDayToTime(sunriseTime, year, month, day, loc)
-	sunset := timeOfDayToTime(sunsetTime, year, month, day, loc)
+	sunrise := timeOfDayToTime(sunriseTime, year, month, day, time.UTC).In(loc)
+	sunset := timeOfDayToTime(sunsetTime, year, month, day, time.UTC).In(loc)
 
 	return SunTimes{
 		Sunrise: sunrise,
