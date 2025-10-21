@@ -202,6 +202,7 @@ func (m *Manager) setupRegistry() error {
 	log.Debug("setupRegistry: registry obtained")
 
 	outputs := make([]*wlclient.Output, 0)
+	outputRegNames := make(map[uint32]uint32)
 	var gammaMgr *wlr_gamma_control.ZwlrGammaControlManagerV1
 
 	registry.SetGlobalHandler(func(e wlclient.RegistryGlobalEvent) {
@@ -220,19 +221,69 @@ func (m *Manager) setupRegistry() error {
 				log.Errorf("setupRegistry: failed to bind gamma control: %v", err)
 			}
 		case "wl_output":
-			log.Debugf("setupRegistry: found wl_output (name=%d)", e.Name)
+			log.Debugf("Global event: found wl_output (name=%d)", e.Name)
 			output := wlclient.NewOutput(ctx)
 			version := e.Version
 			if version > 4 {
 				version = 4
 			}
 			if err := registry.Bind(e.Name, e.Interface, version, output); err == nil {
-				log.Infof("setupRegistry: bound wl_output id=%d", output.ID())
-				outputs = append(outputs, output)
+				outputID := output.ID()
+				log.Infof("Bound wl_output id=%d registry_name=%d", outputID, e.Name)
+
+				if gammaMgr != nil {
+					outputs = append(outputs, output)
+					outputRegNames[outputID] = e.Name
+				}
+
+				m.outputsMutex.Lock()
+				if m.outputRegNames != nil {
+					m.outputRegNames[outputID] = e.Name
+				}
+				m.outputsMutex.Unlock()
+
+				m.configMutex.RLock()
+				enabled := m.config.Enabled
+				m.configMutex.RUnlock()
+
+				if enabled && m.controlsInitialized {
+					m.post(func() {
+						log.Infof("New output %d added, creating gamma control", outputID)
+						if err := m.addOutputControl(output); err != nil {
+							log.Errorf("Failed to add gamma control for new output %d: %v", outputID, err)
+						}
+					})
+				} else if enabled && !m.controlsInitialized {
+					log.Infof("Output %d added but controls not initialized, will be handled on enable", outputID)
+				}
 			} else {
-				log.Errorf("setupRegistry: failed to bind wl_output: %v", err)
+				log.Errorf("Failed to bind wl_output: %v", err)
 			}
 		}
+	})
+
+	registry.SetGlobalRemoveHandler(func(e wlclient.RegistryGlobalRemoveEvent) {
+		m.post(func() {
+			m.outputsMutex.Lock()
+			defer m.outputsMutex.Unlock()
+
+			for id, out := range m.outputs {
+				if out.registryName == e.Name {
+					log.Infof("Output %d (registry name %d) removed, destroying gamma control", id, e.Name)
+					if out.gammaControl != nil {
+						control := out.gammaControl.(*wlr_gamma_control.ZwlrGammaControlV1)
+						control.Destroy()
+					}
+					delete(m.outputs, id)
+
+					if len(m.outputs) == 0 {
+						m.controlsInitialized = false
+						log.Info("All outputs removed, controls no longer initialized")
+					}
+					return
+				}
+			}
+		})
 	})
 
 	log.Debug("setupRegistry: performing roundtrips")
@@ -257,6 +308,7 @@ func (m *Manager) setupRegistry() error {
 
 	m.gammaControl = gammaMgr
 	m.availableOutputs = outputs
+	m.outputRegNames = outputRegNames
 
 	log.Info("setupRegistry: completed successfully (gamma controls will be initialized when enabled)")
 	return nil
@@ -276,6 +328,7 @@ func (m *Manager) setupOutputControls(outputs []*wlclient.Output, manager *wlr_g
 
 		outState := &outputState{
 			id:           output.ID(),
+			registryName: m.outputRegNames[output.ID()],
 			output:       output,
 			gammaControl: control,
 		}
@@ -344,6 +397,56 @@ func (m *Manager) setupOutputControls(outputs []*wlclient.Output, manager *wlr_g
 		log.Info("setupOutputControls: completed, gamma_size events will arrive via event loop")
 	}
 
+	return nil
+}
+
+func (m *Manager) addOutputControl(output *wlclient.Output) error {
+	gammaMgr := m.gammaControl.(*wlr_gamma_control.ZwlrGammaControlManagerV1)
+
+	control, err := gammaMgr.GetGammaControl(output)
+	if err != nil {
+		return fmt.Errorf("failed to get gamma control: %w", err)
+	}
+
+	outState := &outputState{
+		id:           output.ID(),
+		registryName: m.outputRegNames[output.ID()],
+		output:       output,
+		gammaControl: control,
+	}
+
+	control.SetGammaSizeHandler(func(e wlr_gamma_control.ZwlrGammaControlV1GammaSizeEvent) {
+		outState.rampSize = e.Size
+		outState.failed = false
+		log.Infof("Output %d gamma_size=%d", outState.id, e.Size)
+
+		if m.allOutputsReady() {
+			m.triggerUpdate()
+		}
+	})
+
+	control.SetFailedHandler(func(e wlr_gamma_control.ZwlrGammaControlV1FailedEvent) {
+		log.Errorf("Gamma control FAILED for output %d - marking for recreation", outState.id)
+		m.outputsMutex.Lock()
+		if out, exists := m.outputs[outState.id]; exists {
+			out.failed = true
+			out.rampSize = 0
+		}
+		m.outputsMutex.Unlock()
+
+		time.AfterFunc(300*time.Millisecond, func() {
+			m.post(func() {
+				log.Debugf("Attempting to recreate gamma control for output %d", outState.id)
+				_ = m.recreateOutputControl(outState)
+			})
+		})
+	})
+
+	m.outputsMutex.Lock()
+	m.outputs[output.ID()] = outState
+	m.outputsMutex.Unlock()
+
+	log.Infof("Added gamma control for output %d", output.ID())
 	return nil
 }
 

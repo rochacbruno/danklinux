@@ -46,6 +46,7 @@ type Manager struct {
 	registry            *wlclient.Registry
 	gammaControl        interface{}
 	availableOutputs    []*wlclient.Output
+	outputRegNames      map[uint32]uint32
 	outputs             map[uint32]*outputState
 	outputsMutex        sync.RWMutex
 	controlsInitialized bool
@@ -79,6 +80,7 @@ type Manager struct {
 type outputState struct {
 	id           uint32
 	name         string
+	registryName uint32
 	output       *wlclient.Output
 	gammaControl interface{}
 	rampSize     uint32
