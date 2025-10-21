@@ -2,6 +2,7 @@ package network
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/Wifx/gonetworkmanager/v2"
 )
@@ -32,7 +33,8 @@ func (m *Manager) prioritizeWiFi() error {
 		return err
 	}
 
-	return m.reactivateConnections()
+	m.notifySubscribers()
+	return nil
 }
 
 func (m *Manager) prioritizeEthernet() error {
@@ -44,7 +46,8 @@ func (m *Manager) prioritizeEthernet() error {
 		return err
 	}
 
-	return m.reactivateConnections()
+	m.notifySubscribers()
+	return nil
 }
 
 func (m *Manager) balancePriorities() error {
@@ -56,7 +59,8 @@ func (m *Manager) balancePriorities() error {
 		return err
 	}
 
-	return m.reactivateConnections()
+	m.notifySubscribers()
+	return nil
 }
 
 func (m *Manager) setConnectionMetrics(connType string, metric uint32) error {
@@ -103,55 +107,20 @@ func (m *Manager) setConnectionMetrics(connType string, metric uint32) error {
 	return nil
 }
 
-func (m *Manager) reactivateConnections() error {
-	nm := m.nmConn.(gonetworkmanager.NetworkManager)
-
-	activeConns, err := nm.GetPropertyActiveConnections()
-	if err != nil {
-		return fmt.Errorf("failed to get active connections: %w", err)
-	}
-
-	for _, activeConn := range activeConns {
-		connType, err := activeConn.GetPropertyType()
-		if err != nil {
-			continue
-		}
-
-		if connType != "802-11-wireless" && connType != "802-3-ethernet" {
-			continue
-		}
-
-		devices, err := activeConn.GetPropertyDevices()
-		if err != nil || len(devices) == 0 {
-			continue
-		}
-
-		connection, err := activeConn.GetPropertyConnection()
-		if err != nil {
-			continue
-		}
-
-		err = nm.DeactivateConnection(activeConn)
-		if err != nil {
-			continue
-		}
-
-		_, err = nm.ActivateConnection(connection, devices[0], nil)
-		if err != nil {
-			continue
-		}
-	}
-
-	m.updateEthernetState()
-	m.updateWiFiState()
-	m.updatePrimaryConnection()
-	m.notifySubscribers()
-
-	return nil
-}
-
 func (m *Manager) GetConnectionPreference() ConnectionPreference {
 	m.stateMutex.RLock()
 	defer m.stateMutex.RUnlock()
 	return m.state.Preference
+}
+
+func (m *Manager) WasRecentlyFailed(ssid string) bool {
+	m.failedMutex.RLock()
+	defer m.failedMutex.RUnlock()
+
+	if m.lastFailedSSID != ssid {
+		return false
+	}
+
+	timeSinceFailure := time.Now().Unix() - m.lastFailedTime
+	return timeSinceFailure < 60
 }

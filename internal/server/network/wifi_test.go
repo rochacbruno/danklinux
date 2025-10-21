@@ -86,6 +86,22 @@ func TestSortWiFiNetworks(t *testing.T) {
 		}
 		assert.Less(t, openIdx, weakSecureIdx, "OpenStrong should come before SecureWeak")
 	})
+
+	t.Run("prioritizes saved networks after connected", func(t *testing.T) {
+		networks := []WiFiNetwork{
+			{SSID: "UnsavedStrong", Signal: 95, Saved: false},
+			{SSID: "SavedMedium", Signal: 60, Saved: true},
+			{SSID: "SavedWeak", Signal: 50, Saved: true},
+			{SSID: "UnsavedMedium", Signal: 70, Saved: false},
+		}
+
+		sortWiFiNetworks(networks, "")
+
+		assert.Equal(t, "SavedMedium", networks[0].SSID)
+		assert.Equal(t, "SavedWeak", networks[1].SSID)
+		assert.Equal(t, "UnsavedStrong", networks[2].SSID)
+		assert.Equal(t, "UnsavedMedium", networks[3].SSID)
+	})
 }
 
 func TestManager_GetWiFiNetworks(t *testing.T) {

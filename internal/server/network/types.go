@@ -63,6 +63,7 @@ type ConnectionRequest struct {
 	Username          string `json:"username,omitempty"`
 	AnonymousIdentity string `json:"anonymousIdentity,omitempty"`
 	DomainSuffixMatch string `json:"domainSuffixMatch,omitempty"`
+	Interactive       bool   `json:"interactive,omitempty"`
 }
 
 type WiredConnection struct {
@@ -78,22 +79,29 @@ type PriorityUpdate struct {
 }
 
 type Manager struct {
-	state             *NetworkState
-	stateMutex        sync.RWMutex
-	subscribers       map[string]chan NetworkState
-	subMutex          sync.RWMutex
-	stopChan          chan struct{}
-	nmConn            interface{}
-	ethernetDevice    interface{}
-	wifiDevice        interface{}
-	settings          interface{}
-	wifiDev           interface{}
-	dirty             chan struct{}
-	notifierWg        sync.WaitGroup
-	lastNotifiedState *NetworkState
-	dbusConn          *dbus.Conn
-	signals           chan *dbus.Signal
-	sigWG             sync.WaitGroup
+	state               *NetworkState
+	stateMutex          sync.RWMutex
+	subscribers         map[string]chan NetworkState
+	subMutex            sync.RWMutex
+	stopChan            chan struct{}
+	nmConn              interface{}
+	ethernetDevice      interface{}
+	wifiDevice          interface{}
+	settings            interface{}
+	wifiDev             interface{}
+	dirty               chan struct{}
+	notifierWg          sync.WaitGroup
+	lastNotifiedState   *NetworkState
+	dbusConn            *dbus.Conn
+	signals             chan *dbus.Signal
+	sigWG               sync.WaitGroup
+	secretAgent         *SecretAgent
+	promptBroker        PromptBroker
+	credentialSubscribers map[string]chan CredentialPrompt
+	credSubMutex          sync.RWMutex
+	lastFailedSSID        string
+	lastFailedTime        int64
+	failedMutex           sync.RWMutex
 }
 
 type EventType string
@@ -110,4 +118,27 @@ const (
 type NetworkEvent struct {
 	Type EventType    `json:"type"`
 	Data NetworkState `json:"data"`
+}
+
+type PromptRequest struct {
+	SSID        string   `json:"ssid"`
+	SettingName string   `json:"setting"`
+	Fields      []string `json:"fields"`
+	Hints       []string `json:"hints"`
+	Reason      string   `json:"reason"`
+}
+
+type PromptReply struct {
+	Secrets map[string]string `json:"secrets"`
+	Save    bool              `json:"save"`
+	Cancel  bool              `json:"cancel"`
+}
+
+type CredentialPrompt struct {
+	Token   string   `json:"token"`
+	SSID    string   `json:"ssid"`
+	Setting string   `json:"setting"`
+	Fields  []string `json:"fields"`
+	Hints   []string `json:"hints"`
+	Reason  string   `json:"reason"`
 }

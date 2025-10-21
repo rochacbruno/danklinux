@@ -53,9 +53,61 @@ func HandleRequest(conn net.Conn, req Request, manager *Manager) {
 		handleGetWiredNetworkInfo(conn, req, manager)
 	case "network.subscribe":
 		handleSubscribe(conn, req, manager)
+	case "network.credentials.submit":
+		handleCredentialsSubmit(conn, req, manager)
+	case "network.credentials.cancel":
+		handleCredentialsCancel(conn, req, manager)
 	default:
 		models.RespondError(conn, req.ID, fmt.Sprintf("unknown method: %s", req.Method))
 	}
+}
+
+func handleCredentialsSubmit(conn net.Conn, req Request, manager *Manager) {
+	token, ok := req.Params["token"].(string)
+	if !ok {
+		models.RespondError(conn, req.ID, "missing or invalid 'token' parameter")
+		return
+	}
+
+	secretsRaw, ok := req.Params["secrets"].(map[string]interface{})
+	if !ok {
+		models.RespondError(conn, req.ID, "missing or invalid 'secrets' parameter")
+		return
+	}
+
+	secrets := make(map[string]string)
+	for k, v := range secretsRaw {
+		if str, ok := v.(string); ok {
+			secrets[k] = str
+		}
+	}
+
+	save := false
+	if saveParam, ok := req.Params["save"].(bool); ok {
+		save = saveParam
+	}
+
+	if err := manager.SubmitCredentials(token, secrets, save); err != nil {
+		models.RespondError(conn, req.ID, err.Error())
+		return
+	}
+
+	models.Respond(conn, req.ID, SuccessResult{Success: true, Message: "credentials submitted"})
+}
+
+func handleCredentialsCancel(conn net.Conn, req Request, manager *Manager) {
+	token, ok := req.Params["token"].(string)
+	if !ok {
+		models.RespondError(conn, req.ID, "missing or invalid 'token' parameter")
+		return
+	}
+
+	if err := manager.CancelCredentials(token); err != nil {
+		models.RespondError(conn, req.ID, err.Error())
+		return
+	}
+
+	models.Respond(conn, req.ID, SuccessResult{Success: true, Message: "credentials cancelled"})
 }
 
 func handleGetState(conn net.Conn, req Request, manager *Manager) {
@@ -93,7 +145,26 @@ func handleConnectWiFi(conn net.Conn, req Request, manager *Manager) {
 		connReq.Username = username
 	}
 
-	// Enterprise WiFi parameters
+	if interactive, ok := req.Params["interactive"].(bool); ok {
+		connReq.Interactive = interactive
+	} else {
+		state := manager.GetState()
+		alreadyConnected := state.WiFiConnected && state.WiFiSSID == ssid
+
+		if alreadyConnected {
+			connReq.Interactive = false
+		} else {
+			networkInfo, err := manager.GetNetworkInfo(ssid)
+			isSaved := err == nil && networkInfo.Saved
+
+			if isSaved {
+				connReq.Interactive = false
+			} else if err == nil && networkInfo.Secured && connReq.Password == "" && connReq.Username == "" {
+				connReq.Interactive = true
+			}
+		}
+	}
+
 	if anonymousIdentity, ok := req.Params["anonymousIdentity"].(string); ok {
 		connReq.AnonymousIdentity = anonymousIdentity
 	}

@@ -175,6 +175,13 @@ func sortWiFiNetworks(networks []WiFiNetwork, currentSSID string) {
 			return false
 		}
 
+		if networks[i].Saved && !networks[j].Saved {
+			return true
+		}
+		if !networks[i].Saved && networks[j].Saved {
+			return false
+		}
+
 		if !networks[i].Secured && networks[j].Secured {
 			if networks[i].Signal >= 50 {
 				return true

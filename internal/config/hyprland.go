@@ -144,6 +144,7 @@ bind = $mod, comma, exec, dms ipc call settings toggle
 bind = $mod, N, exec, dms ipc call notifications toggle
 bind = $mod, SHIFT, N, exec, dms ipc call notepad toggle
 bind = $mod, Y, exec, dms ipc call dankdash wallpaper
+bind = $mod, TAB, exec, dms ipc call hypr toggleOverview
 
 # === Security ===
 bind = $mod ALT, L, exec, dms ipc call lock lock

@@ -20,7 +20,7 @@ import (
 	"github.com/AvengeMedia/danklinux/internal/server/wayland"
 )
 
-const APIVersion = 6
+const APIVersion = 7
 
 type Capabilities struct {
 	Capabilities []string `json:"capabilities"`
@@ -291,6 +291,31 @@ func handleSubscribe(conn net.Conn, req models.Request) {
 		}()
 	}
 
+	if shouldSubscribe("network.credentials") && networkManager != nil {
+		wg.Add(1)
+		credChan := networkManager.SubscribeCredentials(clientID + "-credentials")
+		go func() {
+			defer wg.Done()
+			defer networkManager.UnsubscribeCredentials(clientID + "-credentials")
+
+			for {
+				select {
+				case prompt, ok := <-credChan:
+					if !ok {
+						return
+					}
+					select {
+					case eventChan <- ServiceEvent{Service: "network.credentials", Data: prompt}:
+					case <-stopChan:
+						return
+					}
+				case <-stopChan:
+					return
+				}
+			}
+		}()
+	}
+
 	if shouldSubscribe("loginctl") && loginctlManager != nil {
 		wg.Add(1)
 		loginChan := loginctlManager.Subscribe(clientID + "-loginctl")
@@ -461,6 +486,8 @@ func Start(printDocs bool) error {
 		log.Info(" network.ethernet.disconnect - Disconnect Ethernet")
 		log.Info(" network.preference.set      - Set preference (params: preference [auto|wifi|ethernet])")
 		log.Info(" network.info                - Get network info (params: ssid)")
+		log.Info(" network.credentials.submit  - Submit credentials for prompt (params: token, secrets, save?)")
+		log.Info(" network.credentials.cancel  - Cancel credential prompt (params: token)")
 		log.Info(" network.subscribe           - Subscribe to network state changes (streaming)")
 		log.Info("Loginctl:")
 		log.Info(" loginctl.getState           - Get current session state")

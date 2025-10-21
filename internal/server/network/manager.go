@@ -2,6 +2,7 @@ package network
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"sync"
 	"time"
@@ -22,16 +23,25 @@ func NewManager() (*Manager, error) {
 			Preference:    PreferenceAuto,
 			WiFiNetworks:  []WiFiNetwork{},
 		},
-		stateMutex:  sync.RWMutex{},
-		subscribers: make(map[string]chan NetworkState),
-		subMutex:    sync.RWMutex{},
-		stopChan:    make(chan struct{}),
-		nmConn:      nm,
-		dirty:       make(chan struct{}, 1),
+		stateMutex:            sync.RWMutex{},
+		subscribers:           make(map[string]chan NetworkState),
+		subMutex:              sync.RWMutex{},
+		stopChan:              make(chan struct{}),
+		nmConn:                nm,
+		dirty:                 make(chan struct{}, 1),
+		credentialSubscribers: make(map[string]chan CredentialPrompt),
+		credSubMutex:          sync.RWMutex{},
 	}
+
+	broker := NewSubscriptionBroker(m.broadcastCredentialPrompt)
+	m.promptBroker = broker
 
 	if err := m.initialize(); err != nil {
 		return nil, err
+	}
+
+	if err := m.startSecretAgent(); err != nil {
+		return nil, fmt.Errorf("failed to start secret agent: %w", err)
 	}
 
 	m.notifierWg.Add(1)
@@ -204,6 +214,8 @@ func (m *Manager) updateWiFiState() error {
 	}
 
 	connected := state == gonetworkmanager.NmDeviceStateActivated
+	failed := state == gonetworkmanager.NmDeviceStateFailed
+	disconnected := state == gonetworkmanager.NmDeviceStateDisconnected
 
 	var ip, ssid, bssid string
 	var signal uint8
@@ -223,6 +235,28 @@ func (m *Manager) updateWiFiState() error {
 	}
 
 	m.stateMutex.Lock()
+	wasConnecting := m.state.IsConnecting
+	connectingSSID := m.state.ConnectingSSID
+
+	if wasConnecting && connectingSSID != "" {
+		if connected && ssid == connectingSSID {
+			log.Printf("[updateWiFiState] Connection successful: %s", ssid)
+			m.state.IsConnecting = false
+			m.state.ConnectingSSID = ""
+			m.state.LastError = ""
+		} else if failed || (disconnected && !connected) {
+			log.Printf("[updateWiFiState] Connection failed: SSID=%s, state=%d", connectingSSID, state)
+			m.state.IsConnecting = false
+			m.state.ConnectingSSID = ""
+			m.state.LastError = "connection-failed"
+
+			m.failedMutex.Lock()
+			m.lastFailedSSID = connectingSSID
+			m.lastFailedTime = time.Now().Unix()
+			m.failedMutex.Unlock()
+		}
+	}
+
 	m.state.WiFiDevice = iface
 	m.state.WiFiConnected = connected
 	m.state.WiFiIP = ip
@@ -366,6 +400,35 @@ func (m *Manager) Unsubscribe(id string) {
 		delete(m.subscribers, id)
 	}
 	m.subMutex.Unlock()
+}
+
+func (m *Manager) SubscribeCredentials(id string) chan CredentialPrompt {
+	ch := make(chan CredentialPrompt, 16)
+	m.credSubMutex.Lock()
+	m.credentialSubscribers[id] = ch
+	m.credSubMutex.Unlock()
+	return ch
+}
+
+func (m *Manager) UnsubscribeCredentials(id string) {
+	m.credSubMutex.Lock()
+	if ch, ok := m.credentialSubscribers[id]; ok {
+		close(ch)
+		delete(m.credentialSubscribers, id)
+	}
+	m.credSubMutex.Unlock()
+}
+
+func (m *Manager) broadcastCredentialPrompt(prompt CredentialPrompt) {
+	m.credSubMutex.RLock()
+	defer m.credSubMutex.RUnlock()
+
+	for _, ch := range m.credentialSubscribers {
+		select {
+		case ch <- prompt:
+		default:
+		}
+	}
 }
 
 func (m *Manager) notifier() {
@@ -549,11 +612,70 @@ func (m *Manager) stopSignalPump() {
 	m.dbusConn.Close()
 }
 
+func (m *Manager) startSecretAgent() error {
+	if m.promptBroker == nil {
+		return fmt.Errorf("prompt broker not set")
+	}
+
+	agent, err := NewSecretAgent(m.promptBroker, m)
+	if err != nil {
+		return err
+	}
+
+	m.secretAgent = agent
+	return nil
+}
+
+func (m *Manager) SetPromptBroker(broker PromptBroker) error {
+	if broker == nil {
+		return fmt.Errorf("broker cannot be nil")
+	}
+
+	m.promptBroker = broker
+
+	if m.secretAgent != nil {
+		m.secretAgent.Close()
+		m.secretAgent = nil
+	}
+
+	return m.startSecretAgent()
+}
+
+func (m *Manager) SubmitCredentials(token string, secrets map[string]string, save bool) error {
+	if m.promptBroker == nil {
+		return fmt.Errorf("prompt broker not initialized")
+	}
+
+	return m.promptBroker.Resolve(token, PromptReply{
+		Secrets: secrets,
+		Save:    save,
+		Cancel:  false,
+	})
+}
+
+func (m *Manager) CancelCredentials(token string) error {
+	if m.promptBroker == nil {
+		return fmt.Errorf("prompt broker not initialized")
+	}
+
+	return m.promptBroker.Resolve(token, PromptReply{
+		Cancel: true,
+	})
+}
+
+func (m *Manager) GetPromptBroker() PromptBroker {
+	return m.promptBroker
+}
+
 func (m *Manager) Close() {
 	close(m.stopChan)
 	m.notifierWg.Wait()
 
 	m.stopSignalPump()
+
+	if m.secretAgent != nil {
+		m.secretAgent.Close()
+	}
 
 	m.subMutex.Lock()
 	for _, ch := range m.subscribers {

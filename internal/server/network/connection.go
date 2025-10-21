@@ -9,12 +9,16 @@ import (
 )
 
 func (m *Manager) ConnectWiFi(req ConnectionRequest) error {
-	log.Printf("[ConnectWiFi] Starting connection to SSID: %s, hasUsername: %v, hasPassword: %v",
-		req.SSID, req.Username != "", req.Password != "")
-
 	if m.wifiDevice == nil {
-		log.Printf("[ConnectWiFi] ERROR: No WiFi device available")
 		return fmt.Errorf("no WiFi device available")
+	}
+
+	m.stateMutex.RLock()
+	alreadyConnected := m.state.WiFiConnected && m.state.WiFiSSID == req.SSID
+	m.stateMutex.RUnlock()
+
+	if alreadyConnected && !req.Interactive {
+		return nil
 	}
 
 	m.stateMutex.Lock()
@@ -27,15 +31,13 @@ func (m *Manager) ConnectWiFi(req ConnectionRequest) error {
 
 	nm := m.nmConn.(gonetworkmanager.NetworkManager)
 
-	log.Printf("[ConnectWiFi] Searching for existing connection for SSID: %s", req.SSID)
 	existingConn, err := m.findConnection(req.SSID)
 	if err == nil && existingConn != nil {
-		log.Printf("[ConnectWiFi] Found existing connection, attempting to activate")
 		dev := m.wifiDevice.(gonetworkmanager.Device)
 
 		_, err := nm.ActivateConnection(existingConn, dev, nil)
 		if err != nil {
-			log.Printf("[ConnectWiFi] ERROR: Failed to activate existing connection: %v", err)
+			log.Printf("[ConnectWiFi] Failed to activate existing connection: %v", err)
 			m.stateMutex.Lock()
 			m.state.IsConnecting = false
 			m.state.ConnectingSSID = ""
@@ -45,22 +47,11 @@ func (m *Manager) ConnectWiFi(req ConnectionRequest) error {
 			return fmt.Errorf("failed to activate connection: %w", err)
 		}
 
-		log.Printf("[ConnectWiFi] Successfully activated existing connection")
-		m.stateMutex.Lock()
-		m.state.IsConnecting = false
-		m.state.ConnectingSSID = ""
-		m.stateMutex.Unlock()
-
-		m.updateWiFiState()
-		m.updatePrimaryConnection()
-		m.notifySubscribers()
-
 		return nil
 	}
-	log.Printf("[ConnectWiFi] No existing connection found (or error: %v), creating new connection", err)
 
 	if err := m.createAndConnectWiFi(req); err != nil {
-		log.Printf("[ConnectWiFi] ERROR: Failed to create and connect: %v", err)
+		log.Printf("[ConnectWiFi] Failed to create and connect: %v", err)
 		m.stateMutex.Lock()
 		m.state.IsConnecting = false
 		m.state.ConnectingSSID = ""
@@ -70,40 +61,23 @@ func (m *Manager) ConnectWiFi(req ConnectionRequest) error {
 		return err
 	}
 
-	log.Printf("[ConnectWiFi] Successfully created and connected to new network")
-	m.stateMutex.Lock()
-	m.state.IsConnecting = false
-	m.state.ConnectingSSID = ""
-	m.stateMutex.Unlock()
-
-	m.updateWiFiState()
-	m.updatePrimaryConnection()
-	m.notifySubscribers()
-
 	return nil
 }
 
 func (m *Manager) createAndConnectWiFi(req ConnectionRequest) error {
-	log.Printf("[createAndConnectWiFi] Starting for SSID: %s", req.SSID)
-
 	nm := m.nmConn.(gonetworkmanager.NetworkManager)
 	dev := m.wifiDevice.(gonetworkmanager.Device)
 
-	log.Printf("[createAndConnectWiFi] Ensuring WiFi device is available")
 	if err := m.ensureWiFiDevice(); err != nil {
-		log.Printf("[createAndConnectWiFi] ERROR: Failed to ensure WiFi device: %v", err)
 		return err
 	}
 	wifiDev := m.wifiDev
 
-	log.Printf("[createAndConnectWiFi] Getting access points")
 	w := wifiDev.(gonetworkmanager.DeviceWireless)
 	apPaths, err := w.GetAccessPoints()
 	if err != nil {
-		log.Printf("[createAndConnectWiFi] ERROR: Failed to get access points: %v", err)
 		return fmt.Errorf("failed to get access points: %w", err)
 	}
-	log.Printf("[createAndConnectWiFi] Found %d access points", len(apPaths))
 
 	var targetAP gonetworkmanager.AccessPoint
 	for _, ap := range apPaths {
@@ -111,14 +85,11 @@ func (m *Manager) createAndConnectWiFi(req ConnectionRequest) error {
 		if err != nil || ssid != req.SSID {
 			continue
 		}
-
 		targetAP = ap
-		log.Printf("[createAndConnectWiFi] Found target access point for SSID: %s", req.SSID)
 		break
 	}
 
 	if targetAP == nil {
-		log.Printf("[createAndConnectWiFi] ERROR: Access point not found: %s", req.SSID)
 		return fmt.Errorf("access point not found: %s", req.SSID)
 	}
 
@@ -126,13 +97,9 @@ func (m *Manager) createAndConnectWiFi(req ConnectionRequest) error {
 	wpaFlags, _ := targetAP.GetPropertyWPAFlags()
 	rsnFlags, _ := targetAP.GetPropertyRSNFlags()
 
-	log.Printf("[createAndConnectWiFi] AP Security flags - flags: 0x%x, wpaFlags: 0x%x, rsnFlags: 0x%x",
-		flags, wpaFlags, rsnFlags)
-
-	// NM80211ApSecurityFlags constants
-	const KeyMgmt8021x = uint32(512) // Enterprise WiFi (802.1X)
-	const KeyMgmtPsk = uint32(256)   // WPA2-Personal (PSK)
-	const KeyMgmtSae = uint32(1024)  // WPA3-Personal (SAE)
+	const KeyMgmt8021x = uint32(512)
+	const KeyMgmtPsk = uint32(256)
+	const KeyMgmtSae = uint32(1024)
 
 	isEnterprise := (wpaFlags&KeyMgmt8021x) != 0 || (rsnFlags&KeyMgmt8021x) != 0
 	isPsk := (wpaFlags&KeyMgmtPsk) != 0 || (rsnFlags&KeyMgmtPsk) != 0
@@ -142,8 +109,10 @@ func (m *Manager) createAndConnectWiFi(req ConnectionRequest) error {
 		wpaFlags != uint32(gonetworkmanager.Nm80211APSecNone) ||
 		rsnFlags != uint32(gonetworkmanager.Nm80211APSecNone)
 
-	log.Printf("[createAndConnectWiFi] Network analysis - secured: %v, isEnterprise: %v, isPsk: %v, isSae: %v",
-		secured, isEnterprise, isPsk, isSae)
+	if isEnterprise {
+		log.Printf("[createAndConnectWiFi] Enterprise network detected (802.1x) - SSID: %s, interactive: %v",
+			req.SSID, req.Interactive)
+	}
 
 	settings := make(map[string]map[string]interface{})
 
@@ -172,10 +141,18 @@ func (m *Manager) createAndConnectWiFi(req ConnectionRequest) error {
 			x := map[string]interface{}{
 				"eap":             []string{"peap"},
 				"phase2-auth":     "mschapv2",
-				"identity":        req.Username,
-				"password":        req.Password,
-				"password-flags":  0,
 				"system-ca-certs": false,
+			}
+
+			if req.Interactive {
+				x["password-flags"] = uint32(1)
+				if req.Username != "" {
+					x["identity"] = req.Username
+				}
+			} else {
+				x["identity"] = req.Username
+				x["password"] = req.Password
+				x["password-flags"] = uint32(0)
 			}
 
 			if req.AnonymousIdentity != "" {
@@ -187,50 +164,78 @@ func (m *Manager) createAndConnectWiFi(req ConnectionRequest) error {
 
 			settings["802-1x"] = x
 
-			log.Printf("[createAndConnectWiFi] WPA-EAP settings: eap=peap, phase2-auth=mschapv2, identity=%s, system-ca-certs=%v, domain-suffix-match=%q",
-				req.Username, x["system-ca-certs"], req.DomainSuffixMatch)
+			log.Printf("[createAndConnectWiFi] WPA-EAP settings: eap=peap, phase2-auth=mschapv2, identity=%s, interactive=%v, system-ca-certs=%v, domain-suffix-match=%q",
+				req.Username, req.Interactive, x["system-ca-certs"], req.DomainSuffixMatch)
 
 		case isPsk:
-			log.Printf("[createAndConnectWiFi] Configuring WPA2-PSK (personal)")
-			settings["802-11-wireless-security"] = map[string]interface{}{
-				"key-mgmt":  "wpa-psk",
-				"psk":       req.Password,
-				"psk-flags": uint32(0),
+			sec := map[string]interface{}{
+				"key-mgmt": "wpa-psk",
 			}
+			if req.Interactive {
+				sec["psk-flags"] = uint32(1)
+			} else {
+				sec["psk"] = req.Password
+				sec["psk-flags"] = uint32(0)
+			}
+			settings["802-11-wireless-security"] = sec
 
 		case isSae:
-			log.Printf("[createAndConnectWiFi] Configuring WPA3-SAE (personal)")
-			settings["802-11-wireless-security"] = map[string]interface{}{
-				"key-mgmt":  "sae",
-				"psk":       req.Password,
-				"psk-flags": uint32(0),
-				"pmf":       "required",
+			sec := map[string]interface{}{
+				"key-mgmt": "sae",
 			}
+			if req.Interactive {
+				sec["psk-flags"] = uint32(1)
+			} else {
+				sec["psk"] = req.Password
+				sec["psk-flags"] = uint32(0)
+			}
+			settings["802-11-wireless-security"] = sec
 
 		default:
-			log.Printf("[createAndConnectWiFi] ERROR: Secured network with unknown key management (rsn=0x%x, wpa=0x%x)", rsnFlags, wpaFlags)
 			return fmt.Errorf("secured network but not SAE/PSK/802.1X (rsn=0x%x wpa=0x%x)", rsnFlags, wpaFlags)
 		}
 	} else {
-		// Open network
 		settings["802-11-wireless"] = map[string]interface{}{
 			"ssid": []byte(req.SSID),
 			"mode": "infrastructure",
 		}
-		log.Printf("[createAndConnectWiFi] Network is open (no security)")
 	}
 
-	log.Printf("[createAndConnectWiFi] Calling AddAndActivateWirelessConnection with settings: %+v", settings)
-	log.Printf("[createAndConnectWiFi] Using access point: %s", targetAP.GetPath())
+	if req.Interactive {
+		s := m.settings
+		if s == nil {
+			var settingsErr error
+			s, settingsErr = gonetworkmanager.NewSettings()
+			if settingsErr != nil {
+				return fmt.Errorf("failed to get settings manager: %w", settingsErr)
+			}
+			m.settings = s
+		}
 
-	_, err = nm.AddAndActivateWirelessConnection(settings, dev, targetAP)
-	if err != nil {
-		log.Printf("[createAndConnectWiFi] ERROR: AddAndActivateWirelessConnection failed: %v", err)
-		log.Printf("[createAndConnectWiFi] ERROR: Connection settings that failed: %+v", settings)
-		return fmt.Errorf("failed to connect: %w", err)
+		settingsMgr := s.(gonetworkmanager.Settings)
+		conn, err := settingsMgr.AddConnection(settings)
+		if err != nil {
+			return fmt.Errorf("failed to add connection: %w", err)
+		}
+
+		if isEnterprise {
+			log.Printf("[createAndConnectWiFi] Enterprise connection added, activating (secret agent will be called)")
+		}
+
+		_, err = nm.ActivateWirelessConnection(conn, dev, targetAP)
+		if err != nil {
+			return fmt.Errorf("failed to activate connection: %w", err)
+		}
+
+		log.Printf("[createAndConnectWiFi] Connection activation initiated, waiting for NetworkManager state changes...")
+	} else {
+		_, err = nm.AddAndActivateWirelessConnection(settings, dev, targetAP)
+		if err != nil {
+			return fmt.Errorf("failed to connect: %w", err)
+		}
+		log.Printf("[createAndConnectWiFi] Connection activation initiated, waiting for NetworkManager state changes...")
 	}
 
-	log.Printf("[createAndConnectWiFi] Successfully added and activated wireless connection")
 	return nil
 }
 
