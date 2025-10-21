@@ -3,10 +3,14 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    gomod2nix = {
+      url = "github:nix-community/gomod2nix/v1.7.0";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
-    { self, nixpkgs }:
+    { self, nixpkgs, gomod2nix }:
     let
       supportedSystems = [
         "x86_64-linux"
@@ -29,20 +33,21 @@
         let
           pkgs = import nixpkgs { inherit system; };
           lib = pkgs.lib;
+          dms-cliVersion = "0.1.17";
         in
         {
-          dms-cli = pkgs.buildGoModule (finalAttrs: {
+          dms-cli = gomod2nix.legacyPackages.${system}.buildGoApplication {
             pname = "dms-cli";
-            version = "0.1.17";
+            version = dms-cliVersion;
             src = ./.;
-            vendorHash = "sha256-pUs/zYXahFZdqqVxM2YqBfX+Ao1M0NldAi9bkMIQTg4=";
+            modules = ./gomod2nix.toml;
 
             subPackages = [ "cmd/dms" ];
 
             ldflags = [
               "-s"
               "-w"
-              "-X main.Version=${finalAttrs.version}"
+              "-X main.Version=${dms-cliVersion}"
             ];
 
             meta = {
@@ -52,7 +57,7 @@
               license = lib.licenses.mit;
               platforms = lib.platforms.unix;
             };
-          });
+          };
 
           default = self.packages.${system}.dms-cli;
         }
