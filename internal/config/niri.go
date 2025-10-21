@@ -241,6 +241,9 @@ binds {
     Mod+Comma hotkey-overlay-title="Settings" { 
         spawn "dms" "ipc" "call" "settings" "toggle"; 
     }
+    Mod+Y hotkey-overlay-title="Browse Wallpapers" {
+        spawn "dms" "ipc" "call" "dankdash" "wallpaper";
+    }
     Mod+N hotkey-overlay-title="Notification Center" { spawn "dms" "ipc" "call" "notifications" "toggle"; }
     Mod+Shift+N hotkey-overlay-title="Notepad" { spawn "dms" "ipc" "call" "notepad" "toggle"; }
     
