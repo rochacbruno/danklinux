@@ -33,9 +33,9 @@
         {
           dms-cli = pkgs.buildGoModule (finalAttrs: {
             pname = "dms-cli";
-            version = "0.1.2";
+            version = "0.1.17";
             src = ./.;
-            vendorHash = "sha256-8EIcLCJuv7EYSHGkMh8WpDw2ATSfXBftGnWxfUTxkoc=";
+            vendorHash = "sha256-pUs/zYXahFZdqqVxM2YqBfX+Ao1M0NldAi9bkMIQTg4=";
 
             subPackages = [ "cmd/dms" ];
 
