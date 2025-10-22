@@ -8,6 +8,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/godbus/dbus/v5"
 	wlclient "github.com/yaslama/go-wayland/wayland/client"
 	"golang.org/x/sys/unix"
 
@@ -35,11 +36,18 @@ func NewManager(config Config) (*Manager, error) {
 		updateTrigger: make(chan struct{}, 1),
 		subscribers:   make(map[string]chan State),
 		dirty:         make(chan struct{}, 1),
+		dbusSignal:    make(chan *dbus.Signal, 16),
 	}
 
 	if err := m.setupRegistry(); err != nil {
 		display.Context().Close()
 		return nil, err
+	}
+
+	// Setup D-Bus monitoring for suspend/resume events
+	if err := m.setupDBusMonitor(); err != nil {
+		log.Warnf("Failed to setup D-Bus monitoring for suspend/resume: %v", err)
+		// Don't fail initialization if D-Bus setup fails, just continue without it
 	}
 
 	// Initialize currentTemp and targetTemp before starting any goroutines
@@ -58,6 +66,11 @@ func NewManager(config Config) (*Manager, error) {
 
 	m.wg.Add(1)
 	go m.updateLoop()
+
+	if m.dbusConn != nil {
+		m.wg.Add(1)
+		go m.dbusMonitor()
+	}
 
 	m.wg.Add(1)
 	go m.waylandActor()
@@ -188,6 +201,26 @@ func (m *Manager) handleDisconnect(err error) {
 	// Restart only the dispatcher, actor is still running
 	m.wg.Add(1)
 	go m.eventDispatcher()
+}
+
+func (m *Manager) setupDBusMonitor() error {
+	conn, err := dbus.ConnectSystemBus()
+	if err != nil {
+		return fmt.Errorf("failed to connect to system bus: %w", err)
+	}
+
+	// Subscribe to PrepareForSleep signal
+	matchRule := "type='signal',interface='org.freedesktop.login1.Manager',member='PrepareForSleep',path='/org/freedesktop/login1'"
+	if err := conn.BusObject().Call("org.freedesktop.DBus.AddMatch", 0, matchRule).Err; err != nil {
+		conn.Close()
+		return fmt.Errorf("failed to add match rule: %w", err)
+	}
+
+	conn.Signal(m.dbusSignal)
+	m.dbusConn = conn
+
+	log.Info("D-Bus monitoring for suspend/resume events enabled")
+	return nil
 }
 
 func (m *Manager) setupRegistry() error {
@@ -908,6 +941,51 @@ func (m *Manager) notifier() {
 	}
 }
 
+func (m *Manager) dbusMonitor() {
+	defer m.wg.Done()
+
+	for {
+		select {
+		case <-m.stopChan:
+			return
+		case sig := <-m.dbusSignal:
+			if sig == nil {
+				continue
+			}
+			m.handleDBusSignal(sig)
+		}
+	}
+}
+
+func (m *Manager) handleDBusSignal(sig *dbus.Signal) {
+	const prepareForSleepSignal = "org.freedesktop.login1.Manager.PrepareForSleep"
+
+	if sig.Name != prepareForSleepSignal {
+		return
+	}
+
+	if len(sig.Body) == 0 {
+		return
+	}
+
+	preparing, ok := sig.Body[0].(bool)
+	if !ok {
+		return
+	}
+
+	// When preparing=false, system is resuming from sleep
+	if !preparing {
+		log.Info("System resumed from suspend, recalculating gamma temperature")
+		m.configMutex.RLock()
+		enabled := m.config.Enabled
+		m.configMutex.RUnlock()
+
+		if enabled {
+			m.triggerUpdate()
+		}
+	}
+}
+
 func (m *Manager) triggerUpdate() {
 	select {
 	case m.updateTrigger <- struct{}{}:
@@ -1210,6 +1288,11 @@ func (m *Manager) Close() {
 
 	if manager, ok := m.gammaControl.(*wlr_gamma_control.ZwlrGammaControlManagerV1); ok {
 		manager.Destroy()
+	}
+
+	if m.dbusConn != nil {
+		m.dbusConn.RemoveSignal(m.dbusSignal)
+		m.dbusConn.Close()
 	}
 
 	if m.display != nil {

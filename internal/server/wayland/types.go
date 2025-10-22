@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/AvengeMedia/danklinux/internal/errdefs"
+	"github.com/godbus/dbus/v5"
 	wlclient "github.com/yaslama/go-wayland/wayland/client"
 )
 
@@ -75,6 +76,9 @@ type Manager struct {
 	dirty        chan struct{}
 	notifierWg   sync.WaitGroup
 	lastNotified *State
+
+	dbusConn   *dbus.Conn
+	dbusSignal chan *dbus.Signal
 }
 
 type outputState struct {
