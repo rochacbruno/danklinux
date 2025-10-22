@@ -287,7 +287,14 @@ func (m *Manager) setupRegistry() error {
 						}
 					})
 				} else if enabled && !m.controlsInitialized {
-					log.Infof("Output %d added but controls not initialized, will be handled on enable", outputID)
+					m.post(func() {
+						log.Infof("Output %d added after all were removed, creating gamma control", outputID)
+						if err := m.addOutputControl(output); err != nil {
+							log.Errorf("Failed to add gamma control for output %d: %v", outputID, err)
+						} else {
+							m.controlsInitialized = true
+						}
+					})
 				}
 			} else {
 				log.Errorf("Failed to bind wl_output: %v", err)
