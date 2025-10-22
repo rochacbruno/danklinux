@@ -15,15 +15,14 @@ func (m *Manager) handleDBusSignal(sig *dbus.Signal) {
 		m.stateMutex.Unlock()
 		m.notifySubscribers()
 
-		// Start a 1-second timer to release the inhibitor (only if enabled)
-		// This allows lockerReady to be called, or releases it automatically for custom lock screens
-		if m.sleepInhibitorEnabled.Load() {
+		if m.sleepInhibitorEnabled.Load() && m.inSleepCycle.Load() {
+			id := m.sleepCycleID.Load()
 			m.lockTimerMu.Lock()
 			if m.lockTimer != nil {
 				m.lockTimer.Stop()
 			}
-			m.lockTimer = time.AfterFunc(1*time.Second, func() {
-				m.releaseSleepInhibitor()
+			m.lockTimer = time.AfterFunc(m.fallbackDelay, func() {
+				m.releaseForCycle(id)
 			})
 			m.lockTimerMu.Unlock()
 		}

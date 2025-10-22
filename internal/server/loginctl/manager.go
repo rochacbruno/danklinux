@@ -58,6 +58,8 @@ func NewManager() (*Manager, error) {
 func (m *Manager) initialize() error {
 	m.managerObj = m.conn.Object(dbusDest, dbus.ObjectPath(dbusPath))
 
+	m.initializeFallbackDelay()
+
 	sessionPath, err := m.getSession(m.state.SessionID)
 	if err != nil {
 		return fmt.Errorf("failed to get session path: %w", err)
@@ -274,6 +276,39 @@ func (m *Manager) releaseSleepInhibitor() {
 	m.inhibitMu.Unlock()
 	if f != nil {
 		_ = f.Close()
+	}
+}
+
+func (m *Manager) releaseForCycle(id uint64) {
+	if !m.inSleepCycle.Load() || m.sleepCycleID.Load() != id {
+		return
+	}
+	m.releaseSleepInhibitor()
+}
+
+func (m *Manager) initializeFallbackDelay() {
+	var maxDelayUSec uint64
+	err := m.managerObj.Call(
+		dbusPropsInterface+".Get",
+		0,
+		dbusManagerInterface,
+		"InhibitDelayMaxUSec",
+	).Store(&maxDelayUSec)
+
+	if err != nil {
+		m.fallbackDelay = 2 * time.Second
+		return
+	}
+
+	maxDelay := time.Duration(maxDelayUSec) * time.Microsecond
+	computed := (maxDelay * 8) / 10
+
+	if computed < 2*time.Second {
+		m.fallbackDelay = 2 * time.Second
+	} else if computed > 4*time.Second {
+		m.fallbackDelay = 4 * time.Second
+	} else {
+		m.fallbackDelay = computed
 	}
 }
 

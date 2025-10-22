@@ -72,4 +72,5 @@ type Manager struct {
 	lockTimerMu           sync.Mutex
 	lockTimer             *time.Timer
 	sleepInhibitorEnabled atomic.Bool
+	fallbackDelay         time.Duration
 }
