@@ -60,7 +60,7 @@ func (m Model) updateUpdateView(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 func (m Model) updatePasswordView(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
-	case "ctrl+c", "q":
+	case "ctrl+c":
 		return m, tea.Quit
 	case "esc":
 		m.state = StateUpdate
@@ -265,7 +265,7 @@ func (m Model) updateGreeterCompositorSelect(msg tea.KeyMsg) (tea.Model, tea.Cmd
 
 func (m Model) updateGreeterPasswordView(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
-	case "ctrl+c", "q":
+	case "ctrl+c":
 		return m, tea.Quit
 	case "esc":
 		m.state = StateGreeterMenu
