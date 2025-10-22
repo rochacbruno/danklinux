@@ -6,11 +6,13 @@
 
 # Dank Linux (dms & dankinstall)
 
-A comprehensive installer and management tool for DankMaterialShell, a modern desktop environment built with Quickshell & GO for Wayland compositors.
+A monorepo for dankinstall and dms (cli/go), a modern desktop suite for Wayland compositors.
 
-- **dms** Enriched shell runner
-  - Manages dbus connection for NetworkManager, loginctl, accountsservice, and other interfaces.
-  - Exposes a json socket for interaction with these interfaces
+- **dms** DankMaterialShell (cli)
+  - The backend side of dms, provides APIs for the desktop and a management CLI.
+  - Shared dbus connection for NetworkManager, loginctl, accountsservice, and other interfaces.
+  - Implements various wayland protocols (such as gamma control)
+  - Exposes a json API over unix socket for interaction with these interfaces
   - Provides plugin management APIs for the shell
   - Optionally provides `update` interface - depending on build inputs.
     - This is intended to be disabled when packaged as part of distribution packages.
