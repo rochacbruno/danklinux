@@ -12,9 +12,9 @@ import (
 )
 
 type Manager struct {
-	fs          afero.Fs
-	pluginsDir  string
-	gitClient   GitClient
+	fs         afero.Fs
+	pluginsDir string
+	gitClient  GitClient
 }
 
 func NewManager() (*Manager, error) {
@@ -359,4 +359,46 @@ func (m *Manager) ListInstalled() ([]string, error) {
 
 func (m *Manager) GetPluginsDir() string {
 	return m.pluginsDir
+}
+
+func (m *Manager) HasUpdates(pluginName string, plugin Plugin) (bool, error) {
+	pluginPath := filepath.Join(m.pluginsDir, pluginName)
+
+	// Check if plugin exists in user directory
+	exists, err := afero.DirExists(m.fs, pluginPath)
+	if err != nil {
+		return false, fmt.Errorf("failed to check if plugin exists: %w", err)
+	}
+
+	if !exists {
+		// Check if it's a system plugin - system plugins can't be updated
+		systemPluginPath := filepath.Join("/etc/xdg/quickshell/dms-plugins", pluginName)
+		systemExists, err := afero.DirExists(m.fs, systemPluginPath)
+		if err != nil {
+			return false, fmt.Errorf("failed to check system plugin: %w", err)
+		}
+		if systemExists {
+			return false, nil
+		}
+		return false, fmt.Errorf("plugin not installed: %s", pluginName)
+	}
+
+	// Check if there's a .meta file (plugin installed from a monorepo)
+	metaPath := pluginPath + ".meta"
+	metaExists, err := afero.Exists(m.fs, metaPath)
+	if err != nil {
+		return false, fmt.Errorf("failed to check metadata: %w", err)
+	}
+
+	if metaExists {
+		// Plugin is from a monorepo, check the repo directory
+		reposDir := filepath.Join(m.pluginsDir, ".repos")
+		repoName := m.getRepoName(plugin.Repo)
+		repoPath := filepath.Join(reposDir, repoName)
+
+		return m.gitClient.HasUpdates(repoPath)
+	}
+
+	// Plugin is a standalone repo
+	return m.gitClient.HasUpdates(pluginPath)
 }

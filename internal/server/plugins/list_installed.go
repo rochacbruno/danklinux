@@ -42,6 +42,12 @@ func HandleListInstalled(conn net.Conn, req models.Request) {
 	result := make([]PluginInfo, 0, len(installedNames))
 	for _, name := range installedNames {
 		if plugin, ok := pluginMap[name]; ok {
+			hasUpdate := false
+			// Check if plugin has updates available
+			if hasUpdates, err := manager.HasUpdates(name, plugin); err == nil {
+				hasUpdate = hasUpdates
+			}
+
 			result = append(result, PluginInfo{
 				Name:         plugin.Name,
 				Category:     plugin.Category,
@@ -53,6 +59,7 @@ func HandleListInstalled(conn net.Conn, req models.Request) {
 				Compositors:  plugin.Compositors,
 				Dependencies: plugin.Dependencies,
 				FirstParty:   strings.HasPrefix(plugin.Repo, "https://github.com/AvengeMedia"),
+				HasUpdate:    hasUpdate,
 			})
 		} else {
 			result = append(result, PluginInfo{

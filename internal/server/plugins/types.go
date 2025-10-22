@@ -13,6 +13,7 @@ type PluginInfo struct {
 	Installed    bool     `json:"installed,omitempty"`
 	FirstParty   bool     `json:"firstParty,omitempty"`
 	Note         string   `json:"note,omitempty"`
+	HasUpdate    bool     `json:"hasUpdate,omitempty"`
 }
 
 type SuccessResult struct {

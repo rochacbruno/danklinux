@@ -11,8 +11,9 @@ import (
 )
 
 type mockGitClient struct {
-	cloneFunc func(path string, url string) error
-	pullFunc  func(path string) error
+	cloneFunc      func(path string, url string) error
+	pullFunc       func(path string) error
+	hasUpdatesFunc func(path string) (bool, error)
 }
 
 func (m *mockGitClient) PlainClone(path string, url string) error {
@@ -27,6 +28,13 @@ func (m *mockGitClient) Pull(path string) error {
 		return m.pullFunc(path)
 	}
 	return nil
+}
+
+func (m *mockGitClient) HasUpdates(path string) (bool, error) {
+	if m.hasUpdatesFunc != nil {
+		return m.hasUpdatesFunc(path)
+	}
+	return false, nil
 }
 
 func TestNewRegistry(t *testing.T) {
