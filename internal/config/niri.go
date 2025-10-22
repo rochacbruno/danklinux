@@ -421,4 +421,8 @@ binds {
     // === System Controls ===
     Mod+Escape allow-inhibiting=false { toggle-keyboard-shortcuts-inhibit; }
     Mod+Shift+P { power-off-monitors; }
-}`
+}
+debug {
+    honor-xdg-activation-with-invalid-serial
+}    
+`
