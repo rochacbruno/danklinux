@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"strconv"
 	"time"
 
 	"github.com/AvengeMedia/danklinux/internal/errdefs"
+	"github.com/AvengeMedia/danklinux/internal/log"
 	"github.com/godbus/dbus/v5"
 )
 
@@ -96,10 +96,10 @@ func NewBluezAgent(broker PromptBroker) (*BluezAgent, error) {
 	}
 
 	if err := mgr.Call(agentManagerIface+".RequestDefaultAgent", 0, dbus.ObjectPath(agentPath)).Err; err != nil {
-		log.Printf("[BluezAgent] not default agent: %v", err)
+		log.Debugf("[BluezAgent] not default agent: %v", err)
 	}
 
-	log.Printf("[BluezAgent] registered at %s with capability %s", agentPath, agentCapability)
+	log.Infof("[BluezAgent] registered at %s with capability %s", agentPath, agentCapability)
 	return agent, nil
 }
 
@@ -113,62 +113,62 @@ func (a *BluezAgent) Close() {
 }
 
 func (a *BluezAgent) Release() *dbus.Error {
-	log.Printf("[BluezAgent] Release called")
+	log.Infof("[BluezAgent] Release called")
 	return nil
 }
 
 func (a *BluezAgent) RequestPinCode(device dbus.ObjectPath) (string, *dbus.Error) {
-	log.Printf("[BluezAgent] RequestPinCode: device=%s", device)
+	log.Infof("[BluezAgent] RequestPinCode: device=%s", device)
 
 	secrets, err := a.promptFor(device, "pin", []string{"pin"}, nil)
 	if err != nil {
-		log.Printf("[BluezAgent] RequestPinCode failed: %v", err)
+		log.Warnf("[BluezAgent] RequestPinCode failed: %v", err)
 		return "", a.errorFrom(err)
 	}
 
 	pin := secrets["pin"]
-	log.Printf("[BluezAgent] RequestPinCode returning PIN (len=%d)", len(pin))
+	log.Infof("[BluezAgent] RequestPinCode returning PIN (len=%d)", len(pin))
 	return pin, nil
 }
 
 func (a *BluezAgent) RequestPasskey(device dbus.ObjectPath) (uint32, *dbus.Error) {
-	log.Printf("[BluezAgent] RequestPasskey: device=%s", device)
+	log.Infof("[BluezAgent] RequestPasskey: device=%s", device)
 
 	secrets, err := a.promptFor(device, "passkey", []string{"passkey"}, nil)
 	if err != nil {
-		log.Printf("[BluezAgent] RequestPasskey failed: %v", err)
+		log.Warnf("[BluezAgent] RequestPasskey failed: %v", err)
 		return 0, a.errorFrom(err)
 	}
 
 	passkey, err := strconv.ParseUint(secrets["passkey"], 10, 32)
 	if err != nil {
-		log.Printf("[BluezAgent] invalid passkey format: %v", err)
+		log.Warnf("[BluezAgent] invalid passkey format: %v", err)
 		return 0, dbus.MakeFailedError(fmt.Errorf("invalid passkey: %w", err))
 	}
 
-	log.Printf("[BluezAgent] RequestPasskey returning: %d", passkey)
+	log.Infof("[BluezAgent] RequestPasskey returning: %d", passkey)
 	return uint32(passkey), nil
 }
 
 func (a *BluezAgent) DisplayPinCode(device dbus.ObjectPath, pincode string) *dbus.Error {
-	log.Printf("[BluezAgent] DisplayPinCode: device=%s, pin=%s", device, pincode)
+	log.Infof("[BluezAgent] DisplayPinCode: device=%s, pin=%s", device, pincode)
 
 	_, err := a.promptFor(device, "display-pin", []string{}, &pincode)
 	if err != nil {
-		log.Printf("[BluezAgent] DisplayPinCode acknowledgment failed: %v", err)
+		log.Warnf("[BluezAgent] DisplayPinCode acknowledgment failed: %v", err)
 	}
 
 	return nil
 }
 
 func (a *BluezAgent) DisplayPasskey(device dbus.ObjectPath, passkey uint32, entered uint16) *dbus.Error {
-	log.Printf("[BluezAgent] DisplayPasskey: device=%s, passkey=%06d, entered=%d", device, passkey, entered)
+	log.Infof("[BluezAgent] DisplayPasskey: device=%s, passkey=%06d, entered=%d", device, passkey, entered)
 
 	if entered == 0 {
 		pk := passkey
 		_, err := a.promptFor(device, "display-passkey", []string{}, nil)
 		if err != nil {
-			log.Printf("[BluezAgent] DisplayPasskey acknowledgment failed: %v", err)
+			log.Warnf("[BluezAgent] DisplayPasskey acknowledgment failed: %v", err)
 		}
 		_ = pk
 	}
@@ -177,61 +177,61 @@ func (a *BluezAgent) DisplayPasskey(device dbus.ObjectPath, passkey uint32, ente
 }
 
 func (a *BluezAgent) RequestConfirmation(device dbus.ObjectPath, passkey uint32) *dbus.Error {
-	log.Printf("[BluezAgent] RequestConfirmation: device=%s, passkey=%06d", device, passkey)
+	log.Infof("[BluezAgent] RequestConfirmation: device=%s, passkey=%06d", device, passkey)
 
 	secrets, err := a.promptFor(device, "confirm", []string{"decision"}, nil)
 	if err != nil {
-		log.Printf("[BluezAgent] RequestConfirmation failed: %v", err)
+		log.Warnf("[BluezAgent] RequestConfirmation failed: %v", err)
 		return a.errorFrom(err)
 	}
 
 	if secrets["decision"] != "yes" && secrets["decision"] != "accept" {
-		log.Printf("[BluezAgent] RequestConfirmation rejected by user")
+		log.Debugf("[BluezAgent] RequestConfirmation rejected by user")
 		return dbus.NewError("org.bluez.Error.Rejected", nil)
 	}
 
-	log.Printf("[BluezAgent] RequestConfirmation accepted")
+	log.Infof("[BluezAgent] RequestConfirmation accepted")
 	return nil
 }
 
 func (a *BluezAgent) RequestAuthorization(device dbus.ObjectPath) *dbus.Error {
-	log.Printf("[BluezAgent] RequestAuthorization: device=%s", device)
+	log.Infof("[BluezAgent] RequestAuthorization: device=%s", device)
 
 	secrets, err := a.promptFor(device, "authorize", []string{"decision"}, nil)
 	if err != nil {
-		log.Printf("[BluezAgent] RequestAuthorization failed: %v", err)
+		log.Warnf("[BluezAgent] RequestAuthorization failed: %v", err)
 		return a.errorFrom(err)
 	}
 
 	if secrets["decision"] != "yes" && secrets["decision"] != "accept" {
-		log.Printf("[BluezAgent] RequestAuthorization rejected by user")
+		log.Debugf("[BluezAgent] RequestAuthorization rejected by user")
 		return dbus.NewError("org.bluez.Error.Rejected", nil)
 	}
 
-	log.Printf("[BluezAgent] RequestAuthorization accepted")
+	log.Infof("[BluezAgent] RequestAuthorization accepted")
 	return nil
 }
 
 func (a *BluezAgent) AuthorizeService(device dbus.ObjectPath, uuid string) *dbus.Error {
-	log.Printf("[BluezAgent] AuthorizeService: device=%s, uuid=%s", device, uuid)
+	log.Infof("[BluezAgent] AuthorizeService: device=%s, uuid=%s", device, uuid)
 
 	secrets, err := a.promptFor(device, "authorize-service:"+uuid, []string{"decision"}, nil)
 	if err != nil {
-		log.Printf("[BluezAgent] AuthorizeService failed: %v", err)
+		log.Warnf("[BluezAgent] AuthorizeService failed: %v", err)
 		return a.errorFrom(err)
 	}
 
 	if secrets["decision"] != "yes" && secrets["decision"] != "accept" {
-		log.Printf("[BluezAgent] AuthorizeService rejected by user")
+		log.Debugf("[BluezAgent] AuthorizeService rejected by user")
 		return dbus.NewError("org.bluez.Error.Rejected", nil)
 	}
 
-	log.Printf("[BluezAgent] AuthorizeService accepted")
+	log.Infof("[BluezAgent] AuthorizeService accepted")
 	return nil
 }
 
 func (a *BluezAgent) Cancel() *dbus.Error {
-	log.Printf("[BluezAgent] Cancel called")
+	log.Infof("[BluezAgent] Cancel called")
 	return nil
 }
 
@@ -276,7 +276,7 @@ func (a *BluezAgent) promptFor(device dbus.ObjectPath, requestType string, field
 		return nil, fmt.Errorf("prompt creation failed: %w", err)
 	}
 
-	log.Printf("[BluezAgent] waiting for user response (token=%s)", token)
+	log.Infof("[BluezAgent] waiting for user response (token=%s)", token)
 	reply, err := a.broker.Wait(ctx, token)
 	if err != nil {
 		if errors.Is(err, errdefs.ErrSecretPromptTimeout) {

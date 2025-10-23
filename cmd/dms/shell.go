@@ -109,12 +109,11 @@ func runShellInteractive() {
 		}
 	}()
 
-	qsArgs := []string{"qs", "-c", "dms"}
-	if os.Getenv("DMS_VERBOSE_LOGS") == "1" {
-		qsArgs = append(qsArgs, "-vv")
-	}
-	cmd := exec.CommandContext(ctx, qsArgs[0], qsArgs[1:]...)
+	cmd := exec.CommandContext(ctx, "qs", "-c", "dms")
 	cmd.Env = append(os.Environ(), "DMS_SOCKET="+socketPath)
+	if qtRules := log.GetQtLoggingRules(); qtRules != "" {
+		cmd.Env = append(cmd.Env, "QT_LOGGING_RULES="+qtRules)
+	}
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -222,6 +221,8 @@ func runShellDaemon() {
 	}
 
 	if !isDaemonChild {
+		fmt.Fprintf(os.Stderr, "dms %s\n", Version)
+
 		cmd := exec.Command(os.Args[0], "run", "-d", "--daemon-child")
 		cmd.Env = os.Environ()
 
@@ -236,6 +237,8 @@ func runShellDaemon() {
 		log.Infof("DMS shell daemon started (PID: %d)", cmd.Process.Pid)
 		return
 	}
+
+	fmt.Fprintf(os.Stderr, "dms %s\n", Version)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -252,6 +255,9 @@ func runShellDaemon() {
 
 	cmd := exec.CommandContext(ctx, "qs", "-c", "dms")
 	cmd.Env = append(os.Environ(), "DMS_SOCKET="+socketPath)
+	if qtRules := log.GetQtLoggingRules(); qtRules != "" {
+		cmd.Env = append(cmd.Env, "QT_LOGGING_RULES="+qtRules)
+	}
 
 	devNull, err := os.OpenFile("/dev/null", os.O_RDWR, 0)
 	if err != nil {

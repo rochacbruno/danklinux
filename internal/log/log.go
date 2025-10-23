@@ -2,6 +2,7 @@ package log
 
 import (
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/charmbracelet/lipgloss"
@@ -21,6 +22,48 @@ var (
 	logger     *Logger
 	initLogger sync.Once
 )
+
+func parseLogLevel(level string) cblog.Level {
+	switch strings.ToLower(level) {
+	case "debug":
+		return cblog.DebugLevel
+	case "info":
+		return cblog.InfoLevel
+	case "warn", "warning":
+		return cblog.WarnLevel
+	case "error":
+		return cblog.ErrorLevel
+	case "fatal":
+		return cblog.FatalLevel
+	default:
+		return cblog.InfoLevel
+	}
+}
+
+func GetQtLoggingRules() string {
+	level := os.Getenv("DMS_LOG_LEVEL")
+	if level == "" {
+		level = "info"
+	}
+
+	var rules []string
+	switch strings.ToLower(level) {
+	case "fatal":
+		rules = []string{"*.debug=false", "*.info=false", "*.warning=false", "*.critical=false"}
+	case "error":
+		rules = []string{"*.debug=false", "*.info=false", "*.warning=false"}
+	case "warn", "warning":
+		rules = []string{"*.debug=false", "*.info=false"}
+	case "info":
+		rules = []string{"*.debug=false"}
+	case "debug":
+		return ""
+	default:
+		rules = []string{"*.debug=false"}
+	}
+
+	return strings.Join(rules, ";")
+}
 
 // GetLogger returns a logger instance
 func GetLogger() *Logger {
@@ -46,7 +89,12 @@ func GetLogger() *Logger {
 		base := cblog.New(os.Stderr)
 		base.SetStyles(styles)
 		base.SetReportTimestamp(false)
-		base.SetLevel(cblog.DebugLevel)
+
+		level := cblog.InfoLevel
+		if envLevel := os.Getenv("DMS_LOG_LEVEL"); envLevel != "" {
+			level = parseLogLevel(envLevel)
+		}
+		base.SetLevel(level)
 		base.SetPrefix(" go")
 
 		logger = &Logger{base}

@@ -3,8 +3,8 @@ package network
 import (
 	"bytes"
 	"fmt"
-	"log"
 
+	"github.com/AvengeMedia/danklinux/internal/log"
 	"github.com/Wifx/gonetworkmanager/v2"
 )
 
@@ -37,7 +37,7 @@ func (m *Manager) ConnectWiFi(req ConnectionRequest) error {
 
 		_, err := nm.ActivateConnection(existingConn, dev, nil)
 		if err != nil {
-			log.Printf("[ConnectWiFi] Failed to activate existing connection: %v", err)
+			log.Warnf("[ConnectWiFi] Failed to activate existing connection: %v", err)
 			m.stateMutex.Lock()
 			m.state.IsConnecting = false
 			m.state.ConnectingSSID = ""
@@ -51,7 +51,7 @@ func (m *Manager) ConnectWiFi(req ConnectionRequest) error {
 	}
 
 	if err := m.createAndConnectWiFi(req); err != nil {
-		log.Printf("[ConnectWiFi] Failed to create and connect: %v", err)
+		log.Warnf("[ConnectWiFi] Failed to create and connect: %v", err)
 		m.stateMutex.Lock()
 		m.state.IsConnecting = false
 		m.state.ConnectingSSID = ""
@@ -110,7 +110,7 @@ func (m *Manager) createAndConnectWiFi(req ConnectionRequest) error {
 		rsnFlags != uint32(gonetworkmanager.Nm80211APSecNone)
 
 	if isEnterprise {
-		log.Printf("[createAndConnectWiFi] Enterprise network detected (802.1x) - SSID: %s, interactive: %v",
+		log.Infof("[createAndConnectWiFi] Enterprise network detected (802.1x) - SSID: %s, interactive: %v",
 			req.SSID, req.Interactive)
 	}
 
@@ -164,7 +164,7 @@ func (m *Manager) createAndConnectWiFi(req ConnectionRequest) error {
 
 			settings["802-1x"] = x
 
-			log.Printf("[createAndConnectWiFi] WPA-EAP settings: eap=peap, phase2-auth=mschapv2, identity=%s, interactive=%v, system-ca-certs=%v, domain-suffix-match=%q",
+			log.Infof("[createAndConnectWiFi] WPA-EAP settings: eap=peap, phase2-auth=mschapv2, identity=%s, interactive=%v, system-ca-certs=%v, domain-suffix-match=%q",
 				req.Username, req.Interactive, x["system-ca-certs"], req.DomainSuffixMatch)
 
 		case isPsk:
@@ -220,7 +220,7 @@ func (m *Manager) createAndConnectWiFi(req ConnectionRequest) error {
 		}
 
 		if isEnterprise {
-			log.Printf("[createAndConnectWiFi] Enterprise connection added, activating (secret agent will be called)")
+			log.Infof("[createAndConnectWiFi] Enterprise connection added, activating (secret agent will be called)")
 		}
 
 		_, err = nm.ActivateWirelessConnection(conn, dev, targetAP)
@@ -228,13 +228,13 @@ func (m *Manager) createAndConnectWiFi(req ConnectionRequest) error {
 			return fmt.Errorf("failed to activate connection: %w", err)
 		}
 
-		log.Printf("[createAndConnectWiFi] Connection activation initiated, waiting for NetworkManager state changes...")
+		log.Infof("[createAndConnectWiFi] Connection activation initiated, waiting for NetworkManager state changes...")
 	} else {
 		_, err = nm.AddAndActivateWirelessConnection(settings, dev, targetAP)
 		if err != nil {
 			return fmt.Errorf("failed to connect: %w", err)
 		}
-		log.Printf("[createAndConnectWiFi] Connection activation initiated, waiting for NetworkManager state changes...")
+		log.Infof("[createAndConnectWiFi] Connection activation initiated, waiting for NetworkManager state changes...")
 	}
 
 	return nil

@@ -2,11 +2,11 @@ package network
 
 import (
 	"fmt"
-	"log"
 	"net"
 	"sync"
 	"time"
 
+	"github.com/AvengeMedia/danklinux/internal/log"
 	"github.com/Wifx/gonetworkmanager/v2"
 	"github.com/godbus/dbus/v5"
 )
@@ -75,9 +75,9 @@ func (m *Manager) initialize() error {
 
 		switch devType {
 		case gonetworkmanager.NmDeviceTypeEthernet:
-			if managed, _ :=  dev.GetPropertyManaged(); !managed {
+			if managed, _ := dev.GetPropertyManaged(); !managed {
 				continue
-			} 
+			}
 			m.ethernetDevice = dev
 			if err := m.updateEthernetState(); err != nil {
 				continue
@@ -240,12 +240,12 @@ func (m *Manager) updateWiFiState() error {
 
 	if wasConnecting && connectingSSID != "" {
 		if connected && ssid == connectingSSID {
-			log.Printf("[updateWiFiState] Connection successful: %s", ssid)
+			log.Infof("[updateWiFiState] Connection successful: %s", ssid)
 			m.state.IsConnecting = false
 			m.state.ConnectingSSID = ""
 			m.state.LastError = ""
 		} else if failed || (disconnected && !connected) {
-			log.Printf("[updateWiFiState] Connection failed: SSID=%s, state=%d", connectingSSID, state)
+			log.Warnf("[updateWiFiState] Connection failed: SSID=%s, state=%d", connectingSSID, state)
 			m.state.IsConnecting = false
 			m.state.ConnectingSSID = ""
 			m.state.LastError = "connection-failed"

@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/AvengeMedia/danklinux/internal/errdefs"
+	"github.com/AvengeMedia/danklinux/internal/log"
 	"github.com/godbus/dbus/v5"
 )
 
@@ -20,11 +20,11 @@ const (
 )
 
 type SecretAgent struct {
-	conn     *dbus.Conn
-	objPath  dbus.ObjectPath
-	id       string
-	prompts  PromptBroker
-	manager  *Manager
+	conn    *dbus.Conn
+	objPath dbus.ObjectPath
+	id      string
+	prompts PromptBroker
+	manager *Manager
 }
 
 type nmVariantMap map[string]dbus.Variant
@@ -96,7 +96,7 @@ func NewSecretAgent(prompts PromptBroker, manager *Manager) (*SecretAgent, error
 		return nil, fmt.Errorf("failed to register agent with NetworkManager: %w", call.Err)
 	}
 
-	log.Printf("[SecretAgent] Registered with NetworkManager (id=%s, unique name=%s, fixed path=%s)", sa.id, c.Names()[0], sa.objPath)
+	log.Infof("[SecretAgent] Registered with NetworkManager (id=%s, unique name=%s, fixed path=%s)", sa.id, c.Names()[0], sa.objPath)
 	return sa, nil
 }
 
@@ -115,13 +115,13 @@ func (a *SecretAgent) GetSecrets(
 	hints []string,
 	flags uint32,
 ) (nmSettingMap, *dbus.Error) {
-	log.Printf("[SecretAgent] GetSecrets called: path=%s, setting=%s, hints=%v, flags=%d",
+	log.Infof("[SecretAgent] GetSecrets called: path=%s, setting=%s, hints=%v, flags=%d",
 		path, settingName, hints, flags)
 
 	ssid := readSSID(conn)
 	fields := fieldsNeeded(settingName, conn, hints)
 
-	log.Printf("[SecretAgent] SSID=%s, fields=%v", ssid, fields)
+	log.Infof("[SecretAgent] SSID=%s, fields=%v", ssid, fields)
 
 	reason := reasonFromFlags(flags)
 	if a.manager != nil && a.manager.WasRecentlyFailed(ssid) {
@@ -139,14 +139,14 @@ func (a *SecretAgent) GetSecrets(
 		Reason:      reason,
 	})
 	if err != nil {
-		log.Printf("[SecretAgent] Failed to create prompt: %v", err)
+		log.Warnf("[SecretAgent] Failed to create prompt: %v", err)
 		return nil, dbus.MakeFailedError(err)
 	}
 
-	log.Printf("[SecretAgent] Waiting for user input (token=%s)", token)
+	log.Infof("[SecretAgent] Waiting for user input (token=%s)", token)
 	reply, err := a.prompts.Wait(ctx, token)
 	if err != nil {
-		log.Printf("[SecretAgent] Prompt failed or cancelled: %v", err)
+		log.Warnf("[SecretAgent] Prompt failed or cancelled: %v", err)
 		if errors.Is(err, errdefs.ErrSecretPromptTimeout) {
 			return nil, dbus.NewError("org.freedesktop.NetworkManager.SecretAgent.Error.Failed", nil)
 		}
@@ -165,12 +165,12 @@ func (a *SecretAgent) GetSecrets(
 
 	if reply.Save {
 		if err := a.saveConnectionSecrets(path, settingName, reply.Secrets); err != nil {
-			log.Printf("[SecretAgent] Warning: failed to save secrets to connection: %v", err)
+			log.Warnf("[SecretAgent] failed to save secrets to connection: %v", err)
 		}
 	}
 
 	if settingName == "802-1x" {
-		log.Printf("[SecretAgent] Returning 802-1x enterprise secrets with %d fields", len(sec))
+		log.Infof("[SecretAgent] Returning 802-1x enterprise secrets with %d fields", len(sec))
 	}
 	return out, nil
 }
@@ -231,27 +231,27 @@ func (a *SecretAgent) saveConnectionSecrets(path dbus.ObjectPath, settingName st
 		return fmt.Errorf("Update: %w", call.Err)
 	}
 
-	log.Printf("[SecretAgent] Successfully saved secrets to connection: %s", path)
+	log.Infof("[SecretAgent] Successfully saved secrets to connection: %s", path)
 	return nil
 }
 
 func (a *SecretAgent) SaveSecrets(conn map[string]nmVariantMap, path dbus.ObjectPath) *dbus.Error {
-	log.Printf("[SecretAgent] SaveSecrets called: path=%s", path)
+	log.Infof("[SecretAgent] SaveSecrets called: path=%s", path)
 	return nil
 }
 
 func (a *SecretAgent) DeleteSecrets(conn map[string]nmVariantMap, path dbus.ObjectPath) *dbus.Error {
-	log.Printf("[SecretAgent] DeleteSecrets called: path=%s", path)
+	log.Infof("[SecretAgent] DeleteSecrets called: path=%s", path)
 	return nil
 }
 
 func (a *SecretAgent) DeleteSecrets2(path dbus.ObjectPath, setting string) *dbus.Error {
-	log.Printf("[SecretAgent] DeleteSecrets2 (alternate) called: path=%s, setting=%s", path, setting)
+	log.Infof("[SecretAgent] DeleteSecrets2 (alternate) called: path=%s, setting=%s", path, setting)
 	return nil
 }
 
 func (a *SecretAgent) CancelGetSecrets(path dbus.ObjectPath, settingName string) *dbus.Error {
-	log.Printf("[SecretAgent] CancelGetSecrets called: path=%s, setting=%s", path, settingName)
+	log.Infof("[SecretAgent] CancelGetSecrets called: path=%s, setting=%s", path, settingName)
 	return nil
 }
 
@@ -287,13 +287,13 @@ func fieldsNeeded(setting string, conn map[string]nmVariantMap, hints []string) 
 
 func reasonFromFlags(flags uint32) string {
 	const (
-		NM_SECRET_AGENT_GET_SECRETS_FLAG_NONE                  = 0x0
-		NM_SECRET_AGENT_GET_SECRETS_FLAG_ALLOW_INTERACTION     = 0x1
-		NM_SECRET_AGENT_GET_SECRETS_FLAG_REQUEST_NEW           = 0x2
-		NM_SECRET_AGENT_GET_SECRETS_FLAG_USER_REQUESTED        = 0x4
-		NM_SECRET_AGENT_GET_SECRETS_FLAG_WPS_PBC_ACTIVE        = 0x8
-		NM_SECRET_AGENT_GET_SECRETS_FLAG_ONLY_SYSTEM           = 0x80000000
-		NM_SECRET_AGENT_GET_SECRETS_FLAG_NO_ERRORS             = 0x40000000
+		NM_SECRET_AGENT_GET_SECRETS_FLAG_NONE              = 0x0
+		NM_SECRET_AGENT_GET_SECRETS_FLAG_ALLOW_INTERACTION = 0x1
+		NM_SECRET_AGENT_GET_SECRETS_FLAG_REQUEST_NEW       = 0x2
+		NM_SECRET_AGENT_GET_SECRETS_FLAG_USER_REQUESTED    = 0x4
+		NM_SECRET_AGENT_GET_SECRETS_FLAG_WPS_PBC_ACTIVE    = 0x8
+		NM_SECRET_AGENT_GET_SECRETS_FLAG_ONLY_SYSTEM       = 0x80000000
+		NM_SECRET_AGENT_GET_SECRETS_FLAG_NO_ERRORS         = 0x40000000
 	)
 
 	if flags&NM_SECRET_AGENT_GET_SECRETS_FLAG_REQUEST_NEW != 0 {

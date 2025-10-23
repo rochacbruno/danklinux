@@ -2,11 +2,11 @@ package bluez
 
 import (
 	"fmt"
-	"log"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/AvengeMedia/danklinux/internal/log"
 	"github.com/godbus/dbus/v5"
 )
 
@@ -83,7 +83,7 @@ func (m *Manager) findAdapter() (dbus.ObjectPath, error) {
 
 	for path, interfaces := range objects {
 		if _, ok := interfaces[adapter1Iface]; ok {
-			log.Printf("[BluezManager] found adapter: %s", path)
+			log.Infof("[BluezManager] found adapter: %s", path)
 			return path, nil
 		}
 	}
@@ -366,9 +366,9 @@ func (m *Manager) handleDevicePropertiesChanged(path dbus.ObjectPath, changed ma
 			if wasPending {
 				go func() {
 					time.Sleep(300 * time.Millisecond)
-					log.Printf("[Bluetooth] Auto-connecting newly paired device: %s", devicePath)
+					log.Infof("[Bluetooth] Auto-connecting newly paired device: %s", devicePath)
 					if err := m.ConnectDevice(devicePath); err != nil {
-						log.Printf("[Bluetooth] Auto-connect failed: %v", err)
+						log.Warnf("[Bluetooth] Auto-connect failed: %v", err)
 					}
 				}()
 			}

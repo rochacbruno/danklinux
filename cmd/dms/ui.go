@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/AvengeMedia/danklinux/internal/tui"
 	"github.com/charmbracelet/lipgloss"
@@ -9,6 +10,7 @@ import (
 
 func printASCII() {
 	fmt.Print(getThemedASCII())
+	fmt.Fprintf(os.Stderr, "dms %s\n", Version)
 }
 
 func getThemedASCII() string {
