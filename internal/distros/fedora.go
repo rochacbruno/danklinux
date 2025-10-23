@@ -71,6 +71,7 @@ func (f *FedoraDistribution) DetectDependenciesWithTerminal(ctx context.Context,
 	dependencies = append(dependencies, f.detectQuickshell())
 	dependencies = append(dependencies, f.detectXDGPortal())
 	dependencies = append(dependencies, f.detectPolkitAgent())
+	dependencies = append(dependencies, f.detectAccountsService())
 
 	// Hyprland-specific tools
 	if wm == deps.WindowManagerHyprland {
@@ -139,6 +140,7 @@ func (f *FedoraDistribution) GetPackageMappingWithVariants(wm deps.WindowManager
 		"wl-clipboard":           {Name: "wl-clipboard", Repository: RepoTypeSystem},
 		"xdg-desktop-portal-gtk": {Name: "xdg-desktop-portal-gtk", Repository: RepoTypeSystem},
 		"mate-polkit":            {Name: "mate-polkit", Repository: RepoTypeSystem},
+		"accountsservice":        {Name: "accountsservice", Repository: RepoTypeSystem},
 		"font-firacode":          {Name: "fira-code-fonts", Repository: RepoTypeSystem},
 
 		// COPR packages
@@ -215,6 +217,20 @@ func (f *FedoraDistribution) detectXwaylandSatellite() deps.Dependency {
 		Name:        "xwayland-satellite",
 		Status:      status,
 		Description: "Xwayland support",
+		Required:    true,
+	}
+}
+
+func (f *FedoraDistribution) detectAccountsService() deps.Dependency {
+	status := deps.StatusMissing
+	if f.packageInstalled("accountsservice") {
+		status = deps.StatusInstalled
+	}
+
+	return deps.Dependency{
+		Name:        "accountsservice",
+		Status:      status,
+		Description: "D-Bus interface for user account query and manipulation",
 		Required:    true,
 	}
 }

@@ -83,6 +83,7 @@ func (a *ArchDistribution) DetectDependenciesWithTerminal(ctx context.Context, w
 	dependencies = append(dependencies, a.detectQuickshell())
 	dependencies = append(dependencies, a.detectXDGPortal())
 	dependencies = append(dependencies, a.detectPolkitAgent())
+	dependencies = append(dependencies, a.detectAccountsService())
 
 	// Hyprland-specific tools
 	if wm == deps.WindowManagerHyprland {
@@ -131,6 +132,20 @@ func (a *ArchDistribution) detectPolkitAgent() deps.Dependency {
 	}
 }
 
+func (a *ArchDistribution) detectAccountsService() deps.Dependency {
+	status := deps.StatusMissing
+	if a.packageInstalled("accountsservice") {
+		status = deps.StatusInstalled
+	}
+
+	return deps.Dependency{
+		Name:        "accountsservice",
+		Status:      status,
+		Description: "D-Bus interface for user account query and manipulation",
+		Required:    true,
+	}
+}
+
 func (a *ArchDistribution) packageInstalled(pkg string) bool {
 	cmd := exec.Command("pacman", "-Q", pkg)
 	err := cmd.Run()
@@ -155,6 +170,7 @@ func (a *ArchDistribution) GetPackageMappingWithVariants(wm deps.WindowManager, 
 		"wl-clipboard":            {Name: "wl-clipboard", Repository: RepoTypeSystem},
 		"xdg-desktop-portal-gtk":  {Name: "xdg-desktop-portal-gtk", Repository: RepoTypeSystem},
 		"mate-polkit":             {Name: "mate-polkit", Repository: RepoTypeSystem},
+		"accountsservice":         {Name: "accountsservice", Repository: RepoTypeSystem},
 		"font-material-symbols":   {Name: "material-symbols-git", Repository: RepoTypeAUR},
 		"font-firacode":           {Name: "ttf-fira-code", Repository: RepoTypeSystem},
 		"font-inter":              {Name: "inter-font", Repository: RepoTypeSystem},

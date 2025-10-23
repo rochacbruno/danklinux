@@ -67,6 +67,7 @@ func (o *OpenSUSEDistribution) DetectDependenciesWithTerminal(ctx context.Contex
 	dependencies = append(dependencies, o.detectQuickshell())
 	dependencies = append(dependencies, o.detectXDGPortal())
 	dependencies = append(dependencies, o.detectPolkitAgent())
+	dependencies = append(dependencies, o.detectAccountsService())
 
 	// Hyprland-specific tools
 	if wm == deps.WindowManagerHyprland {
@@ -135,6 +136,7 @@ func (o *OpenSUSEDistribution) GetPackageMappingWithVariants(wm deps.WindowManag
 		"wl-clipboard":           {Name: "wl-clipboard", Repository: RepoTypeSystem},
 		"xdg-desktop-portal-gtk": {Name: "xdg-desktop-portal-gtk", Repository: RepoTypeSystem},
 		"mate-polkit":            {Name: "mate-polkit", Repository: RepoTypeSystem},
+		"accountsservice":        {Name: "accountsservice", Repository: RepoTypeSystem},
 		"font-firacode":          {Name: "fira-code-fonts", Repository: RepoTypeSystem},
 		"cliphist":               {Name: "cliphist", Repository: RepoTypeSystem},
 
@@ -174,6 +176,20 @@ func (o *OpenSUSEDistribution) detectXwaylandSatellite() deps.Dependency {
 		Name:        "xwayland-satellite",
 		Status:      status,
 		Description: "Xwayland support",
+		Required:    true,
+	}
+}
+
+func (o *OpenSUSEDistribution) detectAccountsService() deps.Dependency {
+	status := deps.StatusMissing
+	if o.packageInstalled("accountsservice") {
+		status = deps.StatusInstalled
+	}
+
+	return deps.Dependency{
+		Name:        "accountsservice",
+		Status:      status,
+		Description: "D-Bus interface for user account query and manipulation",
 		Required:    true,
 	}
 }

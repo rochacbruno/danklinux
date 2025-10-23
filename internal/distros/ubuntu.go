@@ -67,6 +67,7 @@ func (u *UbuntuDistribution) DetectDependenciesWithTerminal(ctx context.Context,
 	dependencies = append(dependencies, u.detectQuickshell())
 	dependencies = append(dependencies, u.detectXDGPortal())
 	dependencies = append(dependencies, u.detectPolkitAgent())
+	dependencies = append(dependencies, u.detectAccountsService())
 
 	// Hyprland-specific tools
 	if wm == deps.WindowManagerHyprland {
@@ -129,6 +130,20 @@ func (u *UbuntuDistribution) detectXwaylandSatellite() deps.Dependency {
 	}
 }
 
+func (u *UbuntuDistribution) detectAccountsService() deps.Dependency {
+	status := deps.StatusMissing
+	if u.packageInstalled("accountsservice") {
+		status = deps.StatusInstalled
+	}
+
+	return deps.Dependency{
+		Name:        "accountsservice",
+		Status:      status,
+		Description: "D-Bus interface for user account query and manipulation",
+		Required:    true,
+	}
+}
+
 func (u *UbuntuDistribution) packageInstalled(pkg string) bool {
 	cmd := exec.Command("dpkg", "-l", pkg)
 	err := cmd.Run()
@@ -144,6 +159,7 @@ func (u *UbuntuDistribution) GetPackageMapping(wm deps.WindowManager) map[string
 		"wl-clipboard":           {Name: "wl-clipboard", Repository: RepoTypeSystem},
 		"xdg-desktop-portal-gtk": {Name: "xdg-desktop-portal-gtk", Repository: RepoTypeSystem},
 		"mate-polkit":            {Name: "mate-polkit", Repository: RepoTypeSystem},
+		"accountsservice":        {Name: "accountsservice", Repository: RepoTypeSystem},
 		"font-firacode":          {Name: "fonts-firacode", Repository: RepoTypeSystem},
 		"font-inter":             {Name: "fonts-inter-variable", Repository: RepoTypeSystem},
 

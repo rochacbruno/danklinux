@@ -63,6 +63,7 @@ func (n *NixOSDistribution) DetectDependenciesWithTerminal(ctx context.Context, 
 	dependencies = append(dependencies, n.detectQuickshell())
 	dependencies = append(dependencies, n.detectXDGPortal())
 	dependencies = append(dependencies, n.detectPolkitAgent())
+	dependencies = append(dependencies, n.detectAccountsService())
 
 	// Hyprland-specific tools
 	if wm == deps.WindowManagerHyprland {
@@ -225,6 +226,20 @@ func (n *NixOSDistribution) detectPolkitAgent() deps.Dependency {
 	}
 }
 
+func (n *NixOSDistribution) detectAccountsService() deps.Dependency {
+	status := deps.StatusMissing
+	if n.packageInstalled("accountsservice") {
+		status = deps.StatusInstalled
+	}
+
+	return deps.Dependency{
+		Name:        "accountsservice",
+		Status:      status,
+		Description: "D-Bus interface for user account query and manipulation",
+		Required:    true,
+	}
+}
+
 func (n *NixOSDistribution) packageInstalled(pkg string) bool {
 	cmd := exec.Command("nix", "profile", "list")
 	output, err := cmd.Output()
@@ -247,6 +262,7 @@ func (n *NixOSDistribution) GetPackageMapping(wm deps.WindowManager) map[string]
 		"wl-clipboard":            {Name: "nixpkgs#wl-clipboard", Repository: RepoTypeSystem},
 		"xdg-desktop-portal-gtk":  {Name: "nixpkgs#xdg-desktop-portal-gtk", Repository: RepoTypeSystem},
 		"mate-polkit":             {Name: "nixpkgs#mate.mate-polkit", Repository: RepoTypeSystem},
+		"accountsservice":         {Name: "nixpkgs#accountsservice", Repository: RepoTypeSystem},
 		"font-material-symbols":   {Name: "nixpkgs#material-symbols", Repository: RepoTypeSystem},
 		"font-firacode":           {Name: "nixpkgs#fira-code", Repository: RepoTypeSystem},
 		"font-inter":              {Name: "nixpkgs#inter", Repository: RepoTypeSystem},
