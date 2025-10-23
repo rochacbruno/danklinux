@@ -19,6 +19,9 @@ func init() {
 	// Add subcommands to greeter
 	greeterCmd.AddCommand(greeterInstallCmd)
 
+	// Add subcommands to update
+	updateCmd.AddCommand(updateCheckCmd)
+
 	// Add subcommands to plugins
 	pluginsCmd.AddCommand(pluginsBrowseCmd, pluginsListCmd, pluginsInstallCmd, pluginsUninstallCmd)
 

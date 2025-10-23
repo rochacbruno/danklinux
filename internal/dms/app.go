@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/AvengeMedia/danklinux/internal/deps"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -58,10 +59,10 @@ type Model struct {
 	niriInstalled     bool
 
 	// Greeter states
-	selectedGreeterItem   int
-	greeterInstallChan    chan greeterProgressMsg
-	greeterProgress       greeterProgressMsg
-	greeterLogs           []string
+	selectedGreeterItem     int
+	greeterInstallChan      chan greeterProgressMsg
+	greeterProgress         greeterProgressMsg
+	greeterLogs             []string
 	greeterNeedsPassword    bool
 	greeterPasswordInput    string
 	greeterPasswordError    string
@@ -70,19 +71,19 @@ type Model struct {
 	greeterSelectedComp     int
 	greeterChosenCompositor string
 
-	pluginsMenuItems          []MenuItem
-	selectedPluginsMenuItem   int
-	pluginsList               []pluginInfo
-	filteredPluginsList       []pluginInfo
-	selectedPluginIndex       int
-	pluginsLoading            bool
-	pluginsError              string
-	pluginSearchQuery         string
-	installedPluginsList      []pluginInfo
-	selectedInstalledIndex    int
-	installedPluginsLoading   bool
-	installedPluginsError     string
-	pluginInstallStatus       map[string]bool
+	pluginsMenuItems        []MenuItem
+	selectedPluginsMenuItem int
+	pluginsList             []pluginInfo
+	filteredPluginsList     []pluginInfo
+	selectedPluginIndex     int
+	pluginsLoading          bool
+	pluginsError            string
+	pluginSearchQuery       string
+	installedPluginsList    []pluginInfo
+	selectedInstalledIndex  int
+	installedPluginsLoading bool
+	installedPluginsError   string
+	pluginInstallStatus     map[string]bool
 }
 
 type pluginInfo struct {
@@ -117,7 +118,7 @@ func NewModel(version string) Model {
 
 	updateToggles := make(map[string]bool)
 	for _, dep := range dependencies {
-		if dep.Name == "dms (DankMaterialShell)" {
+		if dep.Name == "dms (DankMaterialShell)" && dep.Status == deps.StatusNeedsUpdate {
 			updateToggles[dep.Name] = true
 			break
 		}

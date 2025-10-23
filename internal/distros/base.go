@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/AvengeMedia/danklinux/internal/deps"
+	"github.com/AvengeMedia/danklinux/internal/version"
 )
 
 const forceQuickshellGit = false
@@ -100,16 +101,32 @@ func (b *BaseDistribution) detectDMS() deps.Dependency {
 	dmsPath := filepath.Join(os.Getenv("HOME"), ".config/quickshell/dms")
 
 	status := deps.StatusMissing
+	currentVersion := ""
+
 	if _, err := os.Stat(dmsPath); err == nil {
 		status = deps.StatusInstalled
+
+		versionInfo, err := version.GetDMSVersionInfo()
+		if err == nil {
+			currentVersion = versionInfo.Current
+			if versionInfo.HasUpdate {
+				status = deps.StatusNeedsUpdate
+			}
+		}
 	}
 
-	return deps.Dependency{
+	dep := deps.Dependency{
 		Name:        "dms (DankMaterialShell)",
 		Status:      status,
 		Description: "Desktop Management System configuration",
 		Required:    true,
 	}
+
+	if currentVersion != "" {
+		dep.Version = currentVersion
+	}
+
+	return dep
 }
 
 func (b *BaseDistribution) detectSpecificTerminal(terminal deps.Terminal) deps.Dependency {

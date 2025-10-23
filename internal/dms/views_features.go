@@ -49,8 +49,6 @@ func (m Model) renderUpdateView() string {
 			var statusText, icon, reinstallMarker string
 			var style lipgloss.Style
 
-			isDMS := dep.Name == "dms (DankMaterialShell)"
-
 			if m.updateToggles[dep.Name] {
 				reinstallMarker = "🔄 "
 				if dep.Status == 0 {
@@ -63,24 +61,19 @@ func (m Model) renderUpdateView() string {
 				switch dep.Status {
 				case 1:
 					icon = "✓"
-					if isDMS {
-						statusText = "Will be upgraded"
-						style = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFA500"))
-					} else {
-						statusText = "Installed"
-						style = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFFFF"))
-					}
+					statusText = "Installed"
+					style = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFFFF"))
 				case 0:
 					icon = "○"
 					statusText = "Not installed"
 					style = lipgloss.NewStyle().Foreground(lipgloss.Color("#888888"))
 				case 2:
 					icon = "△"
-					statusText = "Will be upgraded"
+					statusText = "Needs update"
 					style = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFA500"))
 				case 3:
 					icon = "!"
-					statusText = "Will be upgraded"
+					statusText = "Needs reinstall"
 					style = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFA500"))
 				}
 			}

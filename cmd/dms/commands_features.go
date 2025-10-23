@@ -15,6 +15,7 @@ import (
 	"github.com/AvengeMedia/danklinux/internal/distros"
 	"github.com/AvengeMedia/danklinux/internal/errdefs"
 	"github.com/AvengeMedia/danklinux/internal/log"
+	"github.com/AvengeMedia/danklinux/internal/version"
 	"github.com/spf13/cobra"
 )
 
@@ -24,6 +25,15 @@ var updateCmd = &cobra.Command{
 	Long:  "Update DankMaterialShell to the latest version using the appropriate package manager for your distribution",
 	Run: func(cmd *cobra.Command, args []string) {
 		runUpdate()
+	},
+}
+
+var updateCheckCmd = &cobra.Command{
+	Use:   "check",
+	Short: "Check if updates are available for DankMaterialShell",
+	Long:  "Check for available updates without performing the actual update",
+	Run: func(cmd *cobra.Command, args []string) {
+		runUpdateCheck()
 	},
 }
 
@@ -42,6 +52,30 @@ var greeterInstallCmd = &cobra.Command{
 			log.Fatalf("Error installing greeter: %v", err)
 		}
 	},
+}
+
+func runUpdateCheck() {
+	fmt.Println("Checking for DankMaterialShell updates...")
+	fmt.Println()
+
+	versionInfo, err := version.GetDMSVersionInfo()
+	if err != nil {
+		log.Fatalf("Error checking for updates: %v", err)
+	}
+
+	fmt.Printf("Current version: %s\n", versionInfo.Current)
+	fmt.Printf("Latest version:  %s\n", versionInfo.Latest)
+	fmt.Println()
+
+	if versionInfo.HasUpdate {
+		fmt.Println("✓ Update available!")
+		fmt.Println()
+		fmt.Println("Run 'dms update' to install the latest version.")
+		os.Exit(0)
+	} else {
+		fmt.Println("✓ You are running the latest version.")
+		os.Exit(0)
+	}
 }
 
 func runUpdate() {
@@ -70,6 +104,9 @@ func runUpdate() {
 	if updateErr != nil {
 		if errors.Is(updateErr, errdefs.ErrUpdateCancelled) {
 			log.Info("Update cancelled.")
+			return
+		}
+		if errors.Is(updateErr, errdefs.ErrNoUpdateNeeded) {
 			return
 		}
 		log.Fatalf("Error updating DMS: %v", updateErr)
@@ -165,6 +202,17 @@ func updateOtherDistros() error {
 	}
 
 	fmt.Printf("Found DMS configuration at %s\n", dmsPath)
+
+	versionInfo, err := version.GetDMSVersionInfo()
+	if err == nil && !versionInfo.HasUpdate {
+		fmt.Println()
+		fmt.Printf("Current version: %s\n", versionInfo.Current)
+		fmt.Printf("Latest version:  %s\n", versionInfo.Latest)
+		fmt.Println()
+		fmt.Println("✓ You are already running the latest version.")
+		return errdefs.ErrNoUpdateNeeded
+	}
+
 	fmt.Println("\nThis will update:")
 	fmt.Println("  1. The dms binary from GitHub releases")
 	fmt.Println("  2. DankMaterialShell configuration using git")
