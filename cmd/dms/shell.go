@@ -95,6 +95,7 @@ func getAllDMSPIDs() []int {
 
 func runShellInteractive() {
 	go printASCII()
+	fmt.Fprintf(os.Stderr, "dms %s\n", Version)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
