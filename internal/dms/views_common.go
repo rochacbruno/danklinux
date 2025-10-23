@@ -19,7 +19,7 @@ func (m Model) renderMainMenu() string {
 		Bold(true).
 		MarginBottom(1)
 
-	b.WriteString(headerStyle.Render("DankLinux Manager"))
+	b.WriteString(headerStyle.Render("dms"))
 	b.WriteString("\n")
 
 	selectedStyle := lipgloss.NewStyle().

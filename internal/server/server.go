@@ -13,6 +13,7 @@ import (
 	"syscall"
 
 	"github.com/AvengeMedia/danklinux/internal/log"
+	"github.com/AvengeMedia/danklinux/internal/server/bluez"
 	"github.com/AvengeMedia/danklinux/internal/server/freedesktop"
 	"github.com/AvengeMedia/danklinux/internal/server/loginctl"
 	"github.com/AvengeMedia/danklinux/internal/server/models"
@@ -20,7 +21,7 @@ import (
 	"github.com/AvengeMedia/danklinux/internal/server/wayland"
 )
 
-const APIVersion = 8
+const APIVersion = 9
 
 type Capabilities struct {
 	Capabilities []string `json:"capabilities"`
@@ -40,6 +41,7 @@ var networkManager *network.Manager
 var loginctlManager *loginctl.Manager
 var freedesktopManager *freedesktop.Manager
 var waylandManager *wayland.Manager
+var bluezManager *bluez.Manager
 
 func getSocketDir() string {
 	if runtime := os.Getenv("XDG_RUNTIME_DIR"); runtime != "" {
@@ -150,6 +152,19 @@ func InitializeWaylandManager() error {
 	return nil
 }
 
+func InitializeBluezManager() error {
+	manager, err := bluez.NewManager()
+	if err != nil {
+		log.Warnf("Failed to initialize bluez manager: %v", err)
+		return err
+	}
+
+	bluezManager = manager
+
+	log.Info("Bluez manager initialized")
+	return nil
+}
+
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
 
@@ -191,6 +206,10 @@ func getCapabilities() Capabilities {
 		caps = append(caps, "gamma")
 	}
 
+	if bluezManager != nil {
+		caps = append(caps, "bluetooth")
+	}
+
 	return Capabilities{Capabilities: caps}
 }
 
@@ -211,6 +230,10 @@ func getServerInfo() ServerInfo {
 
 	if waylandManager != nil {
 		caps = append(caps, "gamma")
+	}
+
+	if bluezManager != nil {
+		caps = append(caps, "bluetooth")
 	}
 
 	return ServerInfo{
@@ -380,6 +403,63 @@ func handleSubscribe(conn net.Conn, req models.Request) {
 		}()
 	}
 
+	if shouldSubscribe("bluetooth") && bluezManager != nil {
+		wg.Add(1)
+		bluezChan := bluezManager.Subscribe(clientID + "-bluetooth")
+		go func() {
+			defer wg.Done()
+			defer bluezManager.Unsubscribe(clientID + "-bluetooth")
+
+			initialState := bluezManager.GetState()
+			select {
+			case eventChan <- ServiceEvent{Service: "bluetooth", Data: initialState}:
+			case <-stopChan:
+				return
+			}
+
+			for {
+				select {
+				case state, ok := <-bluezChan:
+					if !ok {
+						return
+					}
+					select {
+					case eventChan <- ServiceEvent{Service: "bluetooth", Data: state}:
+					case <-stopChan:
+						return
+					}
+				case <-stopChan:
+					return
+				}
+			}
+		}()
+	}
+
+	if shouldSubscribe("bluetooth.pairing") && bluezManager != nil {
+		wg.Add(1)
+		pairingChan := bluezManager.SubscribePairing(clientID + "-pairing")
+		go func() {
+			defer wg.Done()
+			defer bluezManager.UnsubscribePairing(clientID + "-pairing")
+
+			for {
+				select {
+				case prompt, ok := <-pairingChan:
+					if !ok {
+						return
+					}
+					select {
+					case eventChan <- ServiceEvent{Service: "bluetooth.pairing", Data: prompt}:
+					case <-stopChan:
+						return
+					}
+				case <-stopChan:
+					return
+				}
+			}
+		}()
+	}
+
 	go func() {
 		wg.Wait()
 		close(eventChan)
@@ -418,6 +498,9 @@ func cleanupManagers() {
 	if waylandManager != nil {
 		waylandManager.Close()
 	}
+	if bluezManager != nil {
+		bluezManager.Close()
+	}
 }
 
 func Start(printDocs bool) error {
@@ -454,6 +537,12 @@ func Start(printDocs bool) error {
 	if err := InitializeWaylandManager(); err != nil {
 		log.Warnf("Wayland manager unavailable: %v", err)
 	}
+
+	go func() {
+		if err := InitializeBluezManager(); err != nil {
+			log.Warnf("Bluez manager unavailable: %v", err)
+		}
+	}()
 
 	log.Infof("DMS API Server listening on: %s", socketPath)
 	log.Info("Protocol: JSON over Unix socket")
@@ -518,6 +607,20 @@ func Start(printDocs bool) error {
 		log.Info(" wayland.gamma.setGamma                - Set gamma value (params: gamma)")
 		log.Info(" wayland.gamma.setEnabled              - Enable/disable gamma control (params: enabled)")
 		log.Info(" wayland.gamma.subscribe               - Subscribe to gamma state changes (streaming)")
+		log.Info("Bluetooth:")
+		log.Info(" bluetooth.getState                    - Get current bluetooth state")
+		log.Info(" bluetooth.startDiscovery              - Start device discovery")
+		log.Info(" bluetooth.stopDiscovery               - Stop device discovery")
+		log.Info(" bluetooth.setPowered                  - Set adapter power state (params: powered)")
+		log.Info(" bluetooth.pair                        - Pair with device (params: device)")
+		log.Info(" bluetooth.connect                     - Connect to device (params: device)")
+		log.Info(" bluetooth.disconnect                  - Disconnect from device (params: device)")
+		log.Info(" bluetooth.remove                      - Remove/unpair device (params: device)")
+		log.Info(" bluetooth.trust                       - Trust device (params: device)")
+		log.Info(" bluetooth.untrust                     - Untrust device (params: device)")
+		log.Info(" bluetooth.pairing.submit              - Submit pairing response (params: token, secrets?, accept?)")
+		log.Info(" bluetooth.pairing.cancel              - Cancel pairing prompt (params: token)")
+		log.Info(" bluetooth.subscribe                   - Subscribe to bluetooth state changes (streaming)")
 	}
 
 	for {

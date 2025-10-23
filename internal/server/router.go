@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/AvengeMedia/danklinux/internal/log"
+	"github.com/AvengeMedia/danklinux/internal/server/bluez"
 	"github.com/AvengeMedia/danklinux/internal/server/freedesktop"
 	"github.com/AvengeMedia/danklinux/internal/server/loginctl"
 	"github.com/AvengeMedia/danklinux/internal/server/models"
@@ -75,6 +76,20 @@ func RouteRequest(conn net.Conn, req models.Request) {
 			Params: req.Params,
 		}
 		wayland.HandleRequest(conn, waylandReq, waylandManager)
+		return
+	}
+
+	if strings.HasPrefix(req.Method, "bluetooth.") {
+		if bluezManager == nil {
+			models.RespondError(conn, req.ID, "bluetooth manager not initialized")
+			return
+		}
+		bluezReq := bluez.Request{
+			ID:     req.ID,
+			Method: req.Method,
+			Params: req.Params,
+		}
+		bluez.HandleRequest(conn, bluezReq, bluezManager)
 		return
 	}
 

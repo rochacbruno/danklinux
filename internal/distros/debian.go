@@ -190,12 +190,12 @@ func (d *DebianDistribution) InstallPrerequisites(ctx context.Context, sudoPassw
 		Step:        "Installing development dependencies...",
 		IsComplete:  false,
 		NeedsSudo:   true,
-		CommandInfo: "sudo apt-get install -y curl wget git cmake ninja-build pkg-config",
+		CommandInfo: "sudo apt-get install -y curl wget git cmake ninja-build pkg-config libxcb-cursor-dev",
 		LogOutput:   "Installing additional development tools",
 	}
 
 	devToolsCmd := exec.CommandContext(ctx, "bash", "-c",
-		fmt.Sprintf("echo '%s' | sudo -S apt-get install -y curl wget git cmake ninja-build pkg-config", sudoPassword))
+		fmt.Sprintf("echo '%s' | sudo -S apt-get install -y curl wget git cmake ninja-build pkg-config libxcb-cursor-dev", sudoPassword))
 	if err := d.runWithProgress(devToolsCmd, progressChan, PhasePrerequisites, 0.10, 0.12); err != nil {
 		return fmt.Errorf("failed to install development tools: %w", err)
 	}
@@ -359,7 +359,6 @@ func (d *DebianDistribution) installBuildDependencies(ctx context.Context, manua
 			buildDeps["libgbm-dev"] = true
 			buildDeps["alacritty"] = true
 			buildDeps["fuzzel"] = true
-			buildDeps["libxcb-cursor-dev"] = true
 		case "quickshell":
 			buildDeps["qt6-base-dev"] = true
 			buildDeps["qt6-base-private-dev"] = true

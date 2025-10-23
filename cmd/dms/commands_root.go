@@ -13,8 +13,8 @@ import (
 
 var rootCmd = &cobra.Command{
 	Use:   "dms",
-	Short: "DankLinux Manager",
-	Long:  "DankLinux Management CLI\n\nThe DMS management interface provides an overview of your installed\ncomponents and allows you to manage your setup.",
+	Short: "dms CLI",
+	Long:  "dms is the DankMaterialShell management CLI and backend server.",
 	Run:   runInteractiveMode,
 }
 

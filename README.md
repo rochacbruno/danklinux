@@ -6,9 +6,9 @@
 
 # Dank Linux (dms & dankinstall)
 
-A monorepo for dankinstall and dms (cli/go), a modern desktop suite for Wayland compositors.
+A monorepo for dankinstall and dms (cli+go backend), a modern desktop suite for Wayland compositors.
 
-- **dms** DankMaterialShell (cli)
+- **dms** DankMaterialShell (cli + go backend)
   - The backend side of dms, provides APIs for the desktop and a management CLI.
   - Shared dbus connection for NetworkManager, loginctl, accountsservice, and other interfaces.
   - Implements various wayland protocols (such as gamma control)
@@ -23,9 +23,32 @@ A monorepo for dankinstall and dms (cli/go), a modern desktop suite for Wayland 
   - Can be installed if you already have niri/Hyprland configured
     - Will allow you to keep your existing config, or replace with Dank ones (existing configs always backed up though)
 
-# dms-cli
+# dms cli & backend
 
 A part of the DankMaterialShell, that is provided by this repository. It is written in GO, and exposes a suite of APIs over unix socket that interface with dbus via [godbus](https://github.com/godbus/dbus) and also the plugin system.
+
+**Backend** (all exposed over a unix socket json API):
+
+- **dbus**
+  - NetworkManager - full integration with a secrets agent
+  - bluez - integration with a pairing agent
+  - loginctl - creates sleep inhibitor, integrates lock before suspend, signals for lock/unlock
+  - accountsservice - suite of user profile APIs - name, email, profile picture, etc.
+- **dms plugins**
+  - APIs to browse, install, update, and search available plugins
+- **wayland**
+  - Implements [wlr-gamma-control-unstable-v1](https://wayland.app/protocols/wlr-gamma-control-unstable-v1)
+    - Essentially, provides auto or manual gamma control similar to a tool like [gammastep](https://gitlab.com/chinstrap/gammastep) or [wlsunset](https://github.com/kennylevinsen/wlsunset)
+
+*run `dms debug-srv` to run the socket service in standalone mode, and see a list of available APIs*
+
+**cli**
+
+- manage process: run, restart, kill
+- IPC with dms: toggle launcher, notification popup, etc.
+- plugins: install/browse/search
+- update (some builds): Update DMS and dependencies, (disabled for Arch AUR and Fedora copr installs, as it is handled by pacman/dnf)
+- greeter (some builds): Install the dms greetd greeter (on arch/fedora it is disabled in favor of OS packages)
 
 ## Build & Install
 
