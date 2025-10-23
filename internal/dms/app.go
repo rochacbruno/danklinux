@@ -87,6 +87,7 @@ type Model struct {
 }
 
 type pluginInfo struct {
+	ID           string
 	Name         string
 	Category     string
 	Author       string
@@ -220,6 +221,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.pluginsList = make([]pluginInfo, len(msg.plugins))
 			for i, p := range msg.plugins {
 				m.pluginsList[i] = pluginInfo{
+					ID:           p.ID,
 					Name:         p.Name,
 					Category:     p.Category,
 					Author:       p.Author,
@@ -245,6 +247,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.installedPluginsList = make([]pluginInfo, len(msg.plugins))
 			for i, p := range msg.plugins {
 				m.installedPluginsList[i] = pluginInfo{
+					ID:           p.ID,
 					Name:         p.Name,
 					Category:     p.Category,
 					Author:       p.Author,

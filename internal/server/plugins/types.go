@@ -1,6 +1,7 @@
 package plugins
 
 type PluginInfo struct {
+	ID           string   `json:"id"`
 	Name         string   `json:"name"`
 	Category     string   `json:"category,omitempty"`
 	Author       string   `json:"author,omitempty"`

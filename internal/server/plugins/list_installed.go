@@ -36,19 +36,19 @@ func HandleListInstalled(conn net.Conn, req models.Request) {
 
 	pluginMap := make(map[string]plugins.Plugin)
 	for _, p := range allPlugins {
-		pluginMap[p.Name] = p
+		pluginMap[p.ID] = p
 	}
 
 	result := make([]PluginInfo, 0, len(installedNames))
-	for _, name := range installedNames {
-		if plugin, ok := pluginMap[name]; ok {
+	for _, id := range installedNames {
+		if plugin, ok := pluginMap[id]; ok {
 			hasUpdate := false
-			// Check if plugin has updates available
-			if hasUpdates, err := manager.HasUpdates(name, plugin); err == nil {
+			if hasUpdates, err := manager.HasUpdates(id, plugin); err == nil {
 				hasUpdate = hasUpdates
 			}
 
 			result = append(result, PluginInfo{
+				ID:           plugin.ID,
 				Name:         plugin.Name,
 				Category:     plugin.Category,
 				Author:       plugin.Author,
@@ -63,7 +63,8 @@ func HandleListInstalled(conn net.Conn, req models.Request) {
 			})
 		} else {
 			result = append(result, PluginInfo{
-				Name: name,
+				ID:   id,
+				Name: id,
 				Note: "not in registry",
 			})
 		}

@@ -43,7 +43,7 @@ func getPluginsDir() string {
 }
 
 func (m *Manager) IsInstalled(plugin Plugin) (bool, error) {
-	pluginPath := filepath.Join(m.pluginsDir, plugin.Name)
+	pluginPath := filepath.Join(m.pluginsDir, plugin.ID)
 	exists, err := afero.DirExists(m.fs, pluginPath)
 	if err != nil {
 		return false, err
@@ -52,7 +52,7 @@ func (m *Manager) IsInstalled(plugin Plugin) (bool, error) {
 		return true, nil
 	}
 
-	systemPluginPath := filepath.Join("/etc/xdg/quickshell/dms-plugins", plugin.Name)
+	systemPluginPath := filepath.Join("/etc/xdg/quickshell/dms-plugins", plugin.ID)
 	systemExists, err := afero.DirExists(m.fs, systemPluginPath)
 	if err != nil {
 		return false, err
@@ -61,7 +61,7 @@ func (m *Manager) IsInstalled(plugin Plugin) (bool, error) {
 }
 
 func (m *Manager) Install(plugin Plugin) error {
-	pluginPath := filepath.Join(m.pluginsDir, plugin.Name)
+	pluginPath := filepath.Join(m.pluginsDir, plugin.ID)
 
 	exists, err := afero.DirExists(m.fs, pluginPath)
 	if err != nil {
@@ -150,7 +150,7 @@ func (m *Manager) createSymlink(source, dest string) error {
 }
 
 func (m *Manager) Update(plugin Plugin) error {
-	pluginPath := filepath.Join(m.pluginsDir, plugin.Name)
+	pluginPath := filepath.Join(m.pluginsDir, plugin.ID)
 
 	exists, err := afero.DirExists(m.fs, pluginPath)
 	if err != nil {
@@ -158,7 +158,7 @@ func (m *Manager) Update(plugin Plugin) error {
 	}
 
 	if !exists {
-		systemPluginPath := filepath.Join("/etc/xdg/quickshell/dms-plugins", plugin.Name)
+		systemPluginPath := filepath.Join("/etc/xdg/quickshell/dms-plugins", plugin.ID)
 		systemExists, err := afero.DirExists(m.fs, systemPluginPath)
 		if err != nil {
 			return fmt.Errorf("failed to check if plugin exists: %w", err)
@@ -208,7 +208,7 @@ func (m *Manager) Update(plugin Plugin) error {
 }
 
 func (m *Manager) Uninstall(plugin Plugin) error {
-	pluginPath := filepath.Join(m.pluginsDir, plugin.Name)
+	pluginPath := filepath.Join(m.pluginsDir, plugin.ID)
 
 	exists, err := afero.DirExists(m.fs, pluginPath)
 	if err != nil {
@@ -216,7 +216,7 @@ func (m *Manager) Uninstall(plugin Plugin) error {
 	}
 
 	if !exists {
-		systemPluginPath := filepath.Join("/etc/xdg/quickshell/dms-plugins", plugin.Name)
+		systemPluginPath := filepath.Join("/etc/xdg/quickshell/dms-plugins", plugin.ID)
 		systemExists, err := afero.DirExists(m.fs, systemPluginPath)
 		if err != nil {
 			return fmt.Errorf("failed to check if plugin exists: %w", err)
@@ -238,7 +238,7 @@ func (m *Manager) Uninstall(plugin Plugin) error {
 		repoName := m.getRepoName(plugin.Repo)
 		repoPath := filepath.Join(reposDir, repoName)
 
-		shouldCleanup, err := m.shouldCleanupRepo(repoPath, plugin.Repo, plugin.Name)
+		shouldCleanup, err := m.shouldCleanupRepo(repoPath, plugin.Repo, plugin.ID)
 		if err != nil {
 			return fmt.Errorf("failed to check repo cleanup: %w", err)
 		}
@@ -281,13 +281,13 @@ func (m *Manager) shouldCleanupRepo(repoPath, repoURL, excludePlugin string) (bo
 		return false, err
 	}
 
-	for _, name := range installed {
-		if name == excludePlugin {
+	for _, id := range installed {
+		if id == excludePlugin {
 			continue
 		}
 
 		for _, p := range allPlugins {
-			if p.Name == name && p.Repo == repoURL && p.Path != "" {
+			if p.ID == id && p.Repo == repoURL && p.Path != "" {
 				return false, nil
 			}
 		}
@@ -361,18 +361,16 @@ func (m *Manager) GetPluginsDir() string {
 	return m.pluginsDir
 }
 
-func (m *Manager) HasUpdates(pluginName string, plugin Plugin) (bool, error) {
-	pluginPath := filepath.Join(m.pluginsDir, pluginName)
+func (m *Manager) HasUpdates(pluginID string, plugin Plugin) (bool, error) {
+	pluginPath := filepath.Join(m.pluginsDir, pluginID)
 
-	// Check if plugin exists in user directory
 	exists, err := afero.DirExists(m.fs, pluginPath)
 	if err != nil {
 		return false, fmt.Errorf("failed to check if plugin exists: %w", err)
 	}
 
 	if !exists {
-		// Check if it's a system plugin - system plugins can't be updated
-		systemPluginPath := filepath.Join("/etc/xdg/quickshell/dms-plugins", pluginName)
+		systemPluginPath := filepath.Join("/etc/xdg/quickshell/dms-plugins", pluginID)
 		systemExists, err := afero.DirExists(m.fs, systemPluginPath)
 		if err != nil {
 			return false, fmt.Errorf("failed to check system plugin: %w", err)
@@ -380,7 +378,7 @@ func (m *Manager) HasUpdates(pluginName string, plugin Plugin) (bool, error) {
 		if systemExists {
 			return false, nil
 		}
-		return false, fmt.Errorf("plugin not installed: %s", pluginName)
+		return false, fmt.Errorf("plugin not installed: %s", pluginID)
 	}
 
 	// Check if there's a .meta file (plugin installed from a monorepo)

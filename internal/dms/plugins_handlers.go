@@ -123,6 +123,7 @@ func (m *Model) filterPlugins() {
 	rawPlugins := make([]plugins.Plugin, len(m.pluginsList))
 	for i, p := range m.pluginsList {
 		rawPlugins[i] = plugins.Plugin{
+			ID:           p.ID,
 			Name:         p.Name,
 			Category:     p.Category,
 			Author:       p.Author,
@@ -141,6 +142,7 @@ func (m *Model) filterPlugins() {
 	filtered := make([]pluginInfo, len(searchResults))
 	for i, p := range searchResults {
 		filtered[i] = pluginInfo{
+			ID:           p.ID,
 			Name:         p.Name,
 			Category:     p.Category,
 			Author:       p.Author,
@@ -184,7 +186,7 @@ func (m *Model) updatePluginInstallStatus() {
 	}
 
 	for _, plugin := range m.pluginsList {
-		p := plugins.Plugin{Name: plugin.Name}
+		p := plugins.Plugin{ID: plugin.ID}
 		installed, err := manager.IsInstalled(p)
 		if err == nil {
 			m.pluginInstallStatus[plugin.Name] = installed
@@ -266,9 +268,9 @@ func loadInstalledPlugins() tea.Msg {
 	}
 
 	var installed []plugins.Plugin
-	for _, name := range installedNames {
+	for _, id := range installedNames {
 		for _, p := range allPlugins {
-			if p.Name == name {
+			if p.ID == id {
 				installed = append(installed, p)
 				break
 			}
@@ -288,6 +290,7 @@ func installPlugin(plugin pluginInfo) tea.Cmd {
 		}
 
 		p := plugins.Plugin{
+			ID:           plugin.ID,
 			Name:         plugin.Name,
 			Category:     plugin.Category,
 			Author:       plugin.Author,
@@ -315,6 +318,7 @@ func uninstallPlugin(plugin pluginInfo) tea.Cmd {
 		}
 
 		p := plugins.Plugin{
+			ID:           plugin.ID,
 			Name:         plugin.Name,
 			Category:     plugin.Category,
 			Author:       plugin.Author,

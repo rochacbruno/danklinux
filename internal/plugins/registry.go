@@ -13,6 +13,7 @@ import (
 const registryRepo = "https://github.com/AvengeMedia/dms-plugin-registry.git"
 
 type Plugin struct {
+	ID           string   `json:"id"`
 	Name         string   `json:"name"`
 	Capabilities []string `json:"capabilities"`
 	Category     string   `json:"category"`
@@ -195,6 +196,10 @@ func (r *Registry) loadPlugins() error {
 		var plugin Plugin
 		if err := json.Unmarshal(data, &plugin); err != nil {
 			continue
+		}
+
+		if plugin.ID == "" {
+			plugin.ID = strings.TrimSuffix(entry.Name(), ".json")
 		}
 
 		r.plugins = append(r.plugins, plugin)

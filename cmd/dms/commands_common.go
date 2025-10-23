@@ -207,18 +207,18 @@ func listInstalledPlugins() error {
 
 	pluginMap := make(map[string]plugins.Plugin)
 	for _, p := range allPlugins {
-		pluginMap[p.Name] = p
+		pluginMap[p.ID] = p
 	}
 
 	fmt.Printf("\nInstalled Plugins (%d):\n\n", len(installedNames))
-	for _, name := range installedNames {
-		if plugin, ok := pluginMap[name]; ok {
+	for _, id := range installedNames {
+		if plugin, ok := pluginMap[id]; ok {
 			fmt.Printf("  %s\n", plugin.Name)
 			fmt.Printf("    Category: %s\n", plugin.Category)
 			fmt.Printf("    Author: %s\n", plugin.Author)
 			fmt.Println()
 		} else {
-			fmt.Printf("  %s (not in registry)\n\n", name)
+			fmt.Printf("  %s (not in registry)\n\n", id)
 		}
 	}
 

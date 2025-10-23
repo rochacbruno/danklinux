@@ -15,23 +15,6 @@ func HandleUpdate(conn net.Conn, req models.Request) {
 		return
 	}
 
-	manager, err := plugins.NewManager()
-	if err != nil {
-		models.RespondError(conn, req.ID, fmt.Sprintf("failed to create manager: %v", err))
-		return
-	}
-
-	installed, err := manager.IsInstalled(plugins.Plugin{Name: name})
-	if err != nil {
-		models.RespondError(conn, req.ID, fmt.Sprintf("failed to check if plugin is installed: %v", err))
-		return
-	}
-
-	if !installed {
-		models.RespondError(conn, req.ID, fmt.Sprintf("plugin not installed: %s", name))
-		return
-	}
-
 	registry, err := plugins.NewRegistry()
 	if err != nil {
 		models.RespondError(conn, req.ID, fmt.Sprintf("failed to create registry: %v", err))
@@ -53,7 +36,25 @@ func HandleUpdate(conn net.Conn, req models.Request) {
 	}
 
 	if plugin == nil {
-		plugin = &plugins.Plugin{Name: name}
+		models.RespondError(conn, req.ID, fmt.Sprintf("plugin not found: %s", name))
+		return
+	}
+
+	manager, err := plugins.NewManager()
+	if err != nil {
+		models.RespondError(conn, req.ID, fmt.Sprintf("failed to create manager: %v", err))
+		return
+	}
+
+	installed, err := manager.IsInstalled(*plugin)
+	if err != nil {
+		models.RespondError(conn, req.ID, fmt.Sprintf("failed to check if plugin is installed: %v", err))
+		return
+	}
+
+	if !installed {
+		models.RespondError(conn, req.ID, fmt.Sprintf("plugin not installed: %s", name))
+		return
 	}
 
 	if err := manager.Update(*plugin); err != nil {

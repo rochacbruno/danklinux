@@ -64,8 +64,8 @@ func TestIsInstalled(t *testing.T) {
 	t.Run("returns true when plugin is installed", func(t *testing.T) {
 		manager, fs, pluginsDir := setupTestManager(t)
 
-		plugin := Plugin{Name: "TestPlugin"}
-		pluginPath := filepath.Join(pluginsDir, plugin.Name)
+		plugin := Plugin{ID: "test-plugin", Name: "TestPlugin"}
+		pluginPath := filepath.Join(pluginsDir, plugin.ID)
 		err := fs.MkdirAll(pluginPath, 0755)
 		require.NoError(t, err)
 
@@ -77,7 +77,7 @@ func TestIsInstalled(t *testing.T) {
 	t.Run("returns false when plugin is not installed", func(t *testing.T) {
 		manager, _, _ := setupTestManager(t)
 
-		plugin := Plugin{Name: "NonExistent"}
+		plugin := Plugin{ID: "non-existent", Name: "NonExistent"}
 		installed, err := manager.IsInstalled(plugin)
 		assert.NoError(t, err)
 		assert.False(t, installed)
@@ -89,6 +89,7 @@ func TestInstall(t *testing.T) {
 		manager, fs, pluginsDir := setupTestManager(t)
 
 		plugin := Plugin{
+			ID:   "test-plugin",
 			Name: "TestPlugin",
 			Repo: "https://github.com/test/plugin",
 		}
@@ -97,7 +98,7 @@ func TestInstall(t *testing.T) {
 		mockGit := &mockGitClient{
 			cloneFunc: func(path string, url string) error {
 				cloneCalled = true
-				assert.Equal(t, filepath.Join(pluginsDir, plugin.Name), path)
+				assert.Equal(t, filepath.Join(pluginsDir, plugin.ID), path)
 				assert.Equal(t, plugin.Repo, url)
 				return fs.MkdirAll(path, 0755)
 			},
@@ -108,15 +109,15 @@ func TestInstall(t *testing.T) {
 		assert.NoError(t, err)
 		assert.True(t, cloneCalled)
 
-		exists, _ := afero.DirExists(fs, filepath.Join(pluginsDir, plugin.Name))
+		exists, _ := afero.DirExists(fs, filepath.Join(pluginsDir, plugin.ID))
 		assert.True(t, exists)
 	})
 
 	t.Run("returns error when plugin already installed", func(t *testing.T) {
 		manager, fs, pluginsDir := setupTestManager(t)
 
-		plugin := Plugin{Name: "TestPlugin"}
-		pluginPath := filepath.Join(pluginsDir, plugin.Name)
+		plugin := Plugin{ID: "test-plugin", Name: "TestPlugin"}
+		pluginPath := filepath.Join(pluginsDir, plugin.ID)
 		err := fs.MkdirAll(pluginPath, 0755)
 		require.NoError(t, err)
 
@@ -134,8 +135,8 @@ func TestManagerUpdate(t *testing.T) {
 	t.Run("updates plugin successfully", func(t *testing.T) {
 		manager, fs, pluginsDir := setupTestManager(t)
 
-		plugin := Plugin{Name: "TestPlugin"}
-		pluginPath := filepath.Join(pluginsDir, plugin.Name)
+		plugin := Plugin{ID: "test-plugin", Name: "TestPlugin"}
+		pluginPath := filepath.Join(pluginsDir, plugin.ID)
 		err := fs.MkdirAll(pluginPath, 0755)
 		require.NoError(t, err)
 
@@ -157,7 +158,7 @@ func TestManagerUpdate(t *testing.T) {
 	t.Run("returns error when plugin not installed", func(t *testing.T) {
 		manager, _, _ := setupTestManager(t)
 
-		plugin := Plugin{Name: "NonExistent"}
+		plugin := Plugin{ID: "non-existent", Name: "NonExistent"}
 		err := manager.Update(plugin)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "not installed")
@@ -168,8 +169,8 @@ func TestUninstall(t *testing.T) {
 	t.Run("uninstalls plugin successfully", func(t *testing.T) {
 		manager, fs, pluginsDir := setupTestManager(t)
 
-		plugin := Plugin{Name: "TestPlugin"}
-		pluginPath := filepath.Join(pluginsDir, plugin.Name)
+		plugin := Plugin{ID: "test-plugin", Name: "TestPlugin"}
+		pluginPath := filepath.Join(pluginsDir, plugin.ID)
 		err := fs.MkdirAll(pluginPath, 0755)
 		require.NoError(t, err)
 
@@ -183,7 +184,7 @@ func TestUninstall(t *testing.T) {
 	t.Run("returns error when plugin not installed", func(t *testing.T) {
 		manager, _, _ := setupTestManager(t)
 
-		plugin := Plugin{Name: "NonExistent"}
+		plugin := Plugin{ID: "non-existent", Name: "NonExistent"}
 		err := manager.Uninstall(plugin)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "not installed")

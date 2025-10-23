@@ -54,6 +54,7 @@ func HandleSearch(conn net.Conn, req models.Request) {
 	for i, p := range searchResults {
 		installed, _ := manager.IsInstalled(p)
 		result[i] = PluginInfo{
+			ID:           p.ID,
 			Name:         p.Name,
 			Category:     p.Category,
 			Author:       p.Author,
