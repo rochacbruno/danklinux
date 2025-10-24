@@ -91,7 +91,8 @@ func GetLatestDMSVersion() (string, error) {
 		if !onBranch {
 			tagCmd := exec.Command("git", "describe", "--exact-match", "--tags", "HEAD")
 			if _, err := tagCmd.Output(); err == nil {
-				fetchCmd := exec.Command("git", "fetch", "origin", "--tags", "--quiet")
+				// Add timeout to git fetch to prevent hanging
+				fetchCmd := exec.Command("timeout", "5s", "git", "fetch", "origin", "--tags", "--quiet")
 				fetchCmd.Run()
 
 				latestTagCmd := exec.Command("git", "tag", "-l", "v0.1.*", "--sort=-version:refname")
@@ -114,7 +115,8 @@ func GetLatestDMSVersion() (string, error) {
 			}
 			currentBranch := strings.TrimSpace(string(branchOutput))
 
-			fetchCmd := exec.Command("git", "fetch", "origin", currentBranch, "--quiet")
+			// Add timeout to git fetch to prevent hanging
+			fetchCmd := exec.Command("timeout", "5s", "git", "fetch", "origin", currentBranch, "--quiet")
 			fetchCmd.Run()
 
 			remoteRevCmd := exec.Command("git", "rev-parse", "--short", fmt.Sprintf("origin/%s", currentBranch))
@@ -127,7 +129,8 @@ func GetLatestDMSVersion() (string, error) {
 		}
 	}
 
-	cmd := exec.Command("curl", "-s", "https://api.github.com/repos/AvengeMedia/danklinux/releases/latest")
+	// Add timeout to prevent hanging when GitHub is down
+	cmd := exec.Command("curl", "-s", "--max-time", "5", "https://api.github.com/repos/AvengeMedia/danklinux/releases/latest")
 	output, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("failed to fetch latest release: %w", err)
