@@ -106,12 +106,10 @@ func (b *BaseDistribution) detectDMS() deps.Dependency {
 	if _, err := os.Stat(dmsPath); err == nil {
 		status = deps.StatusInstalled
 
-		versionInfo, err := version.GetDMSVersionInfo()
+		// Only get current version, don't check for updates (lazy loading)
+		current, err := version.GetCurrentDMSVersion()
 		if err == nil {
-			currentVersion = versionInfo.Current
-			if versionInfo.HasUpdate {
-				status = deps.StatusNeedsUpdate
-			}
+			currentVersion = current
 		}
 	}
 
