@@ -97,9 +97,9 @@ var pluginsListCmd = &cobra.Command{
 }
 
 var pluginsInstallCmd = &cobra.Command{
-	Use:   "install <plugin-name>",
-	Short: "Install a plugin",
-	Long:  "Install a DMS plugin from the registry",
+	Use:   "install <plugin-id>",
+	Short: "Install a plugin by ID",
+	Long:  "Install a DMS plugin from the registry using its ID (e.g., 'myPlugin'). Plugin names with spaces are also supported for backward compatibility.",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		if err := installPluginCLI(args[0]); err != nil {
@@ -109,9 +109,9 @@ var pluginsInstallCmd = &cobra.Command{
 }
 
 var pluginsUninstallCmd = &cobra.Command{
-	Use:   "uninstall <plugin-name>",
-	Short: "Uninstall a plugin",
-	Long:  "Uninstall a DMS plugin",
+	Use:   "uninstall <plugin-id>",
+	Short: "Uninstall a plugin by ID",
+	Long:  "Uninstall a DMS plugin using its ID (e.g., 'myPlugin'). Plugin names with spaces are also supported for backward compatibility.",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		if err := uninstallPluginCLI(args[0]); err != nil {
@@ -160,6 +160,7 @@ func browsePlugins() error {
 		}
 
 		fmt.Printf("  %s%s\n", plugin.Name, installedMarker)
+		fmt.Printf("    ID: %s\n", plugin.ID)
 		fmt.Printf("    Category: %s\n", plugin.Category)
 		fmt.Printf("    Author: %s\n", plugin.Author)
 		fmt.Printf("    Description: %s\n", plugin.Description)
@@ -214,6 +215,7 @@ func listInstalledPlugins() error {
 	for _, id := range installedNames {
 		if plugin, ok := pluginMap[id]; ok {
 			fmt.Printf("  %s\n", plugin.Name)
+			fmt.Printf("    ID: %s\n", plugin.ID)
 			fmt.Printf("    Category: %s\n", plugin.Category)
 			fmt.Printf("    Author: %s\n", plugin.Author)
 			fmt.Println()
@@ -225,7 +227,7 @@ func listInstalledPlugins() error {
 	return nil
 }
 
-func installPluginCLI(name string) error {
+func installPluginCLI(idOrName string) error {
 	registry, err := plugins.NewRegistry()
 	if err != nil {
 		return fmt.Errorf("failed to create registry: %w", err)
@@ -241,16 +243,27 @@ func installPluginCLI(name string) error {
 		return fmt.Errorf("failed to list plugins: %w", err)
 	}
 
+	// First, try to find by ID (preferred method)
 	var plugin *plugins.Plugin
 	for _, p := range pluginList {
-		if p.Name == name {
+		if p.ID == idOrName {
 			plugin = &p
 			break
 		}
 	}
 
+	// Fallback to name for backward compatibility
 	if plugin == nil {
-		return fmt.Errorf("plugin not found: %s", name)
+		for _, p := range pluginList {
+			if p.Name == idOrName {
+				plugin = &p
+				break
+			}
+		}
+	}
+
+	if plugin == nil {
+		return fmt.Errorf("plugin not found: %s", idOrName)
 	}
 
 	installed, err := manager.IsInstalled(*plugin)
@@ -259,19 +272,19 @@ func installPluginCLI(name string) error {
 	}
 
 	if installed {
-		return fmt.Errorf("plugin already installed: %s", name)
+		return fmt.Errorf("plugin already installed: %s", plugin.Name)
 	}
 
-	fmt.Printf("Installing plugin: %s\n", name)
+	fmt.Printf("Installing plugin: %s (ID: %s)\n", plugin.Name, plugin.ID)
 	if err := manager.Install(*plugin); err != nil {
 		return fmt.Errorf("failed to install plugin: %w", err)
 	}
 
-	fmt.Printf("Plugin installed successfully: %s\n", name)
+	fmt.Printf("Plugin installed successfully: %s\n", plugin.Name)
 	return nil
 }
 
-func uninstallPluginCLI(name string) error {
+func uninstallPluginCLI(idOrName string) error {
 	manager, err := plugins.NewManager()
 	if err != nil {
 		return fmt.Errorf("failed to create manager: %w", err)
@@ -287,16 +300,27 @@ func uninstallPluginCLI(name string) error {
 		return fmt.Errorf("failed to list plugins: %w", err)
 	}
 
+	// First, try to find by ID (preferred method)
 	var plugin *plugins.Plugin
 	for _, p := range pluginList {
-		if p.Name == name {
+		if p.ID == idOrName {
 			plugin = &p
 			break
 		}
 	}
 
+	// Fallback to name for backward compatibility
 	if plugin == nil {
-		return fmt.Errorf("plugin not found: %s", name)
+		for _, p := range pluginList {
+			if p.Name == idOrName {
+				plugin = &p
+				break
+			}
+		}
+	}
+
+	if plugin == nil {
+		return fmt.Errorf("plugin not found: %s", idOrName)
 	}
 
 	installed, err := manager.IsInstalled(*plugin)
@@ -305,14 +329,14 @@ func uninstallPluginCLI(name string) error {
 	}
 
 	if !installed {
-		return fmt.Errorf("plugin not installed: %s", name)
+		return fmt.Errorf("plugin not installed: %s", plugin.Name)
 	}
 
-	fmt.Printf("Uninstalling plugin: %s\n", name)
+	fmt.Printf("Uninstalling plugin: %s (ID: %s)\n", plugin.Name, plugin.ID)
 	if err := manager.Uninstall(*plugin); err != nil {
 		return fmt.Errorf("failed to uninstall plugin: %w", err)
 	}
 
-	fmt.Printf("Plugin uninstalled successfully: %s\n", name)
+	fmt.Printf("Plugin uninstalled successfully: %s\n", plugin.Name)
 	return nil
 }

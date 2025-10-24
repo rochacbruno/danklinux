@@ -9,7 +9,7 @@ import (
 )
 
 func HandleInstall(conn net.Conn, req models.Request) {
-	name, ok := req.Params["name"].(string)
+	idOrName, ok := req.Params["name"].(string)
 	if !ok {
 		models.RespondError(conn, req.ID, "missing or invalid 'name' parameter")
 		return
@@ -27,16 +27,27 @@ func HandleInstall(conn net.Conn, req models.Request) {
 		return
 	}
 
+	// First, try to find by ID (preferred method)
 	var plugin *plugins.Plugin
 	for _, p := range pluginList {
-		if p.Name == name {
+		if p.ID == idOrName {
 			plugin = &p
 			break
 		}
 	}
 
+	// Fallback to name for backward compatibility
 	if plugin == nil {
-		models.RespondError(conn, req.ID, fmt.Sprintf("plugin not found: %s", name))
+		for _, p := range pluginList {
+			if p.Name == idOrName {
+				plugin = &p
+				break
+			}
+		}
+	}
+
+	if plugin == nil {
+		models.RespondError(conn, req.ID, fmt.Sprintf("plugin not found: %s", idOrName))
 		return
 	}
 
@@ -53,6 +64,6 @@ func HandleInstall(conn net.Conn, req models.Request) {
 
 	models.Respond(conn, req.ID, SuccessResult{
 		Success: true,
-		Message: fmt.Sprintf("plugin installed: %s", name),
+		Message: fmt.Sprintf("plugin installed: %s", plugin.Name),
 	})
 }

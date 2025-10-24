@@ -46,7 +46,7 @@ A part of the DankMaterialShell, that is provided by this repository. It is writ
 
 - manage process: run, restart, kill
 - IPC with dms: toggle launcher, notification popup, etc.
-- plugins: install/browse/search
+- plugins: install/browse/search (use plugin IDs like `dms plugins install myPlugin`)
 - update (some builds): Update DMS and dependencies, (disabled for Arch AUR and Fedora copr installs, as it is handled by pacman/dnf)
 - greeter (some builds): Install the dms greetd greeter (on arch/fedora it is disabled in favor of OS packages)
 

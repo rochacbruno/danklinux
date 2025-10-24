@@ -232,17 +232,25 @@ func (r *Registry) Search(query string) ([]Plugin, error) {
 	return SortByFirstParty(FuzzySearch(query, allPlugins)), nil
 }
 
-func (r *Registry) Get(name string) (*Plugin, error) {
+func (r *Registry) Get(idOrName string) (*Plugin, error) {
 	plugins, err := r.List()
 	if err != nil {
 		return nil, err
 	}
 
+	// First, try to find by ID (preferred method)
 	for _, p := range plugins {
-		if p.Name == name {
+		if p.ID == idOrName {
 			return &p, nil
 		}
 	}
 
-	return nil, fmt.Errorf("plugin not found: %s", name)
+	// Fallback to name for backward compatibility
+	for _, p := range plugins {
+		if p.Name == idOrName {
+			return &p, nil
+		}
+	}
+
+	return nil, fmt.Errorf("plugin not found: %s", idOrName)
 }
