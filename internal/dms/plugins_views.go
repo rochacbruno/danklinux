@@ -132,6 +132,10 @@ func (m Model) renderPluginDetail() string {
 	b.WriteString(titleStyle.Render(plugin.Name))
 	b.WriteString("\n\n")
 
+	b.WriteString(labelStyle.Render("ID: "))
+	b.WriteString(normalStyle.Render(plugin.ID))
+	b.WriteString("\n\n")
+
 	b.WriteString(labelStyle.Render("Category: "))
 	b.WriteString(normalStyle.Render(plugin.Category))
 	b.WriteString("\n\n")
@@ -286,6 +290,10 @@ func (m Model) renderPluginInstalledDetail() string {
 	plugin := m.installedPluginsList[m.selectedInstalledIndex]
 
 	b.WriteString(titleStyle.Render(plugin.Name))
+	b.WriteString("\n\n")
+
+	b.WriteString(labelStyle.Render("ID: "))
+	b.WriteString(normalStyle.Render(plugin.ID))
 	b.WriteString("\n\n")
 
 	b.WriteString(labelStyle.Render("Category: "))
