@@ -15,6 +15,43 @@ import (
 	"github.com/AvengeMedia/danklinux/internal/server"
 )
 
+func locateDMSConfig() (string, error) {
+	var searchPaths []string
+
+	configHome := os.Getenv("XDG_CONFIG_HOME")
+	if configHome == "" {
+		if homeDir, err := os.UserHomeDir(); err == nil {
+			configHome = filepath.Join(homeDir, ".config")
+		}
+	}
+
+	if configHome != "" {
+		searchPaths = append(searchPaths, filepath.Join(configHome, "quickshell", "dms"))
+	}
+
+	searchPaths = append(searchPaths, "/usr/share/quickshell/dms")
+
+	configDirs := os.Getenv("XDG_CONFIG_DIRS")
+	if configDirs == "" {
+		configDirs = "/etc/xdg"
+	}
+
+	for _, dir := range strings.Split(configDirs, ":") {
+		if dir != "" {
+			searchPaths = append(searchPaths, filepath.Join(dir, "quickshell", "dms"))
+		}
+	}
+
+	for _, path := range searchPaths {
+		shellPath := filepath.Join(path, "shell.qml")
+		if info, err := os.Stat(shellPath); err == nil && !info.IsDir() {
+			return path, nil
+		}
+	}
+
+	return "", fmt.Errorf("could not find DMS config (shell.qml) in any valid config path")
+}
+
 func getRuntimeDir() string {
 	if runtime := os.Getenv("XDG_RUNTIME_DIR"); runtime != "" {
 		return runtime
@@ -110,7 +147,14 @@ func runShellInteractive() {
 		}
 	}()
 
-	cmd := exec.CommandContext(ctx, "qs", "-c", "dms")
+	configPath, err := locateDMSConfig()
+	if err != nil {
+		log.Fatalf("Error locating DMS config: %v", err)
+	}
+
+	log.Infof("Spawning quickshell with -p %s", configPath)
+
+	cmd := exec.CommandContext(ctx, "qs", "-p", configPath)
 	cmd.Env = append(os.Environ(), "DMS_SOCKET="+socketPath)
 	if qtRules := log.GetQtLoggingRules(); qtRules != "" {
 		cmd.Env = append(cmd.Env, "QT_LOGGING_RULES="+qtRules)
@@ -254,7 +298,14 @@ func runShellDaemon() {
 		}
 	}()
 
-	cmd := exec.CommandContext(ctx, "qs", "-c", "dms")
+	configPath, err := locateDMSConfig()
+	if err != nil {
+		log.Fatalf("Error locating DMS config: %v", err)
+	}
+
+	log.Infof("Spawning quickshell with -p %s", configPath)
+
+	cmd := exec.CommandContext(ctx, "qs", "-p", configPath)
 	cmd.Env = append(os.Environ(), "DMS_SOCKET="+socketPath)
 	if qtRules := log.GetQtLoggingRules(); qtRules != "" {
 		cmd.Env = append(cmd.Env, "QT_LOGGING_RULES="+qtRules)
@@ -317,7 +368,12 @@ func runShellIPCCommand(args []string) {
 		args = append([]string{"call"}, args...)
 	}
 
-	cmdArgs := append([]string{"-c", "dms", "ipc"}, args...)
+	configPath, err := locateDMSConfig()
+	if err != nil {
+		log.Fatalf("Error locating DMS config: %v", err)
+	}
+
+	cmdArgs := append([]string{"-p", configPath, "ipc"}, args...)
 	cmd := exec.Command("qs", cmdArgs...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
