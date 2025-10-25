@@ -3,7 +3,8 @@ BINARY_NAME_INSTALL=dankinstall
 SOURCE_DIR=cmd/dms
 SOURCE_DIR_INSTALL=cmd/dankinstall
 BUILD_DIR=bin
-INSTALL_DIR=/usr/local/bin
+PREFIX ?= /usr/local
+INSTALL_DIR=$(PREFIX)/bin
 
 GO=go
 GOFLAGS=-ldflags="-s -w"
