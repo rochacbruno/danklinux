@@ -25,6 +25,7 @@ type Backend interface {
 	ConnectVPN(uuidOrName string, singleActive bool) error
 	DisconnectVPN(uuidOrName string) error
 	DisconnectAllVPN() error
+	ClearVPNCredentials(uuidOrName string) error
 
 	GetCurrentState() (*BackendState, error)
 
@@ -57,5 +58,7 @@ type BackendState struct {
 	VPNActive              []VPNActive
 	IsConnecting           bool
 	ConnectingSSID         string
+	IsConnectingVPN        bool
+	ConnectingVPNUUID      string
 	LastError              string
 }

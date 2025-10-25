@@ -25,6 +25,7 @@ type SecretAgent struct {
 	id      string
 	prompts PromptBroker
 	manager *Manager
+	backend *NetworkManagerBackend
 }
 
 type nmVariantMap map[string]dbus.Variant
@@ -65,7 +66,7 @@ const introspectXML = `
 	</interface>
 </node>`
 
-func NewSecretAgent(prompts PromptBroker, manager *Manager) (*SecretAgent, error) {
+func NewSecretAgent(prompts PromptBroker, manager *Manager, backend *NetworkManagerBackend) (*SecretAgent, error) {
 	c, err := dbus.ConnectSystemBus()
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to system bus: %w", err)
@@ -77,6 +78,7 @@ func NewSecretAgent(prompts PromptBroker, manager *Manager) (*SecretAgent, error
 		id:      agentIdentifier,
 		prompts: prompts,
 		manager: manager,
+		backend: backend,
 	}
 
 	if err := c.Export(sa, sa.objPath, nmSecretAgentIface); err != nil {
@@ -129,6 +131,36 @@ func (a *SecretAgent) GetSecrets(
 	fields := fieldsNeeded(settingName, conn, hints)
 
 	log.Infof("[SecretAgent] connType=%s, name=%s, vpnSvc=%s, fields=%v, flags=%d", connType, displayName, vpnSvc, fields, flags)
+
+	if a.backend != nil {
+		a.backend.stateMutex.RLock()
+		isConnecting := a.backend.state.IsConnecting
+		connectingSSID := a.backend.state.ConnectingSSID
+		isConnectingVPN := a.backend.state.IsConnectingVPN
+		connectingVPNUUID := a.backend.state.ConnectingVPNUUID
+		a.backend.stateMutex.RUnlock()
+
+		if connType == "802-11-wireless" {
+			if !isConnecting || connectingSSID != ssid {
+				log.Infof("[SecretAgent] Ignoring request for SSID '%s' - not initiated by us (connecting=%v, our_ssid='%s')", ssid, isConnecting, connectingSSID)
+				return nil, dbus.NewError("org.freedesktop.NetworkManager.SecretAgent.Error.NoSecrets", nil)
+			}
+		} else if connType == "vpn" || connType == "wireguard" {
+			var connUuid string
+			if c, ok := conn["connection"]; ok {
+				if v, ok := c["uuid"]; ok {
+					if s, ok2 := v.Value().(string); ok2 {
+						connUuid = s
+					}
+				}
+			}
+
+			if !isConnectingVPN || connUuid != connectingVPNUUID {
+				log.Infof("[SecretAgent] Ignoring VPN request for UUID '%s' - not initiated by us (connecting=%v, our_uuid='%s')", connUuid, isConnectingVPN, connectingVPNUUID)
+				return nil, dbus.NewError("org.freedesktop.NetworkManager.SecretAgent.Error.NoSecrets", nil)
+			}
+		}
+	}
 
 	if len(fields) == 0 {
 		allowInteraction := flags&NM_SECRET_AGENT_GET_SECRETS_FLAG_ALLOW_INTERACTION != 0

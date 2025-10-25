@@ -470,3 +470,7 @@ func (m *Manager) DisconnectVPN(uuidOrName string) error {
 func (m *Manager) DisconnectAllVPN() error {
 	return m.backend.DisconnectAllVPN()
 }
+
+func (m *Manager) ClearVPNCredentials(uuidOrName string) error {
+	return m.backend.ClearVPNCredentials(uuidOrName)
+}

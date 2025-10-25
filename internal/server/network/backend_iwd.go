@@ -1266,3 +1266,7 @@ func (b *IWDBackend) DisconnectVPN(uuidOrName string) error {
 func (b *IWDBackend) DisconnectAllVPN() error {
 	return fmt.Errorf("VPN not supported by iwd backend")
 }
+
+func (b *IWDBackend) ClearVPNCredentials(uuidOrName string) error {
+	return fmt.Errorf("VPN not supported by iwd backend")
+}

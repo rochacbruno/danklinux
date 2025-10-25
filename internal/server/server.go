@@ -579,6 +579,7 @@ func Start(printDocs bool) error {
 		log.Info(" network.vpn.connect         - Connect VPN (params: uuidOrName|name|uuid, singleActive?)")
 		log.Info(" network.vpn.disconnect      - Disconnect VPN (params: uuidOrName|name|uuid)")
 		log.Info(" network.vpn.disconnectAll   - Disconnect all VPNs")
+		log.Info(" network.vpn.clearCredentials - Clear saved VPN credentials (params: uuidOrName|name|uuid)")
 		log.Info(" network.preference.set      - Set preference (params: preference [auto|wifi|ethernet])")
 		log.Info(" network.info                - Get network info (params: ssid)")
 		log.Info(" network.credentials.submit  - Submit credentials for prompt (params: token, secrets, save?)")

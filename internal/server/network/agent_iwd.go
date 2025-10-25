@@ -17,6 +17,10 @@ const (
 	iwdAgentObjectPath   = "/com/danklinux/iwdagent"
 )
 
+type ConnectionStateChecker interface {
+	IsConnectingTo(ssid string) bool
+}
+
 type IWDAgent struct {
 	conn            *dbus.Conn
 	objPath         dbus.ObjectPath
@@ -24,6 +28,7 @@ type IWDAgent struct {
 	onUserCanceled  func()
 	onPromptRetry   func(ssid string)
 	lastRequestSSID string
+	stateChecker    ConnectionStateChecker
 }
 
 const iwdAgentIntrospectXML = `
@@ -97,6 +102,10 @@ func (a *IWDAgent) Close() {
 	}
 }
 
+func (a *IWDAgent) SetStateChecker(checker ConnectionStateChecker) {
+	a.stateChecker = checker
+}
+
 func (a *IWDAgent) getNetworkName(networkPath dbus.ObjectPath) string {
 	netObj := a.conn.Object("net.connman.iwd", networkPath)
 	nameVar, err := netObj.GetProperty("net.connman.iwd.Network.Name")
@@ -110,6 +119,10 @@ func (a *IWDAgent) getNetworkName(networkPath dbus.ObjectPath) string {
 
 func (a *IWDAgent) RequestPassphrase(network dbus.ObjectPath) (string, *dbus.Error) {
 	ssid := a.getNetworkName(network)
+
+	if a.stateChecker != nil && !a.stateChecker.IsConnectingTo(ssid) {
+		return "", dbus.NewError("net.connman.iwd.Agent.Error.Canceled", nil)
+	}
 
 	if a.prompts == nil {
 		if a.onUserCanceled != nil {
@@ -162,6 +175,10 @@ func (a *IWDAgent) RequestPassphrase(network dbus.ObjectPath) (string, *dbus.Err
 func (a *IWDAgent) RequestPrivateKeyPassphrase(network dbus.ObjectPath) (string, *dbus.Error) {
 	ssid := a.getNetworkName(network)
 
+	if a.stateChecker != nil && !a.stateChecker.IsConnectingTo(ssid) {
+		return "", dbus.NewError("net.connman.iwd.Agent.Error.Canceled", nil)
+	}
+
 	if a.prompts == nil {
 		return "", dbus.NewError("net.connman.iwd.Agent.Error.Canceled", nil)
 	}
@@ -198,6 +215,10 @@ func (a *IWDAgent) RequestPrivateKeyPassphrase(network dbus.ObjectPath) (string,
 
 func (a *IWDAgent) RequestUserNameAndPassword(network dbus.ObjectPath) (string, string, *dbus.Error) {
 	ssid := a.getNetworkName(network)
+
+	if a.stateChecker != nil && !a.stateChecker.IsConnectingTo(ssid) {
+		return "", "", dbus.NewError("net.connman.iwd.Agent.Error.Canceled", nil)
+	}
 
 	if a.prompts == nil {
 		return "", "", dbus.NewError("net.connman.iwd.Agent.Error.Canceled", nil)
@@ -238,6 +259,10 @@ func (a *IWDAgent) RequestUserNameAndPassword(network dbus.ObjectPath) (string, 
 
 func (a *IWDAgent) RequestUserPassword(network dbus.ObjectPath, user string) (string, *dbus.Error) {
 	ssid := a.getNetworkName(network)
+
+	if a.stateChecker != nil && !a.stateChecker.IsConnectingTo(ssid) {
+		return "", dbus.NewError("net.connman.iwd.Agent.Error.Canceled", nil)
+	}
 
 	if a.prompts == nil {
 		return "", dbus.NewError("net.connman.iwd.Agent.Error.Canceled", nil)

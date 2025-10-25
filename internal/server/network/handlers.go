@@ -68,6 +68,8 @@ func HandleRequest(conn net.Conn, req Request, manager *Manager) {
 		handleDisconnectVPN(conn, req, manager)
 	case "network.vpn.disconnectAll":
 		handleDisconnectAllVPN(conn, req, manager)
+	case "network.vpn.clearCredentials":
+		handleClearVPNCredentials(conn, req, manager)
 	default:
 		models.RespondError(conn, req.ID, fmt.Sprintf("unknown method: %s", req.Method))
 	}
@@ -435,4 +437,27 @@ func handleDisconnectAllVPN(conn net.Conn, req Request, manager *Manager) {
 	}
 
 	models.Respond(conn, req.ID, SuccessResult{Success: true, Message: "All VPNs disconnected"})
+}
+
+func handleClearVPNCredentials(conn net.Conn, req Request, manager *Manager) {
+	uuidOrName, ok := req.Params["uuid"].(string)
+	if !ok {
+		uuidOrName, ok = req.Params["name"].(string)
+	}
+	if !ok {
+		uuidOrName, ok = req.Params["uuidOrName"].(string)
+	}
+	if !ok {
+		log.Warnf("handleClearVPNCredentials: missing uuidOrName/name/uuid parameter")
+		models.RespondError(conn, req.ID, "missing uuidOrName/name/uuid parameter")
+		return
+	}
+
+	if err := manager.ClearVPNCredentials(uuidOrName); err != nil {
+		log.Warnf("handleClearVPNCredentials: failed: %v", err)
+		models.RespondError(conn, req.ID, fmt.Sprintf("failed to clear VPN credentials: %v", err))
+		return
+	}
+
+	models.Respond(conn, req.ID, SuccessResult{Success: true, Message: "VPN credentials cleared"})
 }

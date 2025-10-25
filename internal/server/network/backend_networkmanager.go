@@ -778,6 +778,57 @@ func (b *NetworkManagerBackend) CancelCredentials(token string) error {
 	})
 }
 
+func (b *NetworkManagerBackend) IsConnectingTo(ssid string) bool {
+	b.stateMutex.RLock()
+	defer b.stateMutex.RUnlock()
+	return b.state.IsConnecting && b.state.ConnectingSSID == ssid
+}
+
+func (b *NetworkManagerBackend) updateVPNConnectionState() {
+	b.stateMutex.RLock()
+	isConnectingVPN := b.state.IsConnectingVPN
+	connectingVPNUUID := b.state.ConnectingVPNUUID
+	b.stateMutex.RUnlock()
+
+	if !isConnectingVPN || connectingVPNUUID == "" {
+		return
+	}
+
+	nm := b.nmConn.(gonetworkmanager.NetworkManager)
+	activeConns, err := nm.GetPropertyActiveConnections()
+	if err != nil {
+		return
+	}
+
+	for _, activeConn := range activeConns {
+		connType, err := activeConn.GetPropertyType()
+		if err != nil {
+			continue
+		}
+
+		if connType != "vpn" && connType != "wireguard" {
+			continue
+		}
+
+		uuid, err := activeConn.GetPropertyUUID()
+		if err != nil {
+			continue
+		}
+
+		if uuid == connectingVPNUUID {
+			state, _ := activeConn.GetPropertyState()
+			if state == 2 {
+				log.Infof("[updateVPNConnectionState] VPN connection successful: %s", uuid)
+				b.stateMutex.Lock()
+				b.state.IsConnectingVPN = false
+				b.state.ConnectingVPNUUID = ""
+				b.stateMutex.Unlock()
+				return
+			}
+		}
+	}
+}
+
 func (b *NetworkManagerBackend) ensureWiFiDevice() error {
 	if b.wifiDev != nil {
 		return nil
@@ -1469,7 +1520,7 @@ func (b *NetworkManagerBackend) startSecretAgent() error {
 		return fmt.Errorf("prompt broker not set")
 	}
 
-	agent, err := NewSecretAgent(b.promptBroker, nil)
+	agent, err := NewSecretAgent(b.promptBroker, nil, b)
 	if err != nil {
 		return err
 	}
@@ -1660,6 +1711,7 @@ func (b *NetworkManagerBackend) handleNetworkManagerChange(changes map[string]db
 			b.updateWiFiState()
 		}
 		if _, exists := changes["ActiveConnections"]; exists {
+			b.updateVPNConnectionState()
 			b.ListActiveVPN()
 		}
 		if b.onStateChange != nil {
@@ -1931,9 +1983,39 @@ func (b *NetworkManagerBackend) ConnectVPN(uuidOrName string, singleActive bool)
 		return fmt.Errorf("VPN connection not found: %s", uuidOrName)
 	}
 
+	targetSettings, err := targetConn.GetSettings()
+	if err != nil {
+		return fmt.Errorf("failed to get connection settings: %w", err)
+	}
+
+	var targetUUID string
+	if connMeta, ok := targetSettings["connection"]; ok {
+		if uuid, ok := connMeta["uuid"].(string); ok {
+			targetUUID = uuid
+		}
+	}
+
+	b.stateMutex.Lock()
+	b.state.IsConnectingVPN = true
+	b.state.ConnectingVPNUUID = targetUUID
+	b.stateMutex.Unlock()
+
+	if b.onStateChange != nil {
+		b.onStateChange()
+	}
+
 	nm := b.nmConn.(gonetworkmanager.NetworkManager)
 	_, err = nm.ActivateConnection(targetConn, nil, nil)
 	if err != nil {
+		b.stateMutex.Lock()
+		b.state.IsConnectingVPN = false
+		b.state.ConnectingVPNUUID = ""
+		b.stateMutex.Unlock()
+
+		if b.onStateChange != nil {
+			b.onStateChange()
+		}
+
 		return fmt.Errorf("failed to activate VPN: %w", err)
 	}
 
@@ -2047,4 +2129,72 @@ func (b *NetworkManagerBackend) DisconnectAllVPN() error {
 	}
 
 	return lastErr
+}
+
+func (b *NetworkManagerBackend) ClearVPNCredentials(uuidOrName string) error {
+	s := b.settings
+	if s == nil {
+		var err error
+		s, err = gonetworkmanager.NewSettings()
+		if err != nil {
+			return fmt.Errorf("failed to get settings: %w", err)
+		}
+		b.settings = s
+	}
+
+	settingsMgr := s.(gonetworkmanager.Settings)
+	connections, err := settingsMgr.ListConnections()
+	if err != nil {
+		return fmt.Errorf("failed to get connections: %w", err)
+	}
+
+	for _, conn := range connections {
+		settings, err := conn.GetSettings()
+		if err != nil {
+			continue
+		}
+
+		connMeta, ok := settings["connection"]
+		if !ok {
+			continue
+		}
+
+		connType, _ := connMeta["type"].(string)
+		if connType != "vpn" && connType != "wireguard" {
+			continue
+		}
+
+		connID, _ := connMeta["id"].(string)
+		connUUID, _ := connMeta["uuid"].(string)
+
+		if connUUID == uuidOrName || connID == uuidOrName {
+			if connType == "vpn" {
+				if vpnSettings, ok := settings["vpn"]; ok {
+					delete(vpnSettings, "secrets")
+
+					if dataMap, ok := vpnSettings["data"].(map[string]string); ok {
+						dataMap["password-flags"] = "1"
+						vpnSettings["data"] = dataMap
+					}
+
+					vpnSettings["password-flags"] = uint32(1)
+				}
+
+				settings["vpn-secrets"] = make(map[string]interface{})
+			}
+
+			if err := conn.Update(settings); err != nil {
+				return fmt.Errorf("failed to update connection: %w", err)
+			}
+
+			if err := conn.ClearSecrets(); err != nil {
+				log.Warnf("ClearSecrets call failed (may not be critical): %v", err)
+			}
+
+			log.Infof("Cleared credentials for VPN: %s", connID)
+			return nil
+		}
+	}
+
+	return fmt.Errorf("VPN connection not found: %s", uuidOrName)
 }
