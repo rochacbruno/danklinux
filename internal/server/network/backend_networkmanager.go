@@ -843,8 +843,12 @@ func (b *NetworkManagerBackend) getDeviceStateReason(dev gonetworkmanager.Device
 		return 0
 	}
 
-	if stateReason, ok := variant.Value().(uint32); ok {
-		return stateReason
+	// StateReason is a struct (uint32, uint32) representing (state, reason)
+	// We need to extract the reason (second element)
+	if stateReasonStruct, ok := variant.Value().([]interface{}); ok && len(stateReasonStruct) >= 2 {
+		if reason, ok := stateReasonStruct[1].(uint32); ok {
+			return reason
+		}
 	}
 
 	return 0
