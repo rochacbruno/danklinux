@@ -8,9 +8,20 @@ import (
 )
 
 func (m *Manager) SetConnectionPreference(pref ConnectionPreference) error {
+	switch pref {
+	case PreferenceWiFi, PreferenceEthernet, PreferenceAuto:
+	default:
+		return fmt.Errorf("invalid preference: %s", pref)
+	}
+
 	m.stateMutex.Lock()
 	m.state.Preference = pref
 	m.stateMutex.Unlock()
+
+	if _, ok := m.backend.(*NetworkManagerBackend); !ok {
+		m.notifySubscribers()
+		return nil
+	}
 
 	switch pref {
 	case PreferenceWiFi:
@@ -19,9 +30,9 @@ func (m *Manager) SetConnectionPreference(pref ConnectionPreference) error {
 		return m.prioritizeEthernet()
 	case PreferenceAuto:
 		return m.balancePriorities()
-	default:
-		return fmt.Errorf("invalid preference: %s", pref)
 	}
+
+	return nil
 }
 
 func (m *Manager) prioritizeWiFi() error {

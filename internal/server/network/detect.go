@@ -13,6 +13,7 @@ const (
 	BackendNetworkManager
 	BackendIwd
 	BackendConnMan
+	BackendNetworkd
 )
 
 func nameHasOwner(bus *dbus.Conn, name string) (bool, error) {
@@ -30,6 +31,7 @@ type DetectResult struct {
 	HasIwd       bool
 	HasConnMan   bool
 	HasWpaSupp   bool
+	HasNetworkd  bool
 	ChosenReason string
 }
 
@@ -44,12 +46,14 @@ func DetectNetworkStack() (*DetectResult, error) {
 	hasIwd, _ := nameHasOwner(bus, "net.connman.iwd")
 	hasConn, _ := nameHasOwner(bus, "net.connman")
 	hasWpa, _ := nameHasOwner(bus, "fi.w1.wpa_supplicant1")
+	hasNetworkd, _ := nameHasOwner(bus, "org.freedesktop.network1")
 
 	res := &DetectResult{
-		HasNM:      hasNM,
-		HasIwd:     hasIwd,
-		HasConnMan: hasConn,
-		HasWpaSupp: hasWpa,
+		HasNM:       hasNM,
+		HasIwd:      hasIwd,
+		HasConnMan:  hasConn,
+		HasWpaSupp:  hasWpa,
+		HasNetworkd: hasNetworkd,
 	}
 
 	switch {
@@ -63,6 +67,12 @@ func DetectNetworkStack() (*DetectResult, error) {
 	case hasConn && hasIwd:
 		res.Backend = BackendConnMan
 		res.ChosenReason = "ConnMan + iwd detected. Use ConnMan API (iwd is its Wi-Fi daemon)."
+	case hasIwd && hasNetworkd:
+		res.Backend = BackendNetworkd
+		res.ChosenReason = "iwd + systemd-networkd detected. Using iwd for Wi-Fi association and networkd for IP/DHCP."
+	case hasNetworkd:
+		res.Backend = BackendNetworkd
+		res.ChosenReason = "systemd-networkd detected (no NM/ConnMan). Using networkd for L3 and wired."
 	case hasIwd:
 		res.Backend = BackendIwd
 		res.ChosenReason = "iwd detected without NM/ConnMan. Using iwd API."

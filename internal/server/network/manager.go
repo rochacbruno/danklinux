@@ -32,6 +32,29 @@ func NewManager() (*Manager, error) {
 		}
 		backend = iwd
 
+	case BackendNetworkd:
+		if detection.HasIwd && !detection.HasNM {
+			wifi, err := NewIWDBackend()
+			if err != nil {
+				return nil, fmt.Errorf("failed to create iwd backend: %w", err)
+			}
+			l3, err := NewSystemdNetworkdBackend()
+			if err != nil {
+				return nil, fmt.Errorf("failed to create networkd backend: %w", err)
+			}
+			hybrid, err := NewHybridIwdNetworkdBackend(wifi, l3)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create hybrid backend: %w", err)
+			}
+			backend = hybrid
+		} else {
+			nd, err := NewSystemdNetworkdBackend()
+			if err != nil {
+				return nil, fmt.Errorf("failed to create networkd backend: %w", err)
+			}
+			backend = nd
+		}
+
 	default:
 		return nil, fmt.Errorf("no supported network backend found: %s", detection.ChosenReason)
 	}

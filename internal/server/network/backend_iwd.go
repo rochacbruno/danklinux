@@ -854,6 +854,17 @@ func (b *IWDBackend) OnPromptRetry(ssid string) {
 	}
 }
 
+func (b *IWDBackend) MarkIPConfigSeen() {
+	b.attemptMutex.RLock()
+	att := b.curAttempt
+	b.attemptMutex.RUnlock()
+	if att != nil {
+		att.mu.Lock()
+		att.sawIPConfig = true
+		att.mu.Unlock()
+	}
+}
+
 func (b *IWDBackend) StartMonitoring(onStateChange func()) error {
 	b.onStateChange = onStateChange
 

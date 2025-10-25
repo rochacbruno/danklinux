@@ -21,7 +21,7 @@ import (
 	"github.com/AvengeMedia/danklinux/internal/server/wayland"
 )
 
-const APIVersion = 10
+const APIVersion = 11
 
 type Capabilities struct {
 	Capabilities []string `json:"capabilities"`
