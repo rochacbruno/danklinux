@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/AvengeMedia/danklinux/internal/log"
 	"github.com/AvengeMedia/danklinux/internal/server/models"
 )
 
@@ -65,12 +66,14 @@ func HandleRequest(conn net.Conn, req Request, manager *Manager) {
 func handleCredentialsSubmit(conn net.Conn, req Request, manager *Manager) {
 	token, ok := req.Params["token"].(string)
 	if !ok {
+		log.Warnf("handleCredentialsSubmit: missing or invalid token parameter")
 		models.RespondError(conn, req.ID, "missing or invalid 'token' parameter")
 		return
 	}
 
 	secretsRaw, ok := req.Params["secrets"].(map[string]interface{})
 	if !ok {
+		log.Warnf("handleCredentialsSubmit: missing or invalid secrets parameter")
 		models.RespondError(conn, req.ID, "missing or invalid 'secrets' parameter")
 		return
 	}
@@ -88,10 +91,12 @@ func handleCredentialsSubmit(conn net.Conn, req Request, manager *Manager) {
 	}
 
 	if err := manager.SubmitCredentials(token, secrets, save); err != nil {
+		log.Warnf("handleCredentialsSubmit: failed to submit credentials: %v", err)
 		models.RespondError(conn, req.ID, err.Error())
 		return
 	}
 
+	log.Infof("handleCredentialsSubmit: credentials submitted successfully")
 	models.Respond(conn, req.ID, SuccessResult{Success: true, Message: "credentials submitted"})
 }
 

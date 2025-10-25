@@ -2,7 +2,6 @@ package network
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/Wifx/gonetworkmanager/v2"
 )
@@ -114,13 +113,5 @@ func (m *Manager) GetConnectionPreference() ConnectionPreference {
 }
 
 func (m *Manager) WasRecentlyFailed(ssid string) bool {
-	m.failedMutex.RLock()
-	defer m.failedMutex.RUnlock()
-
-	if m.lastFailedSSID != ssid {
-		return false
-	}
-
-	timeSinceFailure := time.Now().Unix() - m.lastFailedTime
-	return timeSinceFailure < 60
+	return false
 }

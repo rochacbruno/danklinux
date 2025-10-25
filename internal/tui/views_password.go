@@ -122,13 +122,13 @@ func (m Model) validatePassword(password string) tea.Cmd {
 		// Use a more reliable method that properly handles special characters
 		// Instead of using shell command with echo, we'll write directly to stdin
 		cmd := exec.CommandContext(ctx, "sudo", "-S", "-v")
-		
+
 		// Get stdin pipe and write password to it
 		stdin, err := cmd.StdinPipe()
 		if err != nil {
 			return passwordValidMsg{password: "", valid: false}
 		}
-		
+
 		// Write password followed by newline
 		go func() {
 			defer stdin.Close()

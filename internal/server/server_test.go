@@ -47,7 +47,6 @@ func TestGetSocketPath(t *testing.T) {
 	assert.Contains(t, path, fmt.Sprintf("%d", os.Getpid()))
 }
 
-
 func TestGetCapabilities(t *testing.T) {
 	originalNetworkManager := networkManager
 	defer func() { networkManager = originalNetworkManager }()
@@ -124,7 +123,7 @@ func TestResponse_JSON(t *testing.T) {
 	t.Run("success response", func(t *testing.T) {
 		result := "success"
 		resp := models.Response[string]{
-			ID: 123,
+			ID:     123,
 			Result: &result,
 		}
 
@@ -142,7 +141,7 @@ func TestResponse_JSON(t *testing.T) {
 
 	t.Run("error response", func(t *testing.T) {
 		resp := models.Response[any]{
-			ID: 123,
+			ID:    123,
 			Error: "test error",
 		}
 

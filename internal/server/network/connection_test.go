@@ -1,14 +1,17 @@
-package network
+package network_test
 
 import (
+	"errors"
 	"testing"
 
+	mocks_network "github.com/AvengeMedia/danklinux/internal/mocks/network"
+	"github.com/AvengeMedia/danklinux/internal/server/network"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestConnectionRequest_Validation(t *testing.T) {
 	t.Run("basic WiFi connection", func(t *testing.T) {
-		req := ConnectionRequest{
+		req := network.ConnectionRequest{
 			SSID:     "TestNetwork",
 			Password: "testpass123",
 		}
@@ -19,7 +22,7 @@ func TestConnectionRequest_Validation(t *testing.T) {
 	})
 
 	t.Run("enterprise WiFi connection", func(t *testing.T) {
-		req := ConnectionRequest{
+		req := network.ConnectionRequest{
 			SSID:     "EnterpriseNetwork",
 			Password: "testpass123",
 			Username: "testuser",
@@ -31,7 +34,7 @@ func TestConnectionRequest_Validation(t *testing.T) {
 	})
 
 	t.Run("open WiFi connection", func(t *testing.T) {
-		req := ConnectionRequest{
+		req := network.ConnectionRequest{
 			SSID: "OpenNetwork",
 		}
 
@@ -42,15 +45,14 @@ func TestConnectionRequest_Validation(t *testing.T) {
 }
 
 func TestManager_ConnectWiFi_NoDevice(t *testing.T) {
-	manager := &Manager{
-		state:      &NetworkState{},
-		wifiDevice: nil,
-	}
-
-	req := ConnectionRequest{
+	backend := mocks_network.NewMockBackend(t)
+	req := network.ConnectionRequest{
 		SSID:     "TestNetwork",
 		Password: "testpass123",
 	}
+	backend.EXPECT().ConnectWiFi(req).Return(errors.New("no WiFi device available"))
+
+	manager := network.NewTestManager(backend, &network.NetworkState{})
 
 	err := manager.ConnectWiFi(req)
 	assert.Error(t, err)
@@ -58,10 +60,10 @@ func TestManager_ConnectWiFi_NoDevice(t *testing.T) {
 }
 
 func TestManager_DisconnectWiFi_NoDevice(t *testing.T) {
-	manager := &Manager{
-		state:      &NetworkState{},
-		wifiDevice: nil,
-	}
+	backend := mocks_network.NewMockBackend(t)
+	backend.EXPECT().DisconnectWiFi().Return(errors.New("no WiFi device available"))
+
+	manager := network.NewTestManager(backend, &network.NetworkState{})
 
 	err := manager.DisconnectWiFi()
 	assert.Error(t, err)
@@ -69,9 +71,10 @@ func TestManager_DisconnectWiFi_NoDevice(t *testing.T) {
 }
 
 func TestManager_ForgetWiFiNetwork_NotFound(t *testing.T) {
-	manager := &Manager{
-		state: &NetworkState{},
-	}
+	backend := mocks_network.NewMockBackend(t)
+	backend.EXPECT().ForgetWiFiNetwork("NonExistentNetwork").Return(errors.New("connection not found"))
+
+	manager := network.NewTestManager(backend, &network.NetworkState{})
 
 	err := manager.ForgetWiFiNetwork("NonExistentNetwork")
 	assert.Error(t, err)
@@ -79,10 +82,10 @@ func TestManager_ForgetWiFiNetwork_NotFound(t *testing.T) {
 }
 
 func TestManager_ConnectEthernet_NoDevice(t *testing.T) {
-	manager := &Manager{
-		state:          &NetworkState{},
-		ethernetDevice: nil,
-	}
+	backend := mocks_network.NewMockBackend(t)
+	backend.EXPECT().ConnectEthernet().Return(errors.New("no ethernet device available"))
+
+	manager := network.NewTestManager(backend, &network.NetworkState{})
 
 	err := manager.ConnectEthernet()
 	assert.Error(t, err)
@@ -90,10 +93,10 @@ func TestManager_ConnectEthernet_NoDevice(t *testing.T) {
 }
 
 func TestManager_DisconnectEthernet_NoDevice(t *testing.T) {
-	manager := &Manager{
-		state:          &NetworkState{},
-		ethernetDevice: nil,
-	}
+	backend := mocks_network.NewMockBackend(t)
+	backend.EXPECT().DisconnectEthernet().Return(errors.New("no ethernet device available"))
+
+	manager := network.NewTestManager(backend, &network.NetworkState{})
 
 	err := manager.DisconnectEthernet()
 	assert.Error(t, err)

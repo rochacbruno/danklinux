@@ -37,24 +37,25 @@ type WiFiNetwork struct {
 }
 
 type NetworkState struct {
-	NetworkStatus     NetworkStatus        `json:"networkStatus"`
-	Preference        ConnectionPreference `json:"preference"`
-	EthernetIP        string               `json:"ethernetIP"`
-	EthernetDevice    string               `json:"ethernetDevice"`
-	EthernetConnected bool                 `json:"ethernetConnected"`
-	EthernetConnectionUuid   string        `json:"ethernetConnectionUuid"`
-	WiFiIP            string               `json:"wifiIP"`
-	WiFiDevice        string               `json:"wifiDevice"`
-	WiFiConnected     bool                 `json:"wifiConnected"`
-	WiFiEnabled       bool                 `json:"wifiEnabled"`
-	WiFiSSID          string               `json:"wifiSSID"`
-	WiFiBSSID         string               `json:"wifiBSSID"`
-	WiFiSignal        uint8                `json:"wifiSignal"`
-	WiFiNetworks      []WiFiNetwork        `json:"wifiNetworks"`
-	WiredConnections  []WiredConnection    `json:"wiredConnections"`
-	IsConnecting      bool                 `json:"isConnecting"`
-	ConnectingSSID    string               `json:"connectingSSID"`
-	LastError         string               `json:"lastError"`
+	Backend                string               `json:"backend"`
+	NetworkStatus          NetworkStatus        `json:"networkStatus"`
+	Preference             ConnectionPreference `json:"preference"`
+	EthernetIP             string               `json:"ethernetIP"`
+	EthernetDevice         string               `json:"ethernetDevice"`
+	EthernetConnected      bool                 `json:"ethernetConnected"`
+	EthernetConnectionUuid string               `json:"ethernetConnectionUuid"`
+	WiFiIP                 string               `json:"wifiIP"`
+	WiFiDevice             string               `json:"wifiDevice"`
+	WiFiConnected          bool                 `json:"wifiConnected"`
+	WiFiEnabled            bool                 `json:"wifiEnabled"`
+	WiFiSSID               string               `json:"wifiSSID"`
+	WiFiBSSID              string               `json:"wifiBSSID"`
+	WiFiSignal             uint8                `json:"wifiSignal"`
+	WiFiNetworks           []WiFiNetwork        `json:"wifiNetworks"`
+	WiredConnections       []WiredConnection    `json:"wiredConnections"`
+	IsConnecting           bool                 `json:"isConnecting"`
+	ConnectingSSID         string               `json:"connectingSSID"`
+	LastError              string               `json:"lastError"`
 }
 
 type ConnectionRequest struct {
@@ -67,11 +68,11 @@ type ConnectionRequest struct {
 }
 
 type WiredConnection struct {
-	Path     dbus.ObjectPath	`json:"path"`
-	ID       string				`json:"id"`
-	UUID     string				`json:"uuid"`
-	Type     string				`json:"type"`
-	IsActive bool				`json:"isActive"`
+	Path     dbus.ObjectPath `json:"path"`
+	ID       string          `json:"id"`
+	UUID     string          `json:"uuid"`
+	Type     string          `json:"type"`
+	IsActive bool            `json:"isActive"`
 }
 
 type PriorityUpdate struct {
@@ -79,29 +80,17 @@ type PriorityUpdate struct {
 }
 
 type Manager struct {
-	state               *NetworkState
-	stateMutex          sync.RWMutex
-	subscribers         map[string]chan NetworkState
-	subMutex            sync.RWMutex
-	stopChan            chan struct{}
-	nmConn              interface{}
-	ethernetDevice      interface{}
-	wifiDevice          interface{}
-	settings            interface{}
-	wifiDev             interface{}
-	dirty               chan struct{}
-	notifierWg          sync.WaitGroup
-	lastNotifiedState   *NetworkState
-	dbusConn            *dbus.Conn
-	signals             chan *dbus.Signal
-	sigWG               sync.WaitGroup
-	secretAgent         *SecretAgent
-	promptBroker        PromptBroker
+	backend               Backend
+	state                 *NetworkState
+	stateMutex            sync.RWMutex
+	subscribers           map[string]chan NetworkState
+	subMutex              sync.RWMutex
+	stopChan              chan struct{}
+	dirty                 chan struct{}
+	notifierWg            sync.WaitGroup
+	lastNotifiedState     *NetworkState
 	credentialSubscribers map[string]chan CredentialPrompt
 	credSubMutex          sync.RWMutex
-	lastFailedSSID        string
-	lastFailedTime        int64
-	failedMutex           sync.RWMutex
 }
 
 type EventType string
@@ -141,4 +130,25 @@ type CredentialPrompt struct {
 	Fields  []string `json:"fields"`
 	Hints   []string `json:"hints"`
 	Reason  string   `json:"reason"`
+}
+
+type NetworkInfoResponse struct {
+	SSID  string        `json:"ssid"`
+	Bands []WiFiNetwork `json:"bands"`
+}
+
+type WiredNetworkInfoResponse struct {
+	UUID   string        `json:"uuid"`
+	IFace  string        `json:"iface"`
+	Driver string        `json:"driver"`
+	HwAddr string        `json:"hwAddr"`
+	Speed  string        `json:"speed"`
+	IPv4   WiredIPConfig `json:"IPv4s"`
+	IPv6   WiredIPConfig `json:"IPv6s"`
+}
+
+type WiredIPConfig struct {
+	IPs     []string `json:"ips"`
+	Gateway string   `json:"gateway"`
+	DNS     string   `json:"dns"`
 }

@@ -7,8 +7,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/AvengeMedia/danklinux/internal/server/models"
 	mockdbus "github.com/AvengeMedia/danklinux/internal/mocks/github.com/godbus/dbus/v5"
+	"github.com/AvengeMedia/danklinux/internal/server/models"
 	"github.com/godbus/dbus/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -144,7 +144,7 @@ func TestHandleSetIconFile(t *testing.T) {
 
 		conn := newMockNetConn()
 		req := Request{
-			ID: 123,
+			ID:     123,
 			Method: "freedesktop.accounts.setIconFile",
 			Params: map[string]interface{}{},
 		}
@@ -177,7 +177,7 @@ func TestHandleSetIconFile(t *testing.T) {
 
 		conn := newMockNetConn()
 		req := Request{
-			ID: 123,
+			ID:     123,
 			Method: "freedesktop.accounts.setIconFile",
 			Params: map[string]interface{}{
 				"path": "/path/to/icon.png",
@@ -209,7 +209,7 @@ func TestHandleSetIconFile(t *testing.T) {
 
 		conn := newMockNetConn()
 		req := Request{
-			ID: 123,
+			ID:     123,
 			Method: "freedesktop.accounts.setIconFile",
 			Params: map[string]interface{}{
 				"path": "/path/to/icon.png",
@@ -236,7 +236,7 @@ func TestHandleSetRealName(t *testing.T) {
 
 		conn := newMockNetConn()
 		req := Request{
-			ID: 123,
+			ID:     123,
 			Method: "freedesktop.accounts.setRealName",
 			Params: map[string]interface{}{},
 		}
@@ -269,7 +269,7 @@ func TestHandleSetRealName(t *testing.T) {
 
 		conn := newMockNetConn()
 		req := Request{
-			ID: 123,
+			ID:     123,
 			Method: "freedesktop.accounts.setRealName",
 			Params: map[string]interface{}{
 				"name": "New Name",
@@ -299,7 +299,7 @@ func TestHandleSetEmail(t *testing.T) {
 
 		conn := newMockNetConn()
 		req := Request{
-			ID: 123,
+			ID:     123,
 			Method: "freedesktop.accounts.setEmail",
 			Params: map[string]interface{}{},
 		}
@@ -332,7 +332,7 @@ func TestHandleSetEmail(t *testing.T) {
 
 		conn := newMockNetConn()
 		req := Request{
-			ID: 123,
+			ID:     123,
 			Method: "freedesktop.accounts.setEmail",
 			Params: map[string]interface{}{
 				"email": "test@example.com",
@@ -362,7 +362,7 @@ func TestHandleSetLanguage(t *testing.T) {
 
 		conn := newMockNetConn()
 		req := Request{
-			ID: 123,
+			ID:     123,
 			Method: "freedesktop.accounts.setLanguage",
 			Params: map[string]interface{}{},
 		}
@@ -387,7 +387,7 @@ func TestHandleSetLocation(t *testing.T) {
 
 		conn := newMockNetConn()
 		req := Request{
-			ID: 123,
+			ID:     123,
 			Method: "freedesktop.accounts.setLocation",
 			Params: map[string]interface{}{},
 		}
@@ -412,7 +412,7 @@ func TestHandleGetUserIconFile(t *testing.T) {
 
 		conn := newMockNetConn()
 		req := Request{
-			ID: 123,
+			ID:     123,
 			Method: "freedesktop.accounts.getUserIconFile",
 			Params: map[string]interface{}{},
 		}
@@ -439,7 +439,7 @@ func TestHandleGetUserIconFile(t *testing.T) {
 
 		conn := newMockNetConn()
 		req := Request{
-			ID: 123,
+			ID:     123,
 			Method: "freedesktop.accounts.getUserIconFile",
 			Params: map[string]interface{}{
 				"username": "testuser",
@@ -529,7 +529,7 @@ func TestHandleRequest(t *testing.T) {
 	t.Run("unknown method", func(t *testing.T) {
 		conn := newMockNetConn()
 		req := Request{
-			ID: 123,
+			ID:     123,
 			Method: "freedesktop.unknown",
 		}
 
@@ -546,7 +546,7 @@ func TestHandleRequest(t *testing.T) {
 	t.Run("valid method - getState", func(t *testing.T) {
 		conn := newMockNetConn()
 		req := Request{
-			ID: 123,
+			ID:     123,
 			Method: "freedesktop.getState",
 		}
 
@@ -574,7 +574,7 @@ func TestHandleRequest(t *testing.T) {
 		for _, method := range tests {
 			conn := newMockNetConn()
 			req := Request{
-				ID: 123,
+				ID:     123,
 				Method: method,
 				Params: map[string]interface{}{},
 			}

@@ -5,7 +5,6 @@ import (
 	"net"
 	"strings"
 
-	"github.com/AvengeMedia/danklinux/internal/log"
 	"github.com/AvengeMedia/danklinux/internal/server/bluez"
 	"github.com/AvengeMedia/danklinux/internal/server/freedesktop"
 	"github.com/AvengeMedia/danklinux/internal/server/loginctl"
@@ -16,8 +15,6 @@ import (
 )
 
 func RouteRequest(conn net.Conn, req models.Request) {
-	log.Debugf("DMS API Request: method=%s id=%d", req.Method, req.ID)
-
 	if strings.HasPrefix(req.Method, "network.") {
 		if networkManager == nil {
 			models.RespondError(conn, req.ID, "network manager not initialized")

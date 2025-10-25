@@ -680,11 +680,11 @@ func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sud
 		}
 	} else {
 		progressChan <- InstallProgressMsg{
-			Phase:       PhaseAURPackages,
-			Progress:    startProgress + 0.35*(endProgress-startProgress),
-			Step:        fmt.Sprintf("Skipping dependency installation for %s (manually managed)...", pkg),
-			IsComplete:  false,
-			LogOutput:   fmt.Sprintf("Dependencies for %s are installed separately", pkg),
+			Phase:      PhaseAURPackages,
+			Progress:   startProgress + 0.35*(endProgress-startProgress),
+			Step:       fmt.Sprintf("Skipping dependency installation for %s (manually managed)...", pkg),
+			IsComplete: false,
+			LogOutput:  fmt.Sprintf("Dependencies for %s are installed separately", pkg),
 		}
 	}
 
@@ -766,17 +766,17 @@ func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sud
 	}
 
 	progressChan <- InstallProgressMsg{
-		Phase:      PhaseAURPackages,
-		Progress:   startProgress + 0.7*(endProgress-startProgress),
-		LogOutput:  fmt.Sprintf("Installing packages: %s", strings.Join(fileNames, ", ")),
+		Phase:     PhaseAURPackages,
+		Progress:  startProgress + 0.7*(endProgress-startProgress),
+		LogOutput: fmt.Sprintf("Installing packages: %s", strings.Join(fileNames, ", ")),
 	}
 
 	if err := a.runWithProgress(installCmd, progressChan, PhaseAURPackages, startProgress+0.7*(endProgress-startProgress), endProgress); err != nil {
 		progressChan <- InstallProgressMsg{
-			Phase:      PhaseAURPackages,
-			Progress:   startProgress,
-			LogOutput:  fmt.Sprintf("ERROR: pacman -U failed for %s with error: %v", pkg, err),
-			Error:      err,
+			Phase:     PhaseAURPackages,
+			Progress:  startProgress,
+			LogOutput: fmt.Sprintf("ERROR: pacman -U failed for %s with error: %v", pkg, err),
+			Error:     err,
 		}
 		return fmt.Errorf("failed to install built package %s: %w", pkg, err)
 	}

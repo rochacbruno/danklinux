@@ -38,6 +38,17 @@ func NewCustomError(errType ErrorType, message string) error {
 	}
 }
 
+const (
+	ErrBadCredentials   = "bad-credentials"
+	ErrNoSuchSSID       = "no-such-ssid"
+	ErrAssocTimeout     = "assoc-timeout"
+	ErrDhcpTimeout      = "dhcp-timeout"
+	ErrUserCanceled     = "user-canceled"
+	ErrWifiDisabled     = "wifi-disabled"
+	ErrAlreadyConnected = "already-connected"
+	ErrConnectionFailed = "connection-failed"
+)
+
 var (
 	ErrUpdateCancelled       = NewCustomError(ErrTypeUpdateCancelled, "update cancelled by user")
 	ErrNoUpdateNeeded        = NewCustomError(ErrTypeNoUpdateNeeded, "no update needed")

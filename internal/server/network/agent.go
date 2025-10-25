@@ -241,7 +241,8 @@ func (a *SecretAgent) SaveSecrets(conn map[string]nmVariantMap, path dbus.Object
 }
 
 func (a *SecretAgent) DeleteSecrets(conn map[string]nmVariantMap, path dbus.ObjectPath) *dbus.Error {
-	log.Infof("[SecretAgent] DeleteSecrets called: path=%s", path)
+	ssid := readSSID(conn)
+	log.Infof("[SecretAgent] DeleteSecrets called: path=%s, SSID=%s", path, ssid)
 	return nil
 }
 

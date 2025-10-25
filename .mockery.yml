@@ -22,3 +22,9 @@ packages:
   github.com/godbus/dbus/v5:
     interfaces:
       BusObject:
+  github.com/AvengeMedia/danklinux/internal/server/network:
+    config:
+      dir: "internal/mocks/network"
+      outpkg: mocks_network
+    interfaces:
+      Backend:

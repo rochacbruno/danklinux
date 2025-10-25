@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/AvengeMedia/danklinux/internal/errdefs"
+	"github.com/AvengeMedia/danklinux/internal/log"
 )
 
 type SubscriptionBroker struct {
@@ -78,6 +79,7 @@ func (b *SubscriptionBroker) Resolve(token string, reply PromptReply) error {
 	b.mu.RUnlock()
 
 	if !exists {
+		log.Warnf("[SubscriptionBroker] Resolve: unknown or expired token: %s", token)
 		return fmt.Errorf("unknown or expired token: %s", token)
 	}
 
@@ -85,6 +87,7 @@ func (b *SubscriptionBroker) Resolve(token string, reply PromptReply) error {
 	case replyChan <- reply:
 		return nil
 	default:
+		log.Warnf("[SubscriptionBroker] Resolve: failed to deliver reply for token %s (channel full or closed)", token)
 		return fmt.Errorf("failed to deliver reply for token: %s", token)
 	}
 }

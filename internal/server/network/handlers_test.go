@@ -138,7 +138,7 @@ func TestHandleConnectWiFi(t *testing.T) {
 
 		conn := newMockNetConn()
 		req := Request{
-			ID: 123,
+			ID:     123,
 			Method: "network.wifi.connect",
 			Params: map[string]interface{}{},
 		}
@@ -152,33 +152,6 @@ func TestHandleConnectWiFi(t *testing.T) {
 		assert.Equal(t, 123, resp.ID)
 		assert.Contains(t, resp.Error, "missing or invalid 'ssid' parameter")
 	})
-
-	t.Run("with valid ssid parameter", func(t *testing.T) {
-		manager := &Manager{
-			state: &NetworkState{
-				WiFiEnabled: true,
-			},
-		}
-
-		conn := newMockNetConn()
-		req := Request{
-			ID: 123,
-			Method: "network.wifi.connect",
-			Params: map[string]interface{}{
-				"ssid":     "TestNetwork",
-				"password": "testpass",
-			},
-		}
-
-		handleConnectWiFi(conn, req, manager)
-
-		var resp models.Response[SuccessResult]
-		err := json.NewDecoder(conn.writeBuf).Decode(&resp)
-		require.NoError(t, err)
-
-		// Will fail due to no actual WiFi device, but we're testing the handler logic
-		assert.Equal(t, 123, resp.ID)
-	})
 }
 
 func TestHandleSetPreference(t *testing.T) {
@@ -189,7 +162,7 @@ func TestHandleSetPreference(t *testing.T) {
 
 		conn := newMockNetConn()
 		req := Request{
-			ID: 123,
+			ID:     123,
 			Method: "network.preference.set",
 			Params: map[string]interface{}{},
 		}
@@ -213,7 +186,7 @@ func TestHandleGetNetworkInfo(t *testing.T) {
 
 		conn := newMockNetConn()
 		req := Request{
-			ID: 123,
+			ID:     123,
 			Method: "network.info",
 			Params: map[string]interface{}{},
 		}
@@ -239,7 +212,7 @@ func TestHandleRequest(t *testing.T) {
 	t.Run("unknown method", func(t *testing.T) {
 		conn := newMockNetConn()
 		req := Request{
-			ID: 123,
+			ID:     123,
 			Method: "network.unknown",
 		}
 
@@ -256,7 +229,7 @@ func TestHandleRequest(t *testing.T) {
 	t.Run("valid method - getState", func(t *testing.T) {
 		conn := newMockNetConn()
 		req := Request{
-			ID: 123,
+			ID:     123,
 			Method: "network.getState",
 		}
 

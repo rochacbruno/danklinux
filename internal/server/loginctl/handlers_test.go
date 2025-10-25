@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/AvengeMedia/danklinux/internal/server/models"
 	mockdbus "github.com/AvengeMedia/danklinux/internal/mocks/github.com/godbus/dbus/v5"
+	"github.com/AvengeMedia/danklinux/internal/server/models"
 	"github.com/godbus/dbus/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -276,7 +276,7 @@ func TestHandleSetIdleHint(t *testing.T) {
 
 		conn := newMockNetConn()
 		req := Request{
-			ID: 123,
+			ID:     123,
 			Method: "loginctl.setIdleHint",
 			Params: map[string]interface{}{},
 		}
@@ -304,7 +304,7 @@ func TestHandleSetIdleHint(t *testing.T) {
 
 		conn := newMockNetConn()
 		req := Request{
-			ID: 123,
+			ID:     123,
 			Method: "loginctl.setIdleHint",
 			Params: map[string]interface{}{
 				"idle": true,
@@ -337,7 +337,7 @@ func TestHandleSetIdleHint(t *testing.T) {
 
 		conn := newMockNetConn()
 		req := Request{
-			ID: 123,
+			ID:     123,
 			Method: "loginctl.setIdleHint",
 			Params: map[string]interface{}{
 				"idle": false,
@@ -418,7 +418,7 @@ func TestHandleRequest(t *testing.T) {
 	t.Run("unknown method", func(t *testing.T) {
 		conn := newMockNetConn()
 		req := Request{
-			ID: 123,
+			ID:     123,
 			Method: "loginctl.unknown",
 		}
 
@@ -435,7 +435,7 @@ func TestHandleRequest(t *testing.T) {
 	t.Run("valid method - getState", func(t *testing.T) {
 		conn := newMockNetConn()
 		req := Request{
-			ID: 123,
+			ID:     123,
 			Method: "loginctl.getState",
 		}
 
@@ -458,7 +458,7 @@ func TestHandleRequest(t *testing.T) {
 
 		conn := newMockNetConn()
 		req := Request{
-			ID: 123,
+			ID:     123,
 			Method: "loginctl.lock",
 		}
 

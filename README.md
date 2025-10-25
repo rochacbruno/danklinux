@@ -10,7 +10,7 @@ A monorepo for dankinstall and dms (cli+go backend), a modern desktop suite for 
 
 - **dms** DankMaterialShell (cli + go backend)
   - The backend side of dms, provides APIs for the desktop and a management CLI.
-  - Shared dbus connection for NetworkManager, loginctl, accountsservice, and other interfaces.
+  - Shared dbus connection for networking (NetworkManager, iwd), loginctl, accountsservice, and other interfaces.
   - Implements various wayland protocols (such as gamma control)
   - Exposes a json API over unix socket for interaction with these interfaces
   - Provides plugin management APIs for the shell
@@ -30,7 +30,7 @@ A part of the DankMaterialShell, that is provided by this repository. It is writ
 **Backend** (all exposed over a unix socket json API):
 
 - **dbus**
-  - NetworkManager - full integration with a secrets agent
+  - networking - full integration with pluggable backends - NetworkManager, iwd
   - bluez - integration with a pairing agent
   - loginctl - creates sleep inhibitor, integrates lock before suspend, signals for lock/unlock
   - accountsservice - suite of user profile APIs - name, email, profile picture, etc.

@@ -140,21 +140,6 @@ func TestManager_Close(t *testing.T) {
 	assert.Len(t, manager.subscribers, 0)
 }
 
-func TestGetIPv4Address(t *testing.T) {
-	t.Run("non-existent interface", func(t *testing.T) {
-		ip := getIPv4Address("nonexistent999")
-		assert.Empty(t, ip)
-	})
-
-	t.Run("loopback interface", func(t *testing.T) {
-		// Most systems have a loopback interface
-		ip := getIPv4Address("lo")
-		if ip != "" {
-			assert.Contains(t, ip, "127.")
-		}
-	})
-}
-
 func TestManager_Subscribe(t *testing.T) {
 	manager := &Manager{
 		state:       &NetworkState{},

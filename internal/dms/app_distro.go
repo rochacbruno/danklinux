@@ -39,19 +39,19 @@ type Model struct {
 	hyprlandInstalled bool
 	niriInstalled     bool
 
-	pluginsMenuItems          []MenuItem
-	selectedPluginsMenuItem   int
-	pluginsList               []pluginInfo
-	filteredPluginsList       []pluginInfo
-	selectedPluginIndex       int
-	pluginsLoading            bool
-	pluginsError              string
-	pluginSearchQuery         string
-	installedPluginsList      []pluginInfo
-	selectedInstalledIndex    int
-	installedPluginsLoading   bool
-	installedPluginsError     string
-	pluginInstallStatus       map[string]bool
+	pluginsMenuItems        []MenuItem
+	selectedPluginsMenuItem int
+	pluginsList             []pluginInfo
+	filteredPluginsList     []pluginInfo
+	selectedPluginIndex     int
+	pluginsLoading          bool
+	pluginsError            string
+	pluginSearchQuery       string
+	installedPluginsList    []pluginInfo
+	selectedInstalledIndex  int
+	installedPluginsLoading bool
+	installedPluginsError   string
+	pluginInstallStatus     map[string]bool
 }
 
 type pluginInfo struct {

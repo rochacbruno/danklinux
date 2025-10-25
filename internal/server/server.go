@@ -21,7 +21,7 @@ import (
 	"github.com/AvengeMedia/danklinux/internal/server/wayland"
 )
 
-const APIVersion = 9
+const APIVersion = 10
 
 type Capabilities struct {
 	Capabilities []string `json:"capabilities"`
@@ -179,11 +179,12 @@ func handleConnection(conn net.Conn) {
 
 		var req models.Request
 		if err := json.Unmarshal(line, &req); err != nil {
+			log.Warnf("handleConnection: Failed to unmarshal JSON: %v, line: %s", err, string(line))
 			models.RespondError(conn, 0, "invalid json")
 			continue
 		}
 
-		RouteRequest(conn, req)
+		go RouteRequest(conn, req)
 	}
 }
 
