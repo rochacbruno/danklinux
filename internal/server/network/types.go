@@ -12,6 +12,7 @@ const (
 	StatusDisconnected NetworkStatus = "disconnected"
 	StatusEthernet     NetworkStatus = "ethernet"
 	StatusWiFi         NetworkStatus = "wifi"
+	StatusVPN          NetworkStatus = "vpn"
 )
 
 type ConnectionPreference string
@@ -36,6 +37,27 @@ type WiFiNetwork struct {
 	Channel    uint32 `json:"channel"`
 }
 
+type VPNProfile struct {
+	Name        string `json:"name"`
+	UUID        string `json:"uuid"`
+	Type        string `json:"type"`
+	ServiceType string `json:"serviceType"`
+}
+
+type VPNActive struct {
+	Name   string `json:"name"`
+	UUID   string `json:"uuid"`
+	Device string `json:"device,omitempty"`
+	State  string `json:"state,omitempty"`
+	Type   string `json:"type"`
+	Plugin string `json:"serviceType"`
+}
+
+type VPNState struct {
+	Profiles []VPNProfile `json:"profiles"`
+	Active   []VPNActive  `json:"activeConnections"`
+}
+
 type NetworkState struct {
 	Backend                string               `json:"backend"`
 	NetworkStatus          NetworkStatus        `json:"networkStatus"`
@@ -53,6 +75,8 @@ type NetworkState struct {
 	WiFiSignal             uint8                `json:"wifiSignal"`
 	WiFiNetworks           []WiFiNetwork        `json:"wifiNetworks"`
 	WiredConnections       []WiredConnection    `json:"wiredConnections"`
+	VPNProfiles            []VPNProfile         `json:"vpnProfiles"`
+	VPNActive              []VPNActive          `json:"vpnActive"`
 	IsConnecting           bool                 `json:"isConnecting"`
 	ConnectingSSID         string               `json:"connectingSSID"`
 	LastError              string               `json:"lastError"`
@@ -110,11 +134,16 @@ type NetworkEvent struct {
 }
 
 type PromptRequest struct {
-	SSID        string   `json:"ssid"`
-	SettingName string   `json:"setting"`
-	Fields      []string `json:"fields"`
-	Hints       []string `json:"hints"`
-	Reason      string   `json:"reason"`
+	Name           string   `json:"name"`
+	SSID           string   `json:"ssid"`
+	ConnType       string   `json:"connType"`
+	VpnService     string   `json:"vpnService"`
+	SettingName    string   `json:"setting"`
+	Fields         []string `json:"fields"`
+	Hints          []string `json:"hints"`
+	Reason         string   `json:"reason"`
+	ConnectionId   string   `json:"connectionId"`
+	ConnectionUuid string   `json:"connectionUuid"`
 }
 
 type PromptReply struct {
@@ -124,12 +153,17 @@ type PromptReply struct {
 }
 
 type CredentialPrompt struct {
-	Token   string   `json:"token"`
-	SSID    string   `json:"ssid"`
-	Setting string   `json:"setting"`
-	Fields  []string `json:"fields"`
-	Hints   []string `json:"hints"`
-	Reason  string   `json:"reason"`
+	Token          string   `json:"token"`
+	Name           string   `json:"name"`
+	SSID           string   `json:"ssid"`
+	ConnType       string   `json:"connType"`
+	VpnService     string   `json:"vpnService"`
+	Setting        string   `json:"setting"`
+	Fields         []string `json:"fields"`
+	Hints          []string `json:"hints"`
+	Reason         string   `json:"reason"`
+	ConnectionId   string   `json:"connectionId"`
+	ConnectionUuid string   `json:"connectionUuid"`
 }
 
 type NetworkInfoResponse struct {

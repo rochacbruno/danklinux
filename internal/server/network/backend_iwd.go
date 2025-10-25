@@ -282,10 +282,6 @@ func (b *IWDBackend) ScanWiFi() error {
 	return nil
 }
 
-func (b *IWDBackend) UpdateWiFiNetworks() ([]WiFiNetwork, error) {
-	return b.updateWiFiNetworks()
-}
-
 func (b *IWDBackend) updateWiFiNetworks() ([]WiFiNetwork, error) {
 	if b.stationPath == "" {
 		return nil, fmt.Errorf("no WiFi device available")
@@ -765,6 +761,11 @@ func (b *IWDBackend) DisconnectWiFi() error {
 }
 
 func (b *IWDBackend) ForgetWiFiNetwork(ssid string) error {
+	b.stateMutex.RLock()
+	currentSSID := b.state.WiFiSSID
+	isConnected := b.state.WiFiConnected
+	b.stateMutex.RUnlock()
+
 	obj := b.conn.Object(iwdBusName, iwdObjectPath)
 
 	var objects map[dbus.ObjectPath]map[string]map[string]dbus.Variant
@@ -781,6 +782,16 @@ func (b *IWDBackend) ForgetWiFiNetwork(ssid string) error {
 					call := knownObj.Call(iwdKnownNetworkInterface+".Forget", 0)
 					if call.Err != nil {
 						return fmt.Errorf("failed to forget network: %w", call.Err)
+					}
+
+					if isConnected && currentSSID == ssid {
+						b.stateMutex.Lock()
+						b.state.WiFiConnected = false
+						b.state.WiFiSSID = ""
+						b.state.WiFiSignal = 0
+						b.state.WiFiIP = ""
+						b.state.NetworkStatus = StatusDisconnected
+						b.stateMutex.Unlock()
 					}
 
 					if b.onStateChange != nil {
@@ -1234,4 +1245,24 @@ func (b *IWDBackend) CancelCredentials(token string) error {
 	return b.promptBroker.Resolve(token, PromptReply{
 		Cancel: true,
 	})
+}
+
+func (b *IWDBackend) ListVPNProfiles() ([]VPNProfile, error) {
+	return nil, fmt.Errorf("VPN not supported by iwd backend")
+}
+
+func (b *IWDBackend) ListActiveVPN() ([]VPNActive, error) {
+	return nil, fmt.Errorf("VPN not supported by iwd backend")
+}
+
+func (b *IWDBackend) ConnectVPN(uuidOrName string, singleActive bool) error {
+	return fmt.Errorf("VPN not supported by iwd backend")
+}
+
+func (b *IWDBackend) DisconnectVPN(uuidOrName string) error {
+	return fmt.Errorf("VPN not supported by iwd backend")
+}
+
+func (b *IWDBackend) DisconnectAllVPN() error {
+	return fmt.Errorf("VPN not supported by iwd backend")
 }

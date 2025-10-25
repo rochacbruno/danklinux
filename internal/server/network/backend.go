@@ -8,7 +8,6 @@ type Backend interface {
 	SetWiFiEnabled(enabled bool) error
 
 	ScanWiFi() error
-	UpdateWiFiNetworks() ([]WiFiNetwork, error)
 	GetWiFiNetworkDetails(ssid string) (*NetworkInfoResponse, error)
 
 	ConnectWiFi(req ConnectionRequest) error
@@ -20,6 +19,12 @@ type Backend interface {
 	ConnectEthernet() error
 	DisconnectEthernet() error
 	ActivateWiredConnection(uuid string) error
+
+	ListVPNProfiles() ([]VPNProfile, error)
+	ListActiveVPN() ([]VPNActive, error)
+	ConnectVPN(uuidOrName string, singleActive bool) error
+	DisconnectVPN(uuidOrName string) error
+	DisconnectAllVPN() error
 
 	GetCurrentState() (*BackendState, error)
 
@@ -48,6 +53,8 @@ type BackendState struct {
 	WiFiSignal             uint8
 	WiFiNetworks           []WiFiNetwork
 	WiredConnections       []WiredConnection
+	VPNProfiles            []VPNProfile
+	VPNActive              []VPNActive
 	IsConnecting           bool
 	ConnectingSSID         string
 	LastError              string

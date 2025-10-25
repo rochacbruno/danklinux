@@ -38,12 +38,17 @@ func (b *SubscriptionBroker) Ask(ctx context.Context, req PromptRequest) (string
 
 	if b.broadcastPrompt != nil {
 		prompt := CredentialPrompt{
-			Token:   token,
-			SSID:    req.SSID,
-			Setting: req.SettingName,
-			Fields:  req.Fields,
-			Hints:   req.Hints,
-			Reason:  req.Reason,
+			Token:          token,
+			Name:           req.Name,
+			SSID:           req.SSID,
+			ConnType:       req.ConnType,
+			VpnService:     req.VpnService,
+			Setting:        req.SettingName,
+			Fields:         req.Fields,
+			Hints:          req.Hints,
+			Reason:         req.Reason,
+			ConnectionId:   req.ConnectionId,
+			ConnectionUuid: req.ConnectionUuid,
 		}
 		b.broadcastPrompt(prompt)
 	}

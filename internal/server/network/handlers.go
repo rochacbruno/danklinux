@@ -58,6 +58,16 @@ func HandleRequest(conn net.Conn, req Request, manager *Manager) {
 		handleCredentialsSubmit(conn, req, manager)
 	case "network.credentials.cancel":
 		handleCredentialsCancel(conn, req, manager)
+	case "network.vpn.profiles":
+		handleListVPNProfiles(conn, req, manager)
+	case "network.vpn.active":
+		handleListActiveVPN(conn, req, manager)
+	case "network.vpn.connect":
+		handleConnectVPN(conn, req, manager)
+	case "network.vpn.disconnect":
+		handleDisconnectVPN(conn, req, manager)
+	case "network.vpn.disconnectAll":
+		handleDisconnectAllVPN(conn, req, manager)
 	default:
 		models.RespondError(conn, req.ID, fmt.Sprintf("unknown method: %s", req.Method))
 	}
@@ -338,4 +348,91 @@ func handleSubscribe(conn net.Conn, req Request, manager *Manager) {
 			return
 		}
 	}
+}
+
+func handleListVPNProfiles(conn net.Conn, req Request, manager *Manager) {
+	profiles, err := manager.ListVPNProfiles()
+	if err != nil {
+		log.Warnf("handleListVPNProfiles: failed to list profiles: %v", err)
+		models.RespondError(conn, req.ID, fmt.Sprintf("failed to list VPN profiles: %v", err))
+		return
+	}
+
+	models.Respond(conn, req.ID, profiles)
+}
+
+func handleListActiveVPN(conn net.Conn, req Request, manager *Manager) {
+	active, err := manager.ListActiveVPN()
+	if err != nil {
+		log.Warnf("handleListActiveVPN: failed to list active VPNs: %v", err)
+		models.RespondError(conn, req.ID, fmt.Sprintf("failed to list active VPNs: %v", err))
+		return
+	}
+
+	models.Respond(conn, req.ID, active)
+}
+
+func handleConnectVPN(conn net.Conn, req Request, manager *Manager) {
+	uuidOrName, ok := req.Params["uuidOrName"].(string)
+	if !ok {
+		name, nameOk := req.Params["name"].(string)
+		uuid, uuidOk := req.Params["uuid"].(string)
+		if nameOk {
+			uuidOrName = name
+		} else if uuidOk {
+			uuidOrName = uuid
+		} else {
+			log.Warnf("handleConnectVPN: missing uuidOrName/name/uuid parameter")
+			models.RespondError(conn, req.ID, "missing 'uuidOrName', 'name', or 'uuid' parameter")
+			return
+		}
+	}
+
+	singleActive := false
+	if sa, ok := req.Params["singleActive"].(bool); ok {
+		singleActive = sa
+	}
+
+	if err := manager.ConnectVPN(uuidOrName, singleActive); err != nil {
+		log.Warnf("handleConnectVPN: failed to connect: %v", err)
+		models.RespondError(conn, req.ID, fmt.Sprintf("failed to connect VPN: %v", err))
+		return
+	}
+
+	models.Respond(conn, req.ID, SuccessResult{Success: true, Message: "VPN connection initiated"})
+}
+
+func handleDisconnectVPN(conn net.Conn, req Request, manager *Manager) {
+	uuidOrName, ok := req.Params["uuidOrName"].(string)
+	if !ok {
+		name, nameOk := req.Params["name"].(string)
+		uuid, uuidOk := req.Params["uuid"].(string)
+		if nameOk {
+			uuidOrName = name
+		} else if uuidOk {
+			uuidOrName = uuid
+		} else {
+			log.Warnf("handleDisconnectVPN: missing uuidOrName/name/uuid parameter")
+			models.RespondError(conn, req.ID, "missing 'uuidOrName', 'name', or 'uuid' parameter")
+			return
+		}
+	}
+
+	if err := manager.DisconnectVPN(uuidOrName); err != nil {
+		log.Warnf("handleDisconnectVPN: failed to disconnect: %v", err)
+		models.RespondError(conn, req.ID, fmt.Sprintf("failed to disconnect VPN: %v", err))
+		return
+	}
+
+	models.Respond(conn, req.ID, SuccessResult{Success: true, Message: "VPN disconnected"})
+}
+
+func handleDisconnectAllVPN(conn net.Conn, req Request, manager *Manager) {
+	if err := manager.DisconnectAllVPN(); err != nil {
+		log.Warnf("handleDisconnectAllVPN: failed: %v", err)
+		models.RespondError(conn, req.ID, fmt.Sprintf("failed to disconnect all VPNs: %v", err))
+		return
+	}
+
+	models.Respond(conn, req.ID, SuccessResult{Success: true, Message: "All VPNs disconnected"})
 }

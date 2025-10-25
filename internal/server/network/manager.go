@@ -98,6 +98,8 @@ func (m *Manager) syncStateFromBackend() error {
 	m.state.WiFiSignal = backendState.WiFiSignal
 	m.state.WiFiNetworks = backendState.WiFiNetworks
 	m.state.WiredConnections = backendState.WiredConnections
+	m.state.VPNProfiles = backendState.VPNProfiles
+	m.state.VPNActive = backendState.VPNActive
 	m.state.IsConnecting = backendState.IsConnecting
 	m.state.ConnectingSSID = backendState.ConnectingSSID
 	m.state.LastError = backendState.LastError
@@ -130,6 +132,8 @@ func (m *Manager) snapshotState() NetworkState {
 	s := *m.state
 	s.WiFiNetworks = append([]WiFiNetwork(nil), m.state.WiFiNetworks...)
 	s.WiredConnections = append([]WiredConnection(nil), m.state.WiredConnections...)
+	s.VPNProfiles = append([]VPNProfile(nil), m.state.VPNProfiles...)
+	s.VPNActive = append([]VPNActive(nil), m.state.VPNActive...)
 	return s
 }
 
@@ -445,4 +449,24 @@ func (m *Manager) DisconnectEthernet() error {
 
 func (m *Manager) activateConnection(uuid string) error {
 	return m.backend.ActivateWiredConnection(uuid)
+}
+
+func (m *Manager) ListVPNProfiles() ([]VPNProfile, error) {
+	return m.backend.ListVPNProfiles()
+}
+
+func (m *Manager) ListActiveVPN() ([]VPNActive, error) {
+	return m.backend.ListActiveVPN()
+}
+
+func (m *Manager) ConnectVPN(uuidOrName string, singleActive bool) error {
+	return m.backend.ConnectVPN(uuidOrName, singleActive)
+}
+
+func (m *Manager) DisconnectVPN(uuidOrName string) error {
+	return m.backend.DisconnectVPN(uuidOrName)
+}
+
+func (m *Manager) DisconnectAllVPN() error {
+	return m.backend.DisconnectAllVPN()
 }

@@ -137,6 +137,14 @@ func (b *NetworkManagerBackend) Initialize() error {
 		return err
 	}
 
+	if _, err := b.ListVPNProfiles(); err != nil {
+		log.Warnf("Failed to get initial VPN profiles: %v", err)
+	}
+
+	if _, err := b.ListActiveVPN(); err != nil {
+		log.Warnf("Failed to get initial active VPNs: %v", err)
+	}
+
 	return nil
 }
 
@@ -197,10 +205,6 @@ func (b *NetworkManagerBackend) ScanWiFi() error {
 
 	_, err = b.updateWiFiNetworks()
 	return err
-}
-
-func (b *NetworkManagerBackend) UpdateWiFiNetworks() ([]WiFiNetwork, error) {
-	return b.updateWiFiNetworks()
 }
 
 func (b *NetworkManagerBackend) GetWiFiNetworkDetails(ssid string) (*NetworkInfoResponse, error) {
@@ -423,9 +427,25 @@ func (b *NetworkManagerBackend) ForgetWiFiNetwork(ssid string) error {
 		return fmt.Errorf("connection not found: %w", err)
 	}
 
+	b.stateMutex.RLock()
+	currentSSID := b.state.WiFiSSID
+	isConnected := b.state.WiFiConnected
+	b.stateMutex.RUnlock()
+
 	err = conn.Delete()
 	if err != nil {
 		return fmt.Errorf("failed to delete connection: %w", err)
+	}
+
+	if isConnected && currentSSID == ssid {
+		b.stateMutex.Lock()
+		b.state.WiFiConnected = false
+		b.state.WiFiSSID = ""
+		b.state.WiFiBSSID = ""
+		b.state.WiFiSignal = 0
+		b.state.WiFiIP = ""
+		b.state.NetworkStatus = StatusDisconnected
+		b.stateMutex.Unlock()
 	}
 
 	b.updateWiFiNetworks()
@@ -687,6 +707,8 @@ func (b *NetworkManagerBackend) GetCurrentState() (*BackendState, error) {
 	state := *b.state
 	state.WiFiNetworks = append([]WiFiNetwork(nil), b.state.WiFiNetworks...)
 	state.WiredConnections = append([]WiredConnection(nil), b.state.WiredConnections...)
+	state.VPNProfiles = append([]VPNProfile(nil), b.state.VPNProfiles...)
+	state.VPNActive = append([]VPNActive(nil), b.state.VPNActive...)
 
 	return &state, nil
 }
@@ -800,6 +822,8 @@ func (b *NetworkManagerBackend) updatePrimaryConnection() error {
 		b.state.NetworkStatus = StatusEthernet
 	case "802-11-wireless":
 		b.state.NetworkStatus = StatusWiFi
+	case "vpn", "wireguard":
+		b.state.NetworkStatus = StatusVPN
 	default:
 		b.state.NetworkStatus = StatusDisconnected
 	}
@@ -1349,17 +1373,14 @@ func (b *NetworkManagerBackend) createAndConnectWiFi(req ConnectionRequest) erro
 				"eap":             []string{"peap"},
 				"phase2-auth":     "mschapv2",
 				"system-ca-certs": false,
+				"password-flags":  uint32(0),
 			}
 
-			if req.Interactive {
-				x["password-flags"] = uint32(1)
-				if req.Username != "" {
-					x["identity"] = req.Username
-				}
-			} else {
+			if req.Username != "" {
 				x["identity"] = req.Username
+			}
+			if req.Password != "" {
 				x["password"] = req.Password
-				x["password-flags"] = uint32(0)
 			}
 
 			if req.AnonymousIdentity != "" {
@@ -1376,26 +1397,22 @@ func (b *NetworkManagerBackend) createAndConnectWiFi(req ConnectionRequest) erro
 
 		case isPsk:
 			sec := map[string]interface{}{
-				"key-mgmt": "wpa-psk",
+				"key-mgmt":  "wpa-psk",
+				"psk-flags": uint32(0),
 			}
-			if req.Interactive {
-				sec["psk-flags"] = uint32(1)
-			} else {
+			if !req.Interactive {
 				sec["psk"] = req.Password
-				sec["psk-flags"] = uint32(0)
 			}
 			settings["802-11-wireless-security"] = sec
 
 		case isSae:
 			sec := map[string]interface{}{
-				"key-mgmt": "sae",
-				"pmf":      int32(3),
+				"key-mgmt":  "sae",
+				"pmf":       int32(3),
+				"psk-flags": uint32(0),
 			}
-			if req.Interactive {
-				sec["psk-flags"] = uint32(1)
-			} else {
+			if !req.Interactive {
 				sec["psk"] = req.Password
-				sec["psk-flags"] = uint32(0)
 			}
 			settings["802-11-wireless-security"] = sec
 
@@ -1642,6 +1659,9 @@ func (b *NetworkManagerBackend) handleNetworkManagerChange(changes map[string]db
 			b.updateEthernetState()
 			b.updateWiFiState()
 		}
+		if _, exists := changes["ActiveConnections"]; exists {
+			b.ListActiveVPN()
+		}
 		if b.onStateChange != nil {
 			b.onStateChange()
 		}
@@ -1726,4 +1746,305 @@ func (b *NetworkManagerBackend) handleAccessPointChange(changes map[string]dbus.
 			b.onStateChange()
 		}
 	}
+}
+
+func (b *NetworkManagerBackend) ListVPNProfiles() ([]VPNProfile, error) {
+	s := b.settings
+	if s == nil {
+		var err error
+		s, err = gonetworkmanager.NewSettings()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get settings: %w", err)
+		}
+		b.settings = s
+	}
+
+	settingsMgr := s.(gonetworkmanager.Settings)
+	connections, err := settingsMgr.ListConnections()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get connections: %w", err)
+	}
+
+	var profiles []VPNProfile
+	for _, conn := range connections {
+		settings, err := conn.GetSettings()
+		if err != nil {
+			continue
+		}
+
+		connMeta, ok := settings["connection"]
+		if !ok {
+			continue
+		}
+
+		connType, _ := connMeta["type"].(string)
+		if connType != "vpn" && connType != "wireguard" {
+			continue
+		}
+
+		connID, _ := connMeta["id"].(string)
+		connUUID, _ := connMeta["uuid"].(string)
+
+		profile := VPNProfile{
+			Name: connID,
+			UUID: connUUID,
+			Type: connType,
+		}
+
+		if connType == "vpn" {
+			if vpnSettings, ok := settings["vpn"]; ok {
+				if svcType, ok := vpnSettings["service-type"].(string); ok {
+					profile.ServiceType = svcType
+				}
+			}
+		}
+
+		profiles = append(profiles, profile)
+	}
+
+	b.stateMutex.Lock()
+	b.state.VPNProfiles = profiles
+	b.stateMutex.Unlock()
+
+	return profiles, nil
+}
+
+func (b *NetworkManagerBackend) ListActiveVPN() ([]VPNActive, error) {
+	nm := b.nmConn.(gonetworkmanager.NetworkManager)
+
+	activeConns, err := nm.GetPropertyActiveConnections()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get active connections: %w", err)
+	}
+
+	var active []VPNActive
+	for _, activeConn := range activeConns {
+		connType, err := activeConn.GetPropertyType()
+		if err != nil {
+			continue
+		}
+
+		if connType != "vpn" && connType != "wireguard" {
+			continue
+		}
+
+		uuid, _ := activeConn.GetPropertyUUID()
+		id, _ := activeConn.GetPropertyID()
+		state, _ := activeConn.GetPropertyState()
+
+		var stateStr string
+		switch state {
+		case 0:
+			stateStr = "unknown"
+		case 1:
+			stateStr = "activating"
+		case 2:
+			stateStr = "activated"
+		case 3:
+			stateStr = "deactivating"
+		case 4:
+			stateStr = "deactivated"
+		}
+
+		vpnActive := VPNActive{
+			Name:   id,
+			UUID:   uuid,
+			State:  stateStr,
+			Type:   connType,
+			Plugin: "",
+		}
+
+		if connType == "vpn" {
+			conn, _ := activeConn.GetPropertyConnection()
+			if conn != nil {
+				connSettings, err := conn.GetSettings()
+				if err == nil {
+					if vpnSettings, ok := connSettings["vpn"]; ok {
+						if svcType, ok := vpnSettings["service-type"].(string); ok {
+							vpnActive.Plugin = svcType
+						}
+					}
+				}
+			}
+		}
+
+		active = append(active, vpnActive)
+	}
+
+	b.stateMutex.Lock()
+	b.state.VPNActive = active
+	b.stateMutex.Unlock()
+
+	return active, nil
+}
+
+func (b *NetworkManagerBackend) ConnectVPN(uuidOrName string, singleActive bool) error {
+	if singleActive {
+		if err := b.DisconnectAllVPN(); err != nil {
+			log.Warnf("Failed to disconnect existing VPNs: %v", err)
+		}
+	}
+
+	s := b.settings
+	if s == nil {
+		var err error
+		s, err = gonetworkmanager.NewSettings()
+		if err != nil {
+			return fmt.Errorf("failed to get settings: %w", err)
+		}
+		b.settings = s
+	}
+
+	settingsMgr := s.(gonetworkmanager.Settings)
+	connections, err := settingsMgr.ListConnections()
+	if err != nil {
+		return fmt.Errorf("failed to get connections: %w", err)
+	}
+
+	var targetConn gonetworkmanager.Connection
+	for _, conn := range connections {
+		settings, err := conn.GetSettings()
+		if err != nil {
+			continue
+		}
+
+		connMeta, ok := settings["connection"]
+		if !ok {
+			continue
+		}
+
+		connType, _ := connMeta["type"].(string)
+		if connType != "vpn" && connType != "wireguard" {
+			continue
+		}
+
+		connID, _ := connMeta["id"].(string)
+		connUUID, _ := connMeta["uuid"].(string)
+
+		if connUUID == uuidOrName || connID == uuidOrName {
+			targetConn = conn
+			break
+		}
+	}
+
+	if targetConn == nil {
+		return fmt.Errorf("VPN connection not found: %s", uuidOrName)
+	}
+
+	nm := b.nmConn.(gonetworkmanager.NetworkManager)
+	_, err = nm.ActivateConnection(targetConn, nil, nil)
+	if err != nil {
+		return fmt.Errorf("failed to activate VPN: %w", err)
+	}
+
+	return nil
+}
+
+func (b *NetworkManagerBackend) DisconnectVPN(uuidOrName string) error {
+	nm := b.nmConn.(gonetworkmanager.NetworkManager)
+
+	activeConns, err := nm.GetPropertyActiveConnections()
+	if err != nil {
+		return fmt.Errorf("failed to get active connections: %w", err)
+	}
+
+	log.Debugf("[DisconnectVPN] Looking for VPN: %s", uuidOrName)
+
+	for _, activeConn := range activeConns {
+		connType, err := activeConn.GetPropertyType()
+		if err != nil {
+			continue
+		}
+
+		if connType != "vpn" && connType != "wireguard" {
+			continue
+		}
+
+		uuid, _ := activeConn.GetPropertyUUID()
+		id, _ := activeConn.GetPropertyID()
+		state, _ := activeConn.GetPropertyState()
+
+		log.Debugf("[DisconnectVPN] Found active VPN: uuid=%s id=%s state=%d", uuid, id, state)
+
+		if uuid == uuidOrName || id == uuidOrName {
+			log.Infof("[DisconnectVPN] Deactivating VPN: %s (state=%d)", id, state)
+			if err := nm.DeactivateConnection(activeConn); err != nil {
+				return fmt.Errorf("failed to deactivate VPN: %w", err)
+			}
+			return nil
+		}
+	}
+
+	log.Warnf("[DisconnectVPN] VPN not found in active connections: %s", uuidOrName)
+
+	s := b.settings
+	if s == nil {
+		var err error
+		s, err = gonetworkmanager.NewSettings()
+		if err != nil {
+			return fmt.Errorf("VPN connection not active and cannot access settings: %w", err)
+		}
+		b.settings = s
+	}
+
+	settingsMgr := s.(gonetworkmanager.Settings)
+	connections, err := settingsMgr.ListConnections()
+	if err != nil {
+		return fmt.Errorf("VPN connection not active: %s", uuidOrName)
+	}
+
+	for _, conn := range connections {
+		settings, err := conn.GetSettings()
+		if err != nil {
+			continue
+		}
+
+		connMeta, ok := settings["connection"]
+		if !ok {
+			continue
+		}
+
+		connType, _ := connMeta["type"].(string)
+		if connType != "vpn" && connType != "wireguard" {
+			continue
+		}
+
+		connID, _ := connMeta["id"].(string)
+		connUUID, _ := connMeta["uuid"].(string)
+
+		if connUUID == uuidOrName || connID == uuidOrName {
+			log.Infof("[DisconnectVPN] VPN connection exists but not active: %s", connID)
+			return nil
+		}
+	}
+
+	return fmt.Errorf("VPN connection not found: %s", uuidOrName)
+}
+
+func (b *NetworkManagerBackend) DisconnectAllVPN() error {
+	nm := b.nmConn.(gonetworkmanager.NetworkManager)
+
+	activeConns, err := nm.GetPropertyActiveConnections()
+	if err != nil {
+		return fmt.Errorf("failed to get active connections: %w", err)
+	}
+
+	var lastErr error
+	for _, activeConn := range activeConns {
+		connType, err := activeConn.GetPropertyType()
+		if err != nil {
+			continue
+		}
+
+		if connType != "vpn" && connType != "wireguard" {
+			continue
+		}
+
+		if err := nm.DeactivateConnection(activeConn); err != nil {
+			lastErr = err
+			log.Warnf("Failed to deactivate VPN connection: %v", err)
+		}
+	}
+
+	return lastErr
 }
