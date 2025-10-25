@@ -15,7 +15,6 @@ const (
 	networkdManagerPath  = "/org/freedesktop/network1"
 	networkdManagerIface = "org.freedesktop.network1.Manager"
 	networkdLinkIface    = "org.freedesktop.network1.Link"
-	networkdNetworkIface = "org.freedesktop.network1.Network"
 )
 
 type linkInfo struct {
@@ -370,10 +369,9 @@ func (b *SystemdNetworkdBackend) ConnectEthernet() error {
 		if strings.HasPrefix(name, "lo") || strings.HasPrefix(name, "wlan") || strings.HasPrefix(name, "wlp") {
 			continue
 		}
-		if primaryWired == nil {
-			primaryWired = l
-			break
-		}
+		// pick the first non-virtual, non-wifi interface
+		primaryWired = l
+		break
 	}
 	b.linksMutex.RUnlock()
 

@@ -21,7 +21,7 @@ func frequencyToChannel(freq uint32) uint32 {
 	return 0
 }
 
-func sortWiFiNetworks(networks []WiFiNetwork, currentSSID string) {
+func sortWiFiNetworks(networks []WiFiNetwork) {
 	sort.Slice(networks, func(i, j int) bool {
 		if networks[i].Connected && !networks[j].Connected {
 			return true

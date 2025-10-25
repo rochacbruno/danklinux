@@ -363,7 +363,7 @@ func (b *IWDBackend) updateWiFiNetworks() ([]WiFiNetwork, error) {
 		networks = append(networks, network)
 	}
 
-	sortWiFiNetworks(networks, currentSSID)
+	sortWiFiNetworks(networks)
 
 	b.stateMutex.Lock()
 	b.state.WiFiNetworks = networks
@@ -570,10 +570,6 @@ func (b *IWDBackend) mapIwdDBusError(name string) string {
 	}
 }
 
-func (b *IWDBackend) classifyIwdImmediateError(name string) {
-	b.setConnectError(b.mapIwdDBusError(name))
-}
-
 func (b *IWDBackend) ConnectWiFi(req ConnectionRequest) error {
 	if b.stationPath == "" {
 		b.setConnectError(errdefs.ErrWifiDisabled)
@@ -642,80 +638,6 @@ func (b *IWDBackend) ConnectWiFi(req ConnectionRequest) error {
 	}()
 
 	return nil
-}
-
-func (b *IWDBackend) watchIwdConnect(ssid string) {
-	deadline := time.Now().Add(15 * time.Second)
-	seen := make(map[string]bool)
-
-	ticker := time.NewTicker(200 * time.Millisecond)
-	defer ticker.Stop()
-
-	for time.Now().Before(deadline) {
-		select {
-		case <-b.stopChan:
-			return
-		case <-ticker.C:
-			stationObj := b.conn.Object(iwdBusName, b.stationPath)
-			stateVar, err := stationObj.GetProperty(iwdStationInterface + ".State")
-			if err != nil {
-				continue
-			}
-			state, ok := stateVar.Value().(string)
-			if !ok {
-				continue
-			}
-			seen[state] = true
-
-			if state == "connected" {
-				b.stateMutex.Lock()
-				b.state.IsConnecting = false
-				b.state.ConnectingSSID = ""
-				b.state.LastError = ""
-				b.stateMutex.Unlock()
-				if b.onStateChange != nil {
-					b.onStateChange()
-				}
-				return
-			}
-
-			if state == "disconnected" && (seen["authenticating"] || seen["associating"]) {
-				if !seen["ip-config"] && !seen["connected"] {
-					b.setConnectError(errdefs.ErrBadCredentials)
-					if b.onStateChange != nil {
-						b.onStateChange()
-					}
-					return
-				}
-			}
-
-			if (seen["authenticating"] || seen["associated"] || seen["roaming"]) && time.Now().After(deadline.Add(-3*time.Second)) {
-				if !seen["ip-config"] && !seen["connected"] {
-					b.setConnectError(errdefs.ErrDhcpTimeout)
-					if b.onStateChange != nil {
-						b.onStateChange()
-					}
-					return
-				}
-			}
-		}
-	}
-
-	b.stateMutex.RLock()
-	stillConnecting := b.state.ConnectingSSID == ssid
-	currentError := b.state.LastError
-	b.stateMutex.RUnlock()
-
-	if currentError == "" && stillConnecting {
-		if seen["associating"] || seen["authenticating"] {
-			b.setConnectError(errdefs.ErrAssocTimeout)
-		} else {
-			b.setConnectError(errdefs.ErrNoSuchSSID)
-		}
-		if b.onStateChange != nil {
-			b.onStateChange()
-		}
-	}
 }
 
 func (b *IWDBackend) findNetworkPath(ssid string) (dbus.ObjectPath, error) {

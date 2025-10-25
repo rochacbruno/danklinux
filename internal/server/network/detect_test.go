@@ -16,10 +16,9 @@ func TestBackendType_Constants(t *testing.T) {
 
 func TestDetectResult_HasNetworkdField(t *testing.T) {
 	result := &DetectResult{
-		Backend:      BackendNetworkd,
-		HasNetworkd:  true,
-		HasIwd:       true,
-		ChosenReason: "test",
+		Backend:     BackendNetworkd,
+		HasNetworkd: true,
+		HasIwd:      true,
 	}
 
 	assert.True(t, result.HasNetworkd)

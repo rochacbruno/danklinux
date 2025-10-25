@@ -1197,7 +1197,7 @@ func (b *NetworkManagerBackend) updateWiFiNetworks() ([]WiFiNetwork, error) {
 		networks = append(networks, network)
 	}
 
-	sortWiFiNetworks(networks, currentSSID)
+	sortWiFiNetworks(networks)
 
 	b.stateMutex.Lock()
 	b.state.WiFiNetworks = networks

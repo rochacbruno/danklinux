@@ -128,7 +128,7 @@ func (a *SecretAgent) GetSecrets(
 
 	connType, displayName, vpnSvc := readConnTypeAndName(conn)
 	ssid := readSSID(conn)
-	fields := fieldsNeeded(settingName, conn, hints)
+	fields := fieldsNeeded(settingName, hints)
 
 	log.Infof("[SecretAgent] connType=%s, name=%s, vpnSvc=%s, fields=%v, flags=%d", connType, displayName, vpnSvc, fields, flags)
 
@@ -140,12 +140,13 @@ func (a *SecretAgent) GetSecrets(
 		connectingVPNUUID := a.backend.state.ConnectingVPNUUID
 		a.backend.stateMutex.RUnlock()
 
-		if connType == "802-11-wireless" {
+		switch connType {
+		case "802-11-wireless":
 			if !isConnecting || connectingSSID != ssid {
 				log.Infof("[SecretAgent] Ignoring request for SSID '%s' - not initiated by us (connecting=%v, our_ssid='%s')", ssid, isConnecting, connectingSSID)
 				return nil, dbus.NewError("org.freedesktop.NetworkManager.SecretAgent.Error.NoSecrets", nil)
 			}
-		} else if connType == "vpn" || connType == "wireguard" {
+		case "vpn", "wireguard":
 			var connUuid string
 			if c, ok := conn["connection"]; ok {
 				if v, ok := c["uuid"]; ok {
@@ -178,7 +179,8 @@ func (a *SecretAgent) GetSecrets(
 			)
 
 			var passwordFlags uint32 = 0xFFFF
-			if settingName == "vpn" {
+			switch settingName {
+			case "vpn":
 				if vpnSettings, ok := conn["vpn"]; ok {
 					if flagsVariant, ok := vpnSettings["password-flags"]; ok {
 						if pwdFlags, ok := flagsVariant.Value().(uint32); ok {
@@ -211,7 +213,7 @@ func (a *SecretAgent) GetSecrets(
 						}
 					}
 				}
-			} else if settingName == "802-11-wireless-security" {
+			case "802-11-wireless-security":
 				if wifiSecSettings, ok := conn["802-11-wireless-security"]; ok {
 					if flagsVariant, ok := wifiSecSettings["psk-flags"]; ok {
 						if pwdFlags, ok := flagsVariant.Value().(uint32); ok {
@@ -219,7 +221,7 @@ func (a *SecretAgent) GetSecrets(
 						}
 					}
 				}
-			} else if settingName == "802-1x" {
+			case "802-1x":
 				if dot1xSettings, ok := conn["802-1x"]; ok {
 					if flagsVariant, ok := dot1xSettings["password-flags"]; ok {
 						if pwdFlags, ok := flagsVariant.Value().(uint32); ok {
@@ -308,9 +310,10 @@ func (a *SecretAgent) GetSecrets(
 	}
 	out[settingName] = sec
 
-	if settingName == "802-1x" {
+	switch settingName {
+	case "802-1x":
 		log.Infof("[SecretAgent] Returning 802-1x enterprise secrets with %d fields", len(sec))
-	} else if settingName == "vpn" {
+	case "vpn":
 		log.Infof("[SecretAgent] Returning VPN secrets with %d fields for %s", len(sec), vpnSvc)
 	}
 	return out, nil
@@ -382,7 +385,7 @@ func readConnTypeAndName(conn map[string]nmVariantMap) (string, string, string) 
 	return connType, name, svc
 }
 
-func fieldsNeeded(setting string, conn map[string]nmVariantMap, hints []string) []string {
+func fieldsNeeded(setting string, hints []string) []string {
 	switch setting {
 	case "802-11-wireless-security":
 		return []string{"psk"}

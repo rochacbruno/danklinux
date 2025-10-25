@@ -40,7 +40,7 @@ func TestSortWiFiNetworks(t *testing.T) {
 			{SSID: "Network3", Signal: 70, Connected: false},
 		}
 
-		sortWiFiNetworks(networks, "Network2")
+		sortWiFiNetworks(networks)
 
 		assert.Equal(t, "Network2", networks[0].SSID)
 		assert.True(t, networks[0].Connected)
@@ -53,7 +53,7 @@ func TestSortWiFiNetworks(t *testing.T) {
 			{SSID: "Medium", Signal: 60, Secured: true},
 		}
 
-		sortWiFiNetworks(networks, "")
+		sortWiFiNetworks(networks)
 
 		assert.Equal(t, "Strong", networks[0].SSID)
 		assert.Equal(t, "Medium", networks[1].SSID)
@@ -67,7 +67,7 @@ func TestSortWiFiNetworks(t *testing.T) {
 			{SSID: "SecureStrong", Signal: 90, Secured: true},
 		}
 
-		sortWiFiNetworks(networks, "")
+		sortWiFiNetworks(networks)
 
 		// The sorting gives priority to open networks with good signal (>= 50)
 		// OpenStrong (60 signal, open) should come before SecureWeak (40 signal, secured)
@@ -95,7 +95,7 @@ func TestSortWiFiNetworks(t *testing.T) {
 			{SSID: "UnsavedMedium", Signal: 70, Saved: false},
 		}
 
-		sortWiFiNetworks(networks, "")
+		sortWiFiNetworks(networks)
 
 		assert.Equal(t, "SavedMedium", networks[0].SSID)
 		assert.Equal(t, "SavedWeak", networks[1].SSID)
