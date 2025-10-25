@@ -116,6 +116,7 @@ func (b *BaseDistribution) detectDMS() deps.Dependency {
 		Status:      status,
 		Description: "Desktop Management System configuration",
 		Required:    true,
+		CanToggle:   true,
 	}
 
 	if currentVersion != "" {
