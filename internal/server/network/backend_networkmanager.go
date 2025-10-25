@@ -26,6 +26,7 @@ const (
 
 	NmDeviceStateReasonWrongPassword        = 8
 	NmDeviceStateReasonSupplicantTimeout    = 24
+	NmDeviceStateReasonSupplicantFailed     = 25
 	NmDeviceStateReasonSecretsRequired      = 7
 	NmDeviceStateReasonNoSecrets            = 6
 	NmDeviceStateReasonNoSsid               = 10
@@ -33,6 +34,7 @@ const (
 	NmDeviceStateReasonIpConfigUnavailable  = 18
 	NmDeviceStateReasonSupplicantDisconnect = 23
 	NmDeviceStateReasonCarrier              = 40
+	NmDeviceStateReasonNewActivation        = 60
 )
 
 type NetworkManagerBackend struct {
@@ -122,6 +124,11 @@ func (b *NetworkManagerBackend) Initialize() error {
 			}
 			if err := b.updateWiFiState(); err != nil {
 				continue
+			}
+			if wifiEnabled {
+				if _, err := b.updateWiFiNetworks(); err != nil {
+					log.Warnf("Failed to get initial networks: %v", err)
+				}
 			}
 		}
 	}
@@ -858,6 +865,7 @@ func (b *NetworkManagerBackend) classifyNMStateReason(reason uint32) string {
 	switch reason {
 	case NmDeviceStateReasonWrongPassword,
 		NmDeviceStateReasonSupplicantTimeout,
+		NmDeviceStateReasonSupplicantFailed,
 		NmDeviceStateReasonSecretsRequired:
 		return errdefs.ErrBadCredentials
 	case NmDeviceStateReasonNoSecrets:
@@ -920,10 +928,25 @@ func (b *NetworkManagerBackend) updateWiFiState() error {
 
 	var reasonCode string
 	if wasConnecting && connectingSSID != "" && (failed || (disconnected && !connected)) {
-		if reason := b.getDeviceStateReason(dev); reason != 0 {
-			reasonCode = b.classifyNMStateReason(reason)
-		} else {
-			reasonCode = errdefs.ErrConnectionFailed
+		reason := b.getDeviceStateReason(dev)
+
+		if reason == NmDeviceStateReasonNewActivation || reason == 0 {
+			return nil
+		}
+
+		log.Warnf("[updateWiFiState] Connection failed: SSID=%s, state=%d, reason=%d", connectingSSID, state, reason)
+
+		reasonCode = b.classifyNMStateReason(reason)
+
+		if reasonCode == errdefs.ErrConnectionFailed {
+			b.failedMutex.RLock()
+			if b.lastFailedSSID == connectingSSID {
+				elapsed := time.Now().Unix() - b.lastFailedTime
+				if elapsed < 5 {
+					reasonCode = errdefs.ErrBadCredentials
+				}
+			}
+			b.failedMutex.RUnlock()
 		}
 	}
 
@@ -1366,7 +1389,7 @@ func (b *NetworkManagerBackend) createAndConnectWiFi(req ConnectionRequest) erro
 		case isSae:
 			sec := map[string]interface{}{
 				"key-mgmt": "sae",
-				"pmf":      "required",
+				"pmf":      int32(3),
 			}
 			if req.Interactive {
 				sec["psk-flags"] = uint32(1)

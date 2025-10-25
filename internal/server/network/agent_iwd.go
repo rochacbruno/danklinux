@@ -166,6 +166,13 @@ func (a *IWDAgent) RequestPrivateKeyPassphrase(network dbus.ObjectPath) (string,
 		return "", dbus.NewError("net.connman.iwd.Agent.Error.Canceled", nil)
 	}
 
+	if a.lastRequestSSID == ssid {
+		if a.onPromptRetry != nil {
+			a.onPromptRetry(ssid)
+		}
+	}
+	a.lastRequestSSID = ssid
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
@@ -195,6 +202,13 @@ func (a *IWDAgent) RequestUserNameAndPassword(network dbus.ObjectPath) (string, 
 	if a.prompts == nil {
 		return "", "", dbus.NewError("net.connman.iwd.Agent.Error.Canceled", nil)
 	}
+
+	if a.lastRequestSSID == ssid {
+		if a.onPromptRetry != nil {
+			a.onPromptRetry(ssid)
+		}
+	}
+	a.lastRequestSSID = ssid
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
@@ -228,6 +242,13 @@ func (a *IWDAgent) RequestUserPassword(network dbus.ObjectPath, user string) (st
 	if a.prompts == nil {
 		return "", dbus.NewError("net.connman.iwd.Agent.Error.Canceled", nil)
 	}
+
+	if a.lastRequestSSID == ssid {
+		if a.onPromptRetry != nil {
+			a.onPromptRetry(ssid)
+		}
+	}
+	a.lastRequestSSID = ssid
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()

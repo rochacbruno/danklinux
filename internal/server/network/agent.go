@@ -163,18 +163,13 @@ func (a *SecretAgent) GetSecrets(
 	}
 	out[settingName] = sec
 
-	// Don't save during GetSecrets as it can interfere with the activation process.
-	// NetworkManager will call SaveSecrets if it wants the secrets persisted.
-	// However, we'll save them ourselves after a short delay to ensure they're persisted
-	// even if NetworkManager doesn't call SaveSecrets.
 	if reply.Save {
 		go func() {
-			// Wait for activation to complete before saving
-			time.Sleep(5 * time.Second)
+			time.Sleep(3 * time.Second)
 			if err := a.saveConnectionSecrets(path, settingName, reply.Secrets); err != nil {
-				log.Warnf("[SecretAgent] failed to save secrets to connection: %v", err)
+				log.Warnf("[SecretAgent] Failed to save secrets: %v", err)
 			} else {
-				log.Infof("[SecretAgent] Saved secrets to connection after delay: %s", path)
+				log.Infof("[SecretAgent] Saved secrets after connection: %s", path)
 			}
 		}()
 	}
@@ -246,7 +241,7 @@ func (a *SecretAgent) saveConnectionSecrets(path dbus.ObjectPath, settingName st
 }
 
 func (a *SecretAgent) SaveSecrets(conn map[string]nmVariantMap, path dbus.ObjectPath) *dbus.Error {
-	log.Infof("[SecretAgent] SaveSecrets called: path=%s", path)
+	log.Infof("[SecretAgent] SaveSecrets called: path=%s (handled in GetSecrets)", path)
 	return nil
 }
 

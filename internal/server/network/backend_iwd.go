@@ -1058,6 +1058,7 @@ func (b *IWDBackend) signalHandler(sigChan chan *dbus.Signal) {
 								b.state.NetworkStatus = StatusWiFi
 								b.state.IsConnecting = false
 								b.state.ConnectingSSID = ""
+								b.state.LastError = ""
 								b.stateMutex.Unlock()
 
 								if connPath != "" && connPath != "/" {
