@@ -9,27 +9,13 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/AvengeMedia/danklinux/internal/config"
 	"github.com/AvengeMedia/danklinux/internal/distros"
 )
 
-// DetectDMSPath checks for DMS installation in user config and system config
+// DetectDMSPath checks for DMS installation following XDG Base Directory specification
 func DetectDMSPath() (string, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("failed to get user home directory: %w", err)
-	}
-
-	userPath := filepath.Join(homeDir, ".config", "quickshell", "dms")
-	if info, err := os.Stat(userPath); err == nil && info.IsDir() {
-		return userPath, nil
-	}
-
-	systemPath := "/etc/xdg/quickshell/dms"
-	if info, err := os.Stat(systemPath); err == nil && info.IsDir() {
-		return systemPath, nil
-	}
-
-	return "", fmt.Errorf("couldn't find dms installation")
+	return config.LocateDMSConfig()
 }
 
 // DetectCompositors checks which compositors are installed

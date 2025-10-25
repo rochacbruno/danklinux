@@ -3,9 +3,6 @@
 package dms
 
 import (
-	"errors"
-
-	"github.com/AvengeMedia/danklinux/internal/distros"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -57,24 +54,4 @@ func (m Model) updateMainMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	}
 	return m, nil
-}
-
-func runInteractiveMode(detector *Detector, version string) error {
-	if !detector.IsDMSInstalled() {
-		return errors.New("DMS not installed")
-	}
-
-	model := NewModel(version)
-	p := tea.NewProgram(model, tea.WithAltScreen())
-	if _, err := p.Run(); err != nil {
-		return err
-	}
-	return nil
-}
-
-func checkDistroSupport(detector *Detector) error {
-	if detector == nil {
-		return &distros.UnsupportedDistributionError{}
-	}
-	return nil
 }
