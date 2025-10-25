@@ -98,7 +98,6 @@ func (a *ArchDistribution) DetectDependenciesWithTerminal(ctx context.Context, w
 	// Base detections (common across distros)
 	dependencies = append(dependencies, a.detectMatugen())
 	dependencies = append(dependencies, a.detectDgop())
-	dependencies = append(dependencies, a.detectFonts()...)
 	dependencies = append(dependencies, a.detectClipboardTools()...)
 
 	return dependencies, nil
@@ -171,9 +170,6 @@ func (a *ArchDistribution) GetPackageMappingWithVariants(wm deps.WindowManager, 
 		"xdg-desktop-portal-gtk":  {Name: "xdg-desktop-portal-gtk", Repository: RepoTypeSystem},
 		"mate-polkit":             {Name: "mate-polkit", Repository: RepoTypeSystem},
 		"accountsservice":         {Name: "accountsservice", Repository: RepoTypeSystem},
-		"font-material-symbols":   {Name: "material-symbols-git", Repository: RepoTypeAUR},
-		"font-firacode":           {Name: "ttf-fira-code", Repository: RepoTypeSystem},
-		"font-inter":              {Name: "inter-font", Repository: RepoTypeSystem},
 	}
 
 	switch wm {
@@ -371,9 +367,6 @@ func (a *ArchDistribution) InstallPackages(ctx context.Context, dependencies []d
 		IsComplete: false,
 		LogOutput:  "Starting post-installation configuration...",
 	}
-	if err := a.postInstallConfig(ctx, wm, sudoPassword, progressChan); err != nil {
-		return fmt.Errorf("failed to configure system: %w", err)
-	}
 
 	// Phase 7: Complete
 	progressChan <- InstallProgressMsg{
@@ -533,7 +526,7 @@ func (a *ArchDistribution) installAURPackages(ctx context.Context, packages []st
 }
 
 func (a *ArchDistribution) reorderAURPackages(packages []string) []string {
-	dmsDepencies := []string{"quickshell", "quickshell-git", "dgop", "ttf-material-symbols-variable-git"}
+	dmsDepencies := []string{"quickshell", "quickshell-git", "dgop"}
 
 	var deps []string
 	var others []string
@@ -619,7 +612,6 @@ func (a *ArchDistribution) installSingleAURPackage(ctx context.Context, pkg, sud
 		depsToRemove := []string{
 			"depends = quickshell",
 			"depends = dgop",
-			"depends = ttf-material-symbols-variable-git",
 		}
 
 		for _, dep := range depsToRemove {

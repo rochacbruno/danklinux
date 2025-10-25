@@ -64,7 +64,7 @@ func (cd *ConfigDeployer) DeployConfigurationsSelectiveWithReinstalls(ctx contex
 	switch wm {
 	case deps.WindowManagerNiri:
 		if shouldReplaceConfig("Niri") {
-			result, err := cd.deployNiriConfig(ctx, terminal)
+			result, err := cd.deployNiriConfig(terminal)
 			results = append(results, result)
 			if err != nil {
 				return results, fmt.Errorf("failed to deploy Niri config: %w", err)
@@ -72,7 +72,7 @@ func (cd *ConfigDeployer) DeployConfigurationsSelectiveWithReinstalls(ctx contex
 		}
 	case deps.WindowManagerHyprland:
 		if shouldReplaceConfig("Hyprland") {
-			result, err := cd.deployHyprlandConfig(ctx, terminal)
+			result, err := cd.deployHyprlandConfig(terminal)
 			results = append(results, result)
 			if err != nil {
 				return results, fmt.Errorf("failed to deploy Hyprland config: %w", err)
@@ -83,7 +83,7 @@ func (cd *ConfigDeployer) DeployConfigurationsSelectiveWithReinstalls(ctx contex
 	switch terminal {
 	case deps.TerminalGhostty:
 		if shouldReplaceConfig("Ghostty") {
-			ghosttyResult, err := cd.deployGhosttyConfig(ctx)
+			ghosttyResult, err := cd.deployGhosttyConfig()
 			results = append(results, ghosttyResult)
 			if err != nil {
 				return results, fmt.Errorf("failed to deploy Ghostty config: %w", err)
@@ -91,7 +91,7 @@ func (cd *ConfigDeployer) DeployConfigurationsSelectiveWithReinstalls(ctx contex
 		}
 	case deps.TerminalKitty:
 		if shouldReplaceConfig("Kitty") {
-			kittyResult, err := cd.deployKittyConfig(ctx)
+			kittyResult, err := cd.deployKittyConfig()
 			results = append(results, kittyResult)
 			if err != nil {
 				return results, fmt.Errorf("failed to deploy Kitty config: %w", err)
@@ -103,7 +103,7 @@ func (cd *ConfigDeployer) DeployConfigurationsSelectiveWithReinstalls(ctx contex
 }
 
 // deployNiriConfig handles Niri configuration deployment with backup and merging
-func (cd *ConfigDeployer) deployNiriConfig(ctx context.Context, terminal deps.Terminal) (DeploymentResult, error) {
+func (cd *ConfigDeployer) deployNiriConfig(terminal deps.Terminal) (DeploymentResult, error) {
 	result := DeploymentResult{
 		ConfigType: "Niri",
 		Path:       filepath.Join(os.Getenv("HOME"), ".config", "niri", "config.kdl"),
@@ -180,7 +180,7 @@ func (cd *ConfigDeployer) deployNiriConfig(ctx context.Context, terminal deps.Te
 }
 
 // deployGhosttyConfig handles Ghostty configuration deployment with backup
-func (cd *ConfigDeployer) deployGhosttyConfig(ctx context.Context) (DeploymentResult, error) {
+func (cd *ConfigDeployer) deployGhosttyConfig() (DeploymentResult, error) {
 	result := DeploymentResult{
 		ConfigType: "Ghostty",
 		Path:       filepath.Join(os.Getenv("HOME"), ".config", "ghostty", "config"),
@@ -221,7 +221,7 @@ func (cd *ConfigDeployer) deployGhosttyConfig(ctx context.Context) (DeploymentRe
 }
 
 // deployKittyConfig handles Kitty configuration deployment with backup
-func (cd *ConfigDeployer) deployKittyConfig(ctx context.Context) (DeploymentResult, error) {
+func (cd *ConfigDeployer) deployKittyConfig() (DeploymentResult, error) {
 	result := DeploymentResult{
 		ConfigType: "Kitty",
 		Path:       filepath.Join(os.Getenv("HOME"), ".config", "kitty", "kitty.conf"),
@@ -338,7 +338,7 @@ func (cd *ConfigDeployer) mergeNiriOutputSections(newConfig, existingConfig stri
 }
 
 // deployHyprlandConfig handles Hyprland configuration deployment with backup and merging
-func (cd *ConfigDeployer) deployHyprlandConfig(ctx context.Context, terminal deps.Terminal) (DeploymentResult, error) {
+func (cd *ConfigDeployer) deployHyprlandConfig(terminal deps.Terminal) (DeploymentResult, error) {
 	result := DeploymentResult{
 		ConfigType: "Hyprland",
 		Path:       filepath.Join(os.Getenv("HOME"), ".config", "hypr", "hyprland.conf"),

@@ -1,7 +1,6 @@
 package config
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -215,7 +214,7 @@ func TestConfigDeploymentFlow(t *testing.T) {
 	cd := NewConfigDeployer(logChan)
 
 	t.Run("deploy ghostty config to empty directory", func(t *testing.T) {
-		result, err := cd.deployGhosttyConfig(context.Background())
+		result, err := cd.deployGhosttyConfig()
 		require.NoError(t, err)
 
 		assert.Equal(t, "Ghostty", result.ConfigType)
@@ -226,7 +225,6 @@ func TestConfigDeploymentFlow(t *testing.T) {
 		// Verify content
 		content, err := os.ReadFile(result.Path)
 		require.NoError(t, err)
-		assert.Contains(t, string(content), "font-family = Fira Code")
 		assert.Contains(t, string(content), "window-decoration = false")
 	})
 
@@ -239,7 +237,7 @@ func TestConfigDeploymentFlow(t *testing.T) {
 		err = os.WriteFile(ghosttyPath, []byte(existingContent), 0644)
 		require.NoError(t, err)
 
-		result, err := cd.deployGhosttyConfig(context.Background())
+		result, err := cd.deployGhosttyConfig()
 		require.NoError(t, err)
 
 		assert.Equal(t, "Ghostty", result.ConfigType)
@@ -256,7 +254,6 @@ func TestConfigDeploymentFlow(t *testing.T) {
 		// Verify new content
 		newContent, err := os.ReadFile(result.Path)
 		require.NoError(t, err)
-		assert.Contains(t, string(newContent), "font-family = Fira Code")
 		assert.NotContains(t, string(newContent), "# Old config")
 	})
 }
@@ -420,7 +417,7 @@ func TestHyprlandConfigDeployment(t *testing.T) {
 	cd := NewConfigDeployer(logChan)
 
 	t.Run("deploy hyprland config to empty directory", func(t *testing.T) {
-		result, err := cd.deployHyprlandConfig(context.Background(), deps.TerminalGhostty)
+		result, err := cd.deployHyprlandConfig(deps.TerminalGhostty)
 		require.NoError(t, err)
 
 		assert.Equal(t, "Hyprland", result.ConfigType)
@@ -452,7 +449,7 @@ general {
 		err = os.WriteFile(hyprPath, []byte(existingContent), 0644)
 		require.NoError(t, err)
 
-		result, err := cd.deployHyprlandConfig(context.Background(), deps.TerminalKitty)
+		result, err := cd.deployHyprlandConfig(deps.TerminalKitty)
 		require.NoError(t, err)
 
 		assert.Equal(t, "Hyprland", result.ConfigType)
@@ -502,7 +499,6 @@ func TestHyprlandConfigStructure(t *testing.T) {
 
 func TestGhosttyConfigStructure(t *testing.T) {
 	// Verify the embedded Ghostty config has expected settings
-	assert.Contains(t, GhosttyConfig, "font-family = Fira Code")
 	assert.Contains(t, GhosttyConfig, "window-decoration = false")
 	assert.Contains(t, GhosttyConfig, "background-opacity = 0.90")
 	assert.Contains(t, GhosttyConfig, "config-file = ./config-dankcolors")

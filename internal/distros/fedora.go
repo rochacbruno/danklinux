@@ -90,7 +90,6 @@ func (f *FedoraDistribution) DetectDependenciesWithTerminal(ctx context.Context,
 	// Base detections (common across distros)
 	dependencies = append(dependencies, f.detectMatugen())
 	dependencies = append(dependencies, f.detectDgop())
-	dependencies = append(dependencies, f.detectFonts()...)
 	dependencies = append(dependencies, f.detectClipboardTools()...)
 
 	return dependencies, nil
@@ -145,7 +144,6 @@ func (f *FedoraDistribution) GetPackageMappingWithVariants(wm deps.WindowManager
 		"xdg-desktop-portal-gtk": {Name: "xdg-desktop-portal-gtk", Repository: RepoTypeSystem},
 		"mate-polkit":            {Name: "mate-polkit", Repository: RepoTypeSystem},
 		"accountsservice":        {Name: "accountsservice", Repository: RepoTypeSystem},
-		"font-firacode":          {Name: "fira-code-fonts", Repository: RepoTypeSystem},
 
 		// COPR packages
 		"quickshell":              f.getQuickshellMapping(variants["quickshell"]),
@@ -153,10 +151,6 @@ func (f *FedoraDistribution) GetPackageMappingWithVariants(wm deps.WindowManager
 		"cliphist":                {Name: "cliphist", Repository: RepoTypeCOPR, RepoURL: "avengemedia/danklinux"},
 		"dms (DankMaterialShell)": f.getDmsMapping(variants["dms (DankMaterialShell)"]),
 		"dgop":                    {Name: "dgop", Repository: RepoTypeCOPR, RepoURL: "avengemedia/danklinux"},
-		"font-material-symbols":   {Name: "material-symbols-fonts", Repository: RepoTypeCOPR, RepoURL: "avengemedia/danklinux"},
-
-		// Manual builds
-		"font-inter": {Name: "font-inter", Repository: RepoTypeManual, BuildFunc: "installInterFont"},
 	}
 
 	switch wm {
@@ -386,9 +380,6 @@ func (f *FedoraDistribution) InstallPackages(ctx context.Context, dependencies [
 		Step:       "Configuring system...",
 		IsComplete: false,
 		LogOutput:  "Starting post-installation configuration...",
-	}
-	if err := f.postInstallConfig(ctx, wm, sudoPassword, progressChan); err != nil {
-		return fmt.Errorf("failed to configure system: %w", err)
 	}
 
 	// Phase 7: Complete

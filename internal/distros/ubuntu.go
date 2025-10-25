@@ -82,7 +82,6 @@ func (u *UbuntuDistribution) DetectDependenciesWithTerminal(ctx context.Context,
 	// Base detections (common across distros)
 	dependencies = append(dependencies, u.detectMatugen())
 	dependencies = append(dependencies, u.detectDgop())
-	dependencies = append(dependencies, u.detectFonts()...)
 	dependencies = append(dependencies, u.detectClipboardTools()...)
 
 	return dependencies, nil
@@ -160,8 +159,6 @@ func (u *UbuntuDistribution) GetPackageMapping(wm deps.WindowManager) map[string
 		"xdg-desktop-portal-gtk": {Name: "xdg-desktop-portal-gtk", Repository: RepoTypeSystem},
 		"mate-polkit":            {Name: "mate-polkit", Repository: RepoTypeSystem},
 		"accountsservice":        {Name: "accountsservice", Repository: RepoTypeSystem},
-		"font-firacode":          {Name: "fonts-firacode", Repository: RepoTypeSystem},
-		"font-inter":             {Name: "fonts-inter-variable", Repository: RepoTypeSystem},
 
 		// Manual builds (niri and quickshell likely not available in Ubuntu repos or PPAs)
 		"dms (DankMaterialShell)": {Name: "dms", Repository: RepoTypeManual, BuildFunc: "installDankMaterialShell"},
@@ -171,7 +168,6 @@ func (u *UbuntuDistribution) GetPackageMapping(wm deps.WindowManager) map[string
 		"matugen":                 {Name: "matugen", Repository: RepoTypeManual, BuildFunc: "installMatugen"},
 		"dgop":                    {Name: "dgop", Repository: RepoTypeManual, BuildFunc: "installDgop"},
 		"cliphist":                {Name: "cliphist", Repository: RepoTypeManual, BuildFunc: "installCliphist"},
-		"font-material-symbols":   {Name: "font-material-symbols", Repository: RepoTypeManual, BuildFunc: "installMaterialSymbolsFont"},
 	}
 
 	switch wm {
@@ -344,9 +340,6 @@ func (u *UbuntuDistribution) InstallPackages(ctx context.Context, dependencies [
 		Step:       "Configuring system...",
 		IsComplete: false,
 		LogOutput:  "Starting post-installation configuration...",
-	}
-	if err := u.postInstallConfig(ctx, wm, sudoPassword, progressChan); err != nil {
-		return fmt.Errorf("failed to configure system: %w", err)
 	}
 
 	// Phase 7: Complete

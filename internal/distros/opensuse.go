@@ -82,7 +82,6 @@ func (o *OpenSUSEDistribution) DetectDependenciesWithTerminal(ctx context.Contex
 	// Base detections (common across distros)
 	dependencies = append(dependencies, o.detectMatugen())
 	dependencies = append(dependencies, o.detectDgop())
-	dependencies = append(dependencies, o.detectFonts()...)
 	dependencies = append(dependencies, o.detectClipboardTools()...)
 
 	return dependencies, nil
@@ -137,14 +136,11 @@ func (o *OpenSUSEDistribution) GetPackageMappingWithVariants(wm deps.WindowManag
 		"xdg-desktop-portal-gtk": {Name: "xdg-desktop-portal-gtk", Repository: RepoTypeSystem},
 		"mate-polkit":            {Name: "mate-polkit", Repository: RepoTypeSystem},
 		"accountsservice":        {Name: "accountsservice", Repository: RepoTypeSystem},
-		"font-firacode":          {Name: "fira-code-fonts", Repository: RepoTypeSystem},
 		"cliphist":               {Name: "cliphist", Repository: RepoTypeSystem},
 
 		// Manual builds
 		"dms (DankMaterialShell)": {Name: "dms", Repository: RepoTypeManual, BuildFunc: "installDankMaterialShell"},
 		"dgop":                    {Name: "dgop", Repository: RepoTypeManual, BuildFunc: "installDgop"},
-		"font-material-symbols":   {Name: "font-material-symbols", Repository: RepoTypeManual, BuildFunc: "installMaterialSymbolsFont"},
-		"font-inter":              {Name: "font-inter", Repository: RepoTypeManual, BuildFunc: "installInterFont"},
 		"quickshell":              {Name: "quickshell", Repository: RepoTypeManual, BuildFunc: "installQuickshell"},
 		"matugen":                 {Name: "matugen", Repository: RepoTypeManual, BuildFunc: "installMatugen"},
 	}
@@ -334,9 +330,6 @@ func (o *OpenSUSEDistribution) InstallPackages(ctx context.Context, dependencies
 		Step:       "Configuring system...",
 		IsComplete: false,
 		LogOutput:  "Starting post-installation configuration...",
-	}
-	if err := o.postInstallConfig(ctx, wm, sudoPassword, progressChan); err != nil {
-		return fmt.Errorf("failed to configure system: %w", err)
 	}
 
 	// Phase 5: Complete

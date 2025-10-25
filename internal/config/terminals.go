@@ -2,7 +2,6 @@ package config
 
 // GhosttyConfig contains the default Ghostty configuration
 const GhosttyConfig = `# Font Configuration
-font-family = Fira Code
 font-size = 12
 
 # Window Configuration
@@ -54,7 +53,6 @@ config-file = ./config-dankcolors
 
 // KittyConfig contains the default Kitty configuration
 const KittyConfig = `# Font Configuration
-font_family Fira Code
 font_size 12.0
 
 # Window Configuration

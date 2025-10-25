@@ -78,7 +78,6 @@ func (n *NixOSDistribution) DetectDependenciesWithTerminal(ctx context.Context, 
 	// Base detections (common across distros)
 	dependencies = append(dependencies, n.detectMatugen())
 	dependencies = append(dependencies, n.detectDgop())
-	dependencies = append(dependencies, n.detectFonts()...)
 	dependencies = append(dependencies, n.detectClipboardTools()...)
 
 	return dependencies, nil
@@ -263,9 +262,6 @@ func (n *NixOSDistribution) GetPackageMapping(wm deps.WindowManager) map[string]
 		"xdg-desktop-portal-gtk":  {Name: "nixpkgs#xdg-desktop-portal-gtk", Repository: RepoTypeSystem},
 		"mate-polkit":             {Name: "nixpkgs#mate.mate-polkit", Repository: RepoTypeSystem},
 		"accountsservice":         {Name: "nixpkgs#accountsservice", Repository: RepoTypeSystem},
-		"font-material-symbols":   {Name: "nixpkgs#material-symbols", Repository: RepoTypeSystem},
-		"font-firacode":           {Name: "nixpkgs#fira-code", Repository: RepoTypeSystem},
-		"font-inter":              {Name: "nixpkgs#inter", Repository: RepoTypeSystem},
 	}
 
 	// Note: Window managers (hyprland/niri) should be installed system-wide on NixOS
@@ -349,7 +345,7 @@ func (n *NixOSDistribution) InstallPackages(ctx context.Context, dependencies []
 		IsComplete: false,
 		LogOutput:  "Starting post-installation configuration...",
 	}
-	if err := n.postInstallConfig(ctx, wm, sudoPassword, progressChan); err != nil {
+	if err := n.postInstallConfig(progressChan); err != nil {
 		return fmt.Errorf("failed to configure system: %w", err)
 	}
 
@@ -446,7 +442,7 @@ func (n *NixOSDistribution) installFlakePackages(ctx context.Context, packages [
 	return nil
 }
 
-func (n *NixOSDistribution) postInstallConfig(ctx context.Context, wm deps.WindowManager, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
+func (n *NixOSDistribution) postInstallConfig(progressChan chan<- InstallProgressMsg) error {
 	// For NixOS, DMS is installed as a flake package, so we skip both the binary installation and git clone
 	// The flake installation handles both the binary and config files correctly
 	progressChan <- InstallProgressMsg{

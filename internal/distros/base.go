@@ -21,15 +21,13 @@ const forceDMSGit = false
 
 // BaseDistribution provides common functionality for all distributions
 type BaseDistribution struct {
-	logChan      chan<- string
-	fontDetector *deps.FontDetector
+	logChan chan<- string
 }
 
 // NewBaseDistribution creates a new base distribution
 func NewBaseDistribution(logChan chan<- string) *BaseDistribution {
 	return &BaseDistribution{
-		logChan:      logChan,
-		fontDetector: deps.NewFontDetector(logChan),
+		logChan: logChan,
 	}
 }
 
@@ -194,33 +192,6 @@ func (b *BaseDistribution) detectClipboardTools() []deps.Dependency {
 			Required:    true,
 		},
 	)
-
-	return dependencies
-}
-
-func (b *BaseDistribution) detectFonts() []deps.Dependency {
-	requiredFonts := []string{
-		"material-symbols",
-		"inter",
-		"firacode",
-	}
-
-	var dependencies []deps.Dependency
-
-	for _, font := range requiredFonts {
-		found, _ := b.fontDetector.DetectFont(font)
-		status := deps.StatusMissing
-		if found {
-			status = deps.StatusInstalled
-		}
-
-		dependencies = append(dependencies, deps.Dependency{
-			Name:        "font-" + font,
-			Status:      status,
-			Description: strings.Title(font) + " font family",
-			Required:    true,
-		})
-	}
 
 	return dependencies
 }
@@ -632,11 +603,5 @@ func (b *BaseDistribution) installDMSBinary(ctx context.Context, sudoPassword st
 	}
 
 	b.log("DMS binary installed successfully")
-	return nil
-}
-
-// Post-installation configuration
-func (b *BaseDistribution) postInstallConfig(ctx context.Context, _ deps.WindowManager, sudoPassword string, progressChan chan<- InstallProgressMsg) error {
-	// DMS installation is now handled in the package installer itself
 	return nil
 }

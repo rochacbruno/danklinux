@@ -70,7 +70,6 @@ func (d *DebianDistribution) DetectDependenciesWithTerminal(ctx context.Context,
 
 	dependencies = append(dependencies, d.detectMatugen())
 	dependencies = append(dependencies, d.detectDgop())
-	dependencies = append(dependencies, d.detectFonts()...)
 	dependencies = append(dependencies, d.detectClipboardTools()...)
 
 	return dependencies, nil
@@ -147,8 +146,6 @@ func (d *DebianDistribution) GetPackageMapping(wm deps.WindowManager) map[string
 		"xdg-desktop-portal-gtk": {Name: "xdg-desktop-portal-gtk", Repository: RepoTypeSystem},
 		"mate-polkit":            {Name: "mate-polkit", Repository: RepoTypeSystem},
 		"accountsservice":        {Name: "accountsservice", Repository: RepoTypeSystem},
-		"font-firacode":          {Name: "fonts-firacode", Repository: RepoTypeSystem},
-		"font-inter":             {Name: "fonts-inter-variable", Repository: RepoTypeSystem},
 
 		"dms (DankMaterialShell)": {Name: "dms", Repository: RepoTypeManual, BuildFunc: "installDankMaterialShell"},
 		"niri":                    {Name: "niri", Repository: RepoTypeManual, BuildFunc: "installNiri"},
@@ -157,7 +154,6 @@ func (d *DebianDistribution) GetPackageMapping(wm deps.WindowManager) map[string
 		"matugen":                 {Name: "matugen", Repository: RepoTypeManual, BuildFunc: "installMatugen"},
 		"dgop":                    {Name: "dgop", Repository: RepoTypeManual, BuildFunc: "installDgop"},
 		"cliphist":                {Name: "cliphist", Repository: RepoTypeManual, BuildFunc: "installCliphist"},
-		"font-material-symbols":   {Name: "font-material-symbols", Repository: RepoTypeManual, BuildFunc: "installMaterialSymbolsFont"},
 	}
 
 	if wm == deps.WindowManagerNiri {
@@ -286,9 +282,6 @@ func (d *DebianDistribution) InstallPackages(ctx context.Context, dependencies [
 		Step:       "Configuring system...",
 		IsComplete: false,
 		LogOutput:  "Starting post-installation configuration...",
-	}
-	if err := d.postInstallConfig(ctx, wm, sudoPassword, progressChan); err != nil {
-		return fmt.Errorf("failed to configure system: %w", err)
 	}
 
 	progressChan <- InstallProgressMsg{
