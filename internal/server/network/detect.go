@@ -70,12 +70,12 @@ func DetectNetworkStack() (*DetectResult, error) {
 	case hasIwd && hasNetworkd:
 		res.Backend = BackendNetworkd
 		res.ChosenReason = "iwd + systemd-networkd detected. Using iwd for Wi-Fi association and networkd for IP/DHCP."
-	case hasNetworkd:
-		res.Backend = BackendNetworkd
-		res.ChosenReason = "systemd-networkd detected (no NM/ConnMan). Using networkd for L3 and wired."
 	case hasIwd:
 		res.Backend = BackendIwd
 		res.ChosenReason = "iwd detected without NM/ConnMan. Using iwd API."
+	case hasNetworkd:
+		res.Backend = BackendNetworkd
+		res.ChosenReason = "systemd-networkd detected (no NM/ConnMan). Using networkd for L3 and wired."
 	default:
 		res.Backend = BackendNone
 		if hasWpa {
