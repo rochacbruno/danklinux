@@ -822,7 +822,8 @@ func (b *NetworkManagerBackend) updateVPNConnectionState() {
 		if uuid == connectingVPNUUID {
 			foundConnection = true
 
-			if state == 2 {
+			switch state {
+			case 2:
 				log.Infof("[updateVPNConnectionState] VPN connection successful: %s", uuid)
 				b.stateMutex.Lock()
 				b.state.IsConnectingVPN = false
@@ -831,7 +832,7 @@ func (b *NetworkManagerBackend) updateVPNConnectionState() {
 				b.stateMutex.Unlock()
 				b.ListActiveVPN()
 				return
-			} else if state == 4 {
+			case 4:
 				log.Warnf("[updateVPNConnectionState] VPN connection failed/deactivated: %s (state=%d, flags=%d)", uuid, state, stateReason)
 				b.stateMutex.Lock()
 				b.state.IsConnectingVPN = false

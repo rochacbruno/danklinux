@@ -42,18 +42,6 @@ func (m *mockNetConn) Close() error {
 	return nil
 }
 
-func (m *mockNetConn) writeRequest(req Request) {
-	data, _ := json.Marshal(req)
-	m.readBuf.Write(data)
-	m.readBuf.WriteByte('\n')
-}
-
-func (m *mockNetConn) getResponse() (*models.Response[json.RawMessage], error) {
-	var resp models.Response[json.RawMessage]
-	err := json.NewDecoder(m.writeBuf).Decode(&resp)
-	return &resp, err
-}
-
 func mockGetAllAccountsProperties() *dbus.Call {
 	props := map[string]dbus.Variant{
 		"IconFile":      dbus.MakeVariant("/path/to/icon.png"),

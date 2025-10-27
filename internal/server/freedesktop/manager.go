@@ -196,15 +196,6 @@ func (m *Manager) getAccountProperties(ctx context.Context) (map[string]dbus.Var
 	return props, nil
 }
 
-func (m *Manager) getAccountProperty(ctx context.Context, property string) (*dbus.Variant, error) {
-	var prop dbus.Variant
-	err := m.accountsObj.CallWithContext(ctx, dbusPropsInterface+".Get", 0, dbusAccountsUserInterface, property).Store(&prop)
-	if err != nil {
-		return nil, err
-	}
-	return &prop, nil
-}
-
 func (m *Manager) GetState() FreedeskState {
 	m.stateMutex.RLock()
 	defer m.stateMutex.RUnlock()

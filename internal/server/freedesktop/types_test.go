@@ -8,20 +8,12 @@ import (
 
 func TestAccountsState_Struct(t *testing.T) {
 	state := AccountsState{
-		Available:     true,
-		UserPath:      "/org/freedesktop/Accounts/User1000",
-		IconFile:      "/var/lib/AccountsService/icons/testuser",
-		RealName:      "Test User",
-		UserName:      "testuser",
-		AccountType:   0,
-		HomeDirectory: "/home/testuser",
-		Shell:         "/bin/bash",
-		Email:         "test@example.com",
-		Language:      "en_US.UTF-8",
-		Location:      "Test Location",
-		Locked:        false,
-		PasswordMode:  1,
-		UID:           1000,
+		Available: true,
+		UserPath:  "/org/freedesktop/Accounts/User1000",
+		RealName:  "Test User",
+		UserName:  "testuser",
+		Locked:    false,
+		UID:       1000,
 	}
 
 	assert.True(t, state.Available)
