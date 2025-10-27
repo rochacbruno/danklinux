@@ -100,6 +100,10 @@ func IsUnsupportedDistro(distroID, versionID string) bool {
 	}
 
 	if distroID == "debian" {
+		if versionID == "" {
+			// debian testing/sid have no version ID
+			return false
+		}
 		versionNum, err := strconv.Atoi(versionID)
 		if err == nil {
 			return versionNum < 12
