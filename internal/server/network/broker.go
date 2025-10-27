@@ -10,6 +10,7 @@ type PromptBroker interface {
 	Ask(ctx context.Context, req PromptRequest) (token string, err error)
 	Wait(ctx context.Context, token string) (PromptReply, error)
 	Resolve(token string, reply PromptReply) error
+	Cancel(path string, setting string) error
 }
 
 func generateToken() (string, error) {

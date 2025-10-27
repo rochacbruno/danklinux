@@ -800,6 +800,7 @@ func (b *NetworkManagerBackend) updateVPNConnectionState() {
 		return
 	}
 
+	foundConnection := false
 	for _, activeConn := range activeConns {
 		connType, err := activeConn.GetPropertyType()
 		if err != nil {
@@ -815,17 +816,42 @@ func (b *NetworkManagerBackend) updateVPNConnectionState() {
 			continue
 		}
 
+		state, _ := activeConn.GetPropertyState()
+		stateReason, _ := activeConn.GetPropertyStateFlags()
+
 		if uuid == connectingVPNUUID {
-			state, _ := activeConn.GetPropertyState()
+			foundConnection = true
+
 			if state == 2 {
 				log.Infof("[updateVPNConnectionState] VPN connection successful: %s", uuid)
 				b.stateMutex.Lock()
 				b.state.IsConnectingVPN = false
 				b.state.ConnectingVPNUUID = ""
+				b.state.LastError = ""
 				b.stateMutex.Unlock()
+				b.ListActiveVPN()
+				return
+			} else if state == 4 {
+				log.Warnf("[updateVPNConnectionState] VPN connection failed/deactivated: %s (state=%d, flags=%d)", uuid, state, stateReason)
+				b.stateMutex.Lock()
+				b.state.IsConnectingVPN = false
+				b.state.ConnectingVPNUUID = ""
+				b.state.LastError = "VPN connection failed"
+				b.stateMutex.Unlock()
+				b.ListActiveVPN()
 				return
 			}
 		}
+	}
+
+	if !foundConnection {
+		log.Warnf("[updateVPNConnectionState] VPN connection no longer exists: %s", connectingVPNUUID)
+		b.stateMutex.Lock()
+		b.state.IsConnectingVPN = false
+		b.state.ConnectingVPNUUID = ""
+		b.state.LastError = "VPN connection failed"
+		b.stateMutex.Unlock()
+		b.ListActiveVPN()
 	}
 }
 
@@ -849,6 +875,33 @@ func (b *NetworkManagerBackend) ensureWiFiDevice() error {
 
 func (b *NetworkManagerBackend) updatePrimaryConnection() error {
 	nm := b.nmConn.(gonetworkmanager.NetworkManager)
+
+	activeConns, err := nm.GetPropertyActiveConnections()
+	if err != nil {
+		return err
+	}
+
+	hasActiveVPN := false
+	for _, activeConn := range activeConns {
+		connType, err := activeConn.GetPropertyType()
+		if err != nil {
+			continue
+		}
+		if connType == "vpn" || connType == "wireguard" {
+			state, _ := activeConn.GetPropertyState()
+			if state == 2 {
+				hasActiveVPN = true
+				break
+			}
+		}
+	}
+
+	if hasActiveVPN {
+		b.stateMutex.Lock()
+		b.state.NetworkStatus = StatusVPN
+		b.stateMutex.Unlock()
+		return nil
+	}
 
 	primaryConn, err := nm.GetPropertyPrimaryConnection()
 	if err != nil {
@@ -1550,6 +1603,43 @@ func (b *NetworkManagerBackend) startSignalPump() error {
 		return err
 	}
 
+	// Subscribe to Settings signals for connection add/remove
+	// Signal names are "NewConnection" and "ConnectionRemoved"
+	if err := conn.AddMatchSignal(
+		dbus.WithMatchObjectPath(dbus.ObjectPath("/org/freedesktop/NetworkManager/Settings")),
+		dbus.WithMatchInterface("org.freedesktop.NetworkManager.Settings"),
+		dbus.WithMatchMember("NewConnection"),
+	); err != nil {
+		_ = conn.RemoveMatchSignal(
+			dbus.WithMatchObjectPath(dbus.ObjectPath(dbusNMPath)),
+			dbus.WithMatchInterface(dbusPropsInterface),
+			dbus.WithMatchMember("PropertiesChanged"),
+		)
+		conn.RemoveSignal(signals)
+		conn.Close()
+		return err
+	}
+
+	if err := conn.AddMatchSignal(
+		dbus.WithMatchObjectPath(dbus.ObjectPath("/org/freedesktop/NetworkManager/Settings")),
+		dbus.WithMatchInterface("org.freedesktop.NetworkManager.Settings"),
+		dbus.WithMatchMember("ConnectionRemoved"),
+	); err != nil {
+		_ = conn.RemoveMatchSignal(
+			dbus.WithMatchObjectPath(dbus.ObjectPath(dbusNMPath)),
+			dbus.WithMatchInterface(dbusPropsInterface),
+			dbus.WithMatchMember("PropertiesChanged"),
+		)
+		_ = conn.RemoveMatchSignal(
+			dbus.WithMatchObjectPath(dbus.ObjectPath("/org/freedesktop/NetworkManager/Settings")),
+			dbus.WithMatchInterface("org.freedesktop.NetworkManager.Settings"),
+			dbus.WithMatchMember("NewConnection"),
+		)
+		conn.RemoveSignal(signals)
+		conn.Close()
+		return err
+	}
+
 	if b.wifiDevice != nil {
 		dev := b.wifiDevice.(gonetworkmanager.Device)
 		if err := conn.AddMatchSignal(
@@ -1608,6 +1698,10 @@ func (b *NetworkManagerBackend) startSignalPump() error {
 				if sig == nil {
 					continue
 				}
+				// Debug: log all signal names to find Settings signals
+				if strings.Contains(string(sig.Name), "Settings") {
+					log.Infof("[Signal Debug] Received signal: %s from %s path=%s", sig.Name, sig.Sender, sig.Path)
+				}
 				b.handleDBusSignal(sig)
 			}
 		}
@@ -1655,6 +1749,18 @@ func (b *NetworkManagerBackend) stopSignalPump() {
 }
 
 func (b *NetworkManagerBackend) handleDBusSignal(sig *dbus.Signal) {
+	// Handle Settings signals (NewConnection/ConnectionRemoved) which have different format
+	if sig.Name == "org.freedesktop.NetworkManager.Settings.NewConnection" ||
+		sig.Name == "org.freedesktop.NetworkManager.Settings.ConnectionRemoved" {
+		log.Infof("[handleDBusSignal] Connection profile changed: %s", sig.Name)
+		// Refresh VPN profiles list
+		b.ListVPNProfiles()
+		if b.onStateChange != nil {
+			b.onStateChange()
+		}
+		return
+	}
+
 	if len(sig.Body) < 2 {
 		return
 	}
@@ -1854,6 +1960,10 @@ func (b *NetworkManagerBackend) ListVPNProfiles() ([]VPNProfile, error) {
 		profiles = append(profiles, profile)
 	}
 
+	sort.Slice(profiles, func(i, j int) bool {
+		return strings.ToLower(profiles[i].Name) < strings.ToLower(profiles[j].Name)
+	})
+
 	b.stateMutex.Lock()
 	b.state.VPNProfiles = profiles
 	b.stateMutex.Unlock()
@@ -1932,8 +2042,28 @@ func (b *NetworkManagerBackend) ListActiveVPN() ([]VPNActive, error) {
 
 func (b *NetworkManagerBackend) ConnectVPN(uuidOrName string, singleActive bool) error {
 	if singleActive {
-		if err := b.DisconnectAllVPN(); err != nil {
-			log.Warnf("Failed to disconnect existing VPNs: %v", err)
+		active, err := b.ListActiveVPN()
+		if err == nil && len(active) > 0 {
+			// If we're already connected to the requested VPN, nothing to do
+			alreadyConnected := false
+			for _, vpn := range active {
+				if vpn.UUID == uuidOrName || vpn.Name == uuidOrName {
+					alreadyConnected = true
+					break
+				}
+			}
+
+			// If requesting a different VPN, disconnect all others first
+			if !alreadyConnected {
+				if err := b.DisconnectAllVPN(); err != nil {
+					log.Warnf("Failed to disconnect existing VPNs: %v", err)
+				}
+				// Give NetworkManager a moment to process the disconnect
+				time.Sleep(500 * time.Millisecond)
+			} else {
+				// Already connected to this VPN, nothing to do
+				return nil
+			}
 		}
 	}
 
@@ -2005,7 +2135,7 @@ func (b *NetworkManagerBackend) ConnectVPN(uuidOrName string, singleActive bool)
 	}
 
 	nm := b.nmConn.(gonetworkmanager.NetworkManager)
-	_, err = nm.ActivateConnection(targetConn, nil, nil)
+	activeConn, err := nm.ActivateConnection(targetConn, nil, nil)
 	if err != nil {
 		b.stateMutex.Lock()
 		b.state.IsConnectingVPN = false
@@ -2017,6 +2147,20 @@ func (b *NetworkManagerBackend) ConnectVPN(uuidOrName string, singleActive bool)
 		}
 
 		return fmt.Errorf("failed to activate VPN: %w", err)
+	}
+
+	if activeConn != nil {
+		state, _ := activeConn.GetPropertyState()
+		if state == 2 {
+			b.stateMutex.Lock()
+			b.state.IsConnectingVPN = false
+			b.state.ConnectingVPNUUID = ""
+			b.stateMutex.Unlock()
+			b.ListActiveVPN()
+			if b.onStateChange != nil {
+				b.onStateChange()
+			}
+		}
 	}
 
 	return nil
@@ -2052,6 +2196,10 @@ func (b *NetworkManagerBackend) DisconnectVPN(uuidOrName string) error {
 			log.Infof("[DisconnectVPN] Deactivating VPN: %s (state=%d)", id, state)
 			if err := nm.DeactivateConnection(activeConn); err != nil {
 				return fmt.Errorf("failed to deactivate VPN: %w", err)
+			}
+			b.ListActiveVPN()
+			if b.onStateChange != nil {
+				b.onStateChange()
 			}
 			return nil
 		}
@@ -2112,6 +2260,7 @@ func (b *NetworkManagerBackend) DisconnectAllVPN() error {
 	}
 
 	var lastErr error
+	var disconnected bool
 	for _, activeConn := range activeConns {
 		connType, err := activeConn.GetPropertyType()
 		if err != nil {
@@ -2125,6 +2274,15 @@ func (b *NetworkManagerBackend) DisconnectAllVPN() error {
 		if err := nm.DeactivateConnection(activeConn); err != nil {
 			lastErr = err
 			log.Warnf("Failed to deactivate VPN connection: %v", err)
+		} else {
+			disconnected = true
+		}
+	}
+
+	if disconnected {
+		b.ListActiveVPN()
+		if b.onStateChange != nil {
+			b.onStateChange()
 		}
 	}
 

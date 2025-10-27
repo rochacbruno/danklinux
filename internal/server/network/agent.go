@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/AvengeMedia/danklinux/internal/errdefs"
@@ -20,12 +21,20 @@ const (
 )
 
 type SecretAgent struct {
-	conn    *dbus.Conn
-	objPath dbus.ObjectPath
-	id      string
-	prompts PromptBroker
-	manager *Manager
-	backend *NetworkManagerBackend
+	conn           *dbus.Conn
+	objPath        dbus.ObjectPath
+	id             string
+	prompts        PromptBroker
+	manager        *Manager
+	backend        *NetworkManagerBackend
+	pendingSaves   map[string]pendingSave // key: connection path
+	pendingSavesMu sync.RWMutex
+}
+
+type pendingSave struct {
+	settingName string
+	secrets     map[string]string
+	save        bool
 }
 
 type nmVariantMap map[string]dbus.Variant
@@ -41,10 +50,6 @@ const introspectXML = `
 			<arg type="as" name="hints" direction="in"/>
 			<arg type="u" name="flags" direction="in"/>
 			<arg type="a{sa{sv}}" name="secrets" direction="out"/>
-		</method>
-		<method name="SaveSecrets">
-			<arg type="a{sa{sv}}" name="connection" direction="in"/>
-			<arg type="o" name="connection_path" direction="in"/>
 		</method>
 		<method name="DeleteSecrets">
 			<arg type="a{sa{sv}}" name="connection" direction="in"/>
@@ -73,12 +78,13 @@ func NewSecretAgent(prompts PromptBroker, manager *Manager, backend *NetworkMana
 	}
 
 	sa := &SecretAgent{
-		conn:    c,
-		objPath: dbus.ObjectPath(agentObjectPath),
-		id:      agentIdentifier,
-		prompts: prompts,
-		manager: manager,
-		backend: backend,
+		conn:         c,
+		objPath:      dbus.ObjectPath(agentObjectPath),
+		id:           agentIdentifier,
+		prompts:      prompts,
+		manager:      manager,
+		pendingSaves: make(map[string]pendingSave),
+		backend:      backend,
 	}
 
 	if err := c.Export(sa, sa.objPath, nmSecretAgentIface); err != nil {
@@ -142,8 +148,9 @@ func (a *SecretAgent) GetSecrets(
 
 		switch connType {
 		case "802-11-wireless":
-			if !isConnecting || connectingSSID != ssid {
-				log.Infof("[SecretAgent] Ignoring request for SSID '%s' - not initiated by us (connecting=%v, our_ssid='%s')", ssid, isConnecting, connectingSSID)
+			// If we're connecting to a WiFi network, only respond if it's the one we're connecting to
+			if isConnecting && connectingSSID != ssid {
+				log.Infof("[SecretAgent] Ignoring WiFi request for SSID '%s' - we're connecting to '%s'", ssid, connectingSSID)
 				return nil, dbus.NewError("org.freedesktop.NetworkManager.SecretAgent.Error.NoSecrets", nil)
 			}
 		case "vpn", "wireguard":
@@ -156,8 +163,10 @@ func (a *SecretAgent) GetSecrets(
 				}
 			}
 
-			if !isConnectingVPN || connUuid != connectingVPNUUID {
-				log.Infof("[SecretAgent] Ignoring VPN request for UUID '%s' - not initiated by us (connecting=%v, our_uuid='%s')", connUuid, isConnectingVPN, connectingVPNUUID)
+			// If we're connecting to a VPN, only respond if it's the one we're connecting to
+			// This prevents interfering with nmcli/other tools when our app isn't connecting
+			if isConnectingVPN && connUuid != connectingVPNUUID {
+				log.Infof("[SecretAgent] Ignoring VPN request for UUID '%s' - we're connecting to '%s'", connUuid, connectingVPNUUID)
 				return nil, dbus.NewError("org.freedesktop.NetworkManager.SecretAgent.Error.NoSecrets", nil)
 			}
 		}
@@ -284,6 +293,7 @@ func (a *SecretAgent) GetSecrets(
 		Reason:         reason,
 		ConnectionId:   connId,
 		ConnectionUuid: connUuid,
+		ConnectionPath: string(path),
 	})
 	if err != nil {
 		log.Warnf("[SecretAgent] Failed to create prompt: %v", err)
@@ -294,14 +304,18 @@ func (a *SecretAgent) GetSecrets(
 	reply, err := a.prompts.Wait(ctx, token)
 	if err != nil {
 		log.Warnf("[SecretAgent] Prompt failed or cancelled: %v", err)
-		if errors.Is(err, errdefs.ErrSecretPromptTimeout) {
-			return nil, dbus.NewError("org.freedesktop.NetworkManager.SecretAgent.Error.Failed", nil)
-		}
+
 		if reply.Cancel || errors.Is(err, errdefs.ErrSecretPromptCancelled) {
 			return nil, dbus.NewError("org.freedesktop.NetworkManager.SecretAgent.Error.UserCanceled", nil)
 		}
+
+		if errors.Is(err, errdefs.ErrSecretPromptTimeout) {
+			return nil, dbus.NewError("org.freedesktop.NetworkManager.SecretAgent.Error.Failed", nil)
+		}
 		return nil, dbus.NewError("org.freedesktop.NetworkManager.SecretAgent.Error.Failed", nil)
 	}
+
+	log.Infof("[SecretAgent] User provided secrets, save=%v", reply.Save)
 
 	out := nmSettingMap{}
 	sec := nmVariantMap{}
@@ -316,12 +330,114 @@ func (a *SecretAgent) GetSecrets(
 	case "vpn":
 		log.Infof("[SecretAgent] Returning VPN secrets with %d fields for %s", len(sec), vpnSvc)
 	}
-	return out, nil
-}
 
-func (a *SecretAgent) SaveSecrets(conn map[string]nmVariantMap, path dbus.ObjectPath) *dbus.Error {
-	log.Infof("[SecretAgent] SaveSecrets called: path=%s (handled in GetSecrets)", path)
-	return nil
+	// If save=true, persist secrets in background after returning to NetworkManager
+	// This MUST happen after we return secrets, in a goroutine
+	if reply.Save {
+		go func() {
+			log.Infof("[SecretAgent] Persisting secrets with Update2: path=%s, setting=%s", path, settingName)
+
+			// Get existing connection settings
+			connObj := a.conn.Object("org.freedesktop.NetworkManager", path)
+			var existingSettings map[string]map[string]dbus.Variant
+			if err := connObj.Call("org.freedesktop.NetworkManager.Settings.Connection.GetSettings", 0).Store(&existingSettings); err != nil {
+				log.Warnf("[SecretAgent] GetSettings failed: %v", err)
+				return
+			}
+
+			// Build minimal settings with ONLY the section we're updating
+			// This avoids D-Bus type serialization issues with complex types like IPv6 addresses
+			settings := make(map[string]map[string]dbus.Variant)
+
+			// Copy connection section (required for Update2)
+			if connSection, ok := existingSettings["connection"]; ok {
+				settings["connection"] = connSection
+			}
+
+			// Update settings based on type
+			switch settingName {
+			case "vpn":
+				// Set password-flags=0 and add secrets to vpn section
+				vpn, ok := existingSettings["vpn"]
+				if !ok {
+					vpn = make(map[string]dbus.Variant)
+				}
+
+				// Get existing data map (vpn.data is string->string)
+				var data map[string]string
+				if dataVariant, ok := vpn["data"]; ok {
+					if dm, ok := dataVariant.Value().(map[string]string); ok {
+						data = make(map[string]string)
+						for k, v := range dm {
+							data[k] = v
+						}
+					} else {
+						data = make(map[string]string)
+					}
+				} else {
+					data = make(map[string]string)
+				}
+
+				// Update password-flags to 0 (system-stored)
+				data["password-flags"] = "0"
+				vpn["data"] = dbus.MakeVariant(data)
+
+				// Add secrets (vpn.secrets is string->string)
+				secs := make(map[string]string)
+				for k, v := range reply.Secrets {
+					secs[k] = v
+				}
+				vpn["secrets"] = dbus.MakeVariant(secs)
+				settings["vpn"] = vpn
+
+				log.Infof("[SecretAgent] Updated VPN settings: password-flags=0, secrets with %d fields", len(secs))
+
+			case "802-11-wireless-security":
+				// Set psk-flags=0 for WiFi
+				wifiSec, ok := existingSettings["802-11-wireless-security"]
+				if !ok {
+					wifiSec = make(map[string]dbus.Variant)
+				}
+				wifiSec["psk-flags"] = dbus.MakeVariant(uint32(0))
+
+				// Add PSK secret
+				if psk, ok := reply.Secrets["psk"]; ok {
+					wifiSec["psk"] = dbus.MakeVariant(psk)
+					log.Infof("[SecretAgent] Updated WiFi settings: psk-flags=0")
+				}
+				settings["802-11-wireless-security"] = wifiSec
+
+			case "802-1x":
+				// Set password-flags=0 for 802.1x
+				dot1x, ok := existingSettings["802-1x"]
+				if !ok {
+					dot1x = make(map[string]dbus.Variant)
+				}
+				dot1x["password-flags"] = dbus.MakeVariant(uint32(0))
+
+				// Add password secret
+				if password, ok := reply.Secrets["password"]; ok {
+					dot1x["password"] = dbus.MakeVariant(password)
+					log.Infof("[SecretAgent] Updated 802.1x settings: password-flags=0")
+				}
+				settings["802-1x"] = dot1x
+			}
+
+			// Call Update2 with correct signature:
+			// Update2(IN settings, IN flags, IN args) -> OUT result
+			// flags: 0x1 = to-disk
+			var result map[string]dbus.Variant
+			err := connObj.Call("org.freedesktop.NetworkManager.Settings.Connection.Update2", 0,
+				settings, uint32(0x1), map[string]dbus.Variant{}).Store(&result)
+			if err != nil {
+				log.Warnf("[SecretAgent] Update2(to-disk) failed: %v", err)
+			} else {
+				log.Infof("[SecretAgent] Successfully persisted secrets to disk for %s", settingName)
+			}
+		}()
+	}
+
+	return out, nil
 }
 
 func (a *SecretAgent) DeleteSecrets(conn map[string]nmVariantMap, path dbus.ObjectPath) *dbus.Error {
@@ -337,6 +453,13 @@ func (a *SecretAgent) DeleteSecrets2(path dbus.ObjectPath, setting string) *dbus
 
 func (a *SecretAgent) CancelGetSecrets(path dbus.ObjectPath, settingName string) *dbus.Error {
 	log.Infof("[SecretAgent] CancelGetSecrets called: path=%s, setting=%s", path, settingName)
+
+	if a.prompts != nil {
+		if err := a.prompts.Cancel(string(path), settingName); err != nil {
+			log.Warnf("[SecretAgent] Failed to cancel prompt: %v", err)
+		}
+	}
+
 	return nil
 }
 

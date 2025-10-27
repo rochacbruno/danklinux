@@ -97,7 +97,7 @@ func handleCredentialsSubmit(conn net.Conn, req Request, manager *Manager) {
 		}
 	}
 
-	save := false
+	save := true
 	if saveParam, ok := req.Params["save"].(bool); ok {
 		save = saveParam
 	}
@@ -390,7 +390,8 @@ func handleConnectVPN(conn net.Conn, req Request, manager *Manager) {
 		}
 	}
 
-	singleActive := false
+	// Default to true - only allow one VPN connection at a time
+	singleActive := true
 	if sa, ok := req.Params["singleActive"].(bool); ok {
 		singleActive = sa
 	}

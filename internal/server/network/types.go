@@ -144,6 +144,7 @@ type PromptRequest struct {
 	Reason         string   `json:"reason"`
 	ConnectionId   string   `json:"connectionId"`
 	ConnectionUuid string   `json:"connectionUuid"`
+	ConnectionPath string   `json:"connectionPath"`
 }
 
 type PromptReply struct {
