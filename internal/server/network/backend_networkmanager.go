@@ -830,7 +830,6 @@ func (b *NetworkManagerBackend) updateVPNConnectionState() {
 				b.state.ConnectingVPNUUID = ""
 				b.state.LastError = ""
 				b.stateMutex.Unlock()
-				b.ListActiveVPN()
 				return
 			case 4:
 				log.Warnf("[updateVPNConnectionState] VPN connection failed/deactivated: %s (state=%d, flags=%d)", uuid, state, stateReason)
@@ -839,7 +838,6 @@ func (b *NetworkManagerBackend) updateVPNConnectionState() {
 				b.state.ConnectingVPNUUID = ""
 				b.state.LastError = "VPN connection failed"
 				b.stateMutex.Unlock()
-				b.ListActiveVPN()
 				return
 			}
 		}
@@ -852,7 +850,6 @@ func (b *NetworkManagerBackend) updateVPNConnectionState() {
 		b.state.ConnectingVPNUUID = ""
 		b.state.LastError = "VPN connection failed"
 		b.stateMutex.Unlock()
-		b.ListActiveVPN()
 	}
 }
 
@@ -1699,10 +1696,6 @@ func (b *NetworkManagerBackend) startSignalPump() error {
 				if sig == nil {
 					continue
 				}
-				// Debug: log all signal names to find Settings signals
-				if strings.Contains(string(sig.Name), "Settings") {
-					log.Infof("[Signal Debug] Received signal: %s from %s path=%s", sig.Name, sig.Sender, sig.Path)
-				}
 				b.handleDBusSignal(sig)
 			}
 		}
@@ -1753,7 +1746,6 @@ func (b *NetworkManagerBackend) handleDBusSignal(sig *dbus.Signal) {
 	// Handle Settings signals (NewConnection/ConnectionRemoved) which have different format
 	if sig.Name == "org.freedesktop.NetworkManager.Settings.NewConnection" ||
 		sig.Name == "org.freedesktop.NetworkManager.Settings.ConnectionRemoved" {
-		log.Infof("[handleDBusSignal] Connection profile changed: %s", sig.Name)
 		// Refresh VPN profiles list
 		b.ListVPNProfiles()
 		if b.onStateChange != nil {

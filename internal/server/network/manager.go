@@ -236,6 +236,28 @@ func stateChangedMeaningfully(old, new *NetworkState) bool {
 		}
 	}
 
+	// Check VPN profiles count
+	if len(old.VPNProfiles) != len(new.VPNProfiles) {
+		return true
+	}
+
+	// Check active VPN connections count or state
+	if len(old.VPNActive) != len(new.VPNActive) {
+		return true
+	}
+
+	// Check if any active VPN changed
+	for i := range old.VPNActive {
+		oldVPN := &old.VPNActive[i]
+		newVPN := &new.VPNActive[i]
+		if oldVPN.UUID != newVPN.UUID {
+			return true
+		}
+		if oldVPN.State != newVPN.State {
+			return true
+		}
+	}
+
 	return false
 }
 
