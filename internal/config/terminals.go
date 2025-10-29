@@ -47,6 +47,9 @@ shell-integration = detect
 shell-integration-features = cursor,sudo,title,no-cursor
 keybind = shift+enter=text:\n
 
+# Rando stuff
+gtk-single-instance = true
+
 # Dank color generation
 config-file = ./config-dankcolors
 `

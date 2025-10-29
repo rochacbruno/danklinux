@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/AvengeMedia/danklinux/internal/server/bluez"
+	"github.com/AvengeMedia/danklinux/internal/server/dwl"
 	"github.com/AvengeMedia/danklinux/internal/server/freedesktop"
 	"github.com/AvengeMedia/danklinux/internal/server/loginctl"
 	"github.com/AvengeMedia/danklinux/internal/server/models"
@@ -87,6 +88,20 @@ func RouteRequest(conn net.Conn, req models.Request) {
 			Params: req.Params,
 		}
 		bluez.HandleRequest(conn, bluezReq, bluezManager)
+		return
+	}
+
+	if strings.HasPrefix(req.Method, "dwl.") {
+		if dwlManager == nil {
+			models.RespondError(conn, req.ID, "dwl manager not initialized")
+			return
+		}
+		dwlReq := dwl.Request{
+			ID:     req.ID,
+			Method: req.Method,
+			Params: req.Params,
+		}
+		dwl.HandleRequest(conn, dwlReq, dwlManager)
 		return
 	}
 

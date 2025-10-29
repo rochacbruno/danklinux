@@ -14,6 +14,7 @@ import (
 
 	"github.com/AvengeMedia/danklinux/internal/log"
 	"github.com/AvengeMedia/danklinux/internal/server/bluez"
+	"github.com/AvengeMedia/danklinux/internal/server/dwl"
 	"github.com/AvengeMedia/danklinux/internal/server/freedesktop"
 	"github.com/AvengeMedia/danklinux/internal/server/loginctl"
 	"github.com/AvengeMedia/danklinux/internal/server/models"
@@ -21,7 +22,7 @@ import (
 	"github.com/AvengeMedia/danklinux/internal/server/wayland"
 )
 
-const APIVersion = 11
+const APIVersion = 12
 
 type Capabilities struct {
 	Capabilities []string `json:"capabilities"`
@@ -42,6 +43,7 @@ var loginctlManager *loginctl.Manager
 var freedesktopManager *freedesktop.Manager
 var waylandManager *wayland.Manager
 var bluezManager *bluez.Manager
+var dwlManager *dwl.Manager
 
 func getSocketDir() string {
 	if runtime := os.Getenv("XDG_RUNTIME_DIR"); runtime != "" {
@@ -165,6 +167,20 @@ func InitializeBluezManager() error {
 	return nil
 }
 
+func InitializeDwlManager() error {
+	log.Info("Attempting to initialize DWL IPC...")
+	manager, err := dwl.NewManager()
+	if err != nil {
+		log.Errorf("Failed to initialize dwl manager: %v", err)
+		return err
+	}
+
+	dwlManager = manager
+
+	log.Info("DWL IPC initialized successfully")
+	return nil
+}
+
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
 
@@ -211,6 +227,10 @@ func getCapabilities() Capabilities {
 		caps = append(caps, "bluetooth")
 	}
 
+	if dwlManager != nil {
+		caps = append(caps, "dwl")
+	}
+
 	return Capabilities{Capabilities: caps}
 }
 
@@ -235,6 +255,10 @@ func getServerInfo() ServerInfo {
 
 	if bluezManager != nil {
 		caps = append(caps, "bluetooth")
+	}
+
+	if dwlManager != nil {
+		caps = append(caps, "dwl")
 	}
 
 	return ServerInfo{
@@ -461,6 +485,38 @@ func handleSubscribe(conn net.Conn, req models.Request) {
 		}()
 	}
 
+	if shouldSubscribe("dwl") && dwlManager != nil {
+		wg.Add(1)
+		dwlChan := dwlManager.Subscribe(clientID + "-dwl")
+		go func() {
+			defer wg.Done()
+			defer dwlManager.Unsubscribe(clientID + "-dwl")
+
+			initialState := dwlManager.GetState()
+			select {
+			case eventChan <- ServiceEvent{Service: "dwl", Data: initialState}:
+			case <-stopChan:
+				return
+			}
+
+			for {
+				select {
+				case state, ok := <-dwlChan:
+					if !ok {
+						return
+					}
+					select {
+					case eventChan <- ServiceEvent{Service: "dwl", Data: state}:
+					case <-stopChan:
+						return
+					}
+				case <-stopChan:
+					return
+				}
+			}
+		}()
+	}
+
 	go func() {
 		wg.Wait()
 		close(eventChan)
@@ -501,6 +557,9 @@ func cleanupManagers() {
 	}
 	if bluezManager != nil {
 		bluezManager.Close()
+	}
+	if dwlManager != nil {
+		dwlManager.Close()
 	}
 }
 
@@ -544,6 +603,10 @@ func Start(printDocs bool) error {
 			log.Warnf("Bluez manager unavailable: %v", err)
 		}
 	}()
+
+	if err := InitializeDwlManager(); err != nil {
+		log.Warnf("DWL manager unavailable: %v", err)
+	}
 
 	log.Infof("DMS API Server listening on: %s", socketPath)
 	log.Info("Protocol: JSON over Unix socket")
@@ -628,6 +691,12 @@ func Start(printDocs bool) error {
 		log.Info(" bluetooth.pairing.submit              - Submit pairing response (params: token, secrets?, accept?)")
 		log.Info(" bluetooth.pairing.cancel              - Cancel pairing prompt (params: token)")
 		log.Info(" bluetooth.subscribe                   - Subscribe to bluetooth state changes (streaming)")
+		log.Info("DWL:")
+		log.Info(" dwl.getState                          - Get current dwl state (tags, windows, layouts)")
+		log.Info(" dwl.setTags                           - Set active tags (params: output, tagmask, toggleTagset)")
+		log.Info(" dwl.setClientTags                     - Set focused client tags (params: output, andTags, xorTags)")
+		log.Info(" dwl.setLayout                         - Set layout (params: output, index)")
+		log.Info(" dwl.subscribe                         - Subscribe to dwl state changes (streaming)")
 	}
 
 	for {
