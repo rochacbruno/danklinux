@@ -173,90 +173,57 @@ func (a *SecretAgent) GetSecrets(
 	}
 
 	if len(fields) == 0 {
-		allowInteraction := flags&NM_SECRET_AGENT_GET_SECRETS_FLAG_ALLOW_INTERACTION != 0
-		userRequested := flags&NM_SECRET_AGENT_GET_SECRETS_FLAG_USER_REQUESTED != 0
+		// For VPN connections with no hints, we can't provide a proper UI.
+		// Defer to other agents (like nm-applet or VPN-specific auth dialogs)
+		// that can handle the VPN type properly (e.g., OpenConnect with SAML, etc.)
+		if settingName == "vpn" {
+			log.Infof("[SecretAgent] VPN with empty hints - deferring to other agents for %s", vpnSvc)
+			return nil, dbus.NewError("org.freedesktop.NetworkManager.SecretAgent.Error.NoSecrets", nil)
+		}
 
-		if settingName == "vpn" && (allowInteraction || userRequested) {
-			log.Infof("[SecretAgent] VPN with empty hints but interaction allowed/requested - using fallback fields")
-			fields = []string{"password"}
+		const (
+			NM_SETTING_SECRET_FLAG_NONE         = 0
+			NM_SETTING_SECRET_FLAG_AGENT_OWNED  = 1
+			NM_SETTING_SECRET_FLAG_NOT_SAVED    = 2
+			NM_SETTING_SECRET_FLAG_NOT_REQUIRED = 4
+		)
+
+		var passwordFlags uint32 = 0xFFFF
+		switch settingName {
+		case "802-11-wireless-security":
+			if wifiSecSettings, ok := conn["802-11-wireless-security"]; ok {
+				if flagsVariant, ok := wifiSecSettings["psk-flags"]; ok {
+					if pwdFlags, ok := flagsVariant.Value().(uint32); ok {
+						passwordFlags = pwdFlags
+					}
+				}
+			}
+		case "802-1x":
+			if dot1xSettings, ok := conn["802-1x"]; ok {
+				if flagsVariant, ok := dot1xSettings["password-flags"]; ok {
+					if pwdFlags, ok := flagsVariant.Value().(uint32); ok {
+						passwordFlags = pwdFlags
+					}
+				}
+			}
+		}
+
+		if passwordFlags == 0xFFFF {
+			log.Warnf("[SecretAgent] Could not determine password-flags for empty hints - returning NoSecrets error")
+			return nil, dbus.NewError("org.freedesktop.NetworkManager.SecretAgent.Error.NoSecrets", nil)
+		} else if passwordFlags&NM_SETTING_SECRET_FLAG_NOT_REQUIRED != 0 {
+			log.Infof("[SecretAgent] Secrets not required (flags=%d)", passwordFlags)
+			out := nmSettingMap{}
+			out[settingName] = nmVariantMap{}
+			return out, nil
+		} else if passwordFlags&NM_SETTING_SECRET_FLAG_AGENT_OWNED != 0 {
+			log.Warnf("[SecretAgent] Secrets are agent-owned but we don't store secrets (flags=%d) - returning NoSecrets error", passwordFlags)
+			return nil, dbus.NewError("org.freedesktop.NetworkManager.SecretAgent.Error.NoSecrets", nil)
 		} else {
-			const (
-				NM_SETTING_SECRET_FLAG_NONE         = 0
-				NM_SETTING_SECRET_FLAG_AGENT_OWNED  = 1
-				NM_SETTING_SECRET_FLAG_NOT_SAVED    = 2
-				NM_SETTING_SECRET_FLAG_NOT_REQUIRED = 4
-			)
-
-			var passwordFlags uint32 = 0xFFFF
-			switch settingName {
-			case "vpn":
-				if vpnSettings, ok := conn["vpn"]; ok {
-					if flagsVariant, ok := vpnSettings["password-flags"]; ok {
-						if pwdFlags, ok := flagsVariant.Value().(uint32); ok {
-							passwordFlags = pwdFlags
-							log.Infof("[SecretAgent] Parsed VPN password-flags directly: %d", passwordFlags)
-						}
-					}
-
-					if passwordFlags == 0xFFFF {
-						if dataVariant, ok := vpnSettings["data"]; ok {
-							dataValue := dataVariant.Value()
-							log.Debugf("[SecretAgent] vpn.data type: %T", dataValue)
-							if dataMap, ok := dataValue.(map[string]string); ok {
-								if flagsStr, ok := dataMap["password-flags"]; ok {
-									var flagsInt int
-									if _, err := fmt.Sscanf(flagsStr, "%d", &flagsInt); err == nil {
-										passwordFlags = uint32(flagsInt)
-										log.Infof("[SecretAgent] Parsed VPN password-flags from data: %d", passwordFlags)
-									} else {
-										log.Warnf("[SecretAgent] Failed to parse password-flags '%s': %v", flagsStr, err)
-									}
-								} else {
-									log.Warnf("[SecretAgent] No password-flags in vpn.data map")
-								}
-							} else {
-								log.Warnf("[SecretAgent] vpn.data is not map[string]string")
-							}
-						} else {
-							log.Warnf("[SecretAgent] No vpn.data field")
-						}
-					}
-				}
-			case "802-11-wireless-security":
-				if wifiSecSettings, ok := conn["802-11-wireless-security"]; ok {
-					if flagsVariant, ok := wifiSecSettings["psk-flags"]; ok {
-						if pwdFlags, ok := flagsVariant.Value().(uint32); ok {
-							passwordFlags = pwdFlags
-						}
-					}
-				}
-			case "802-1x":
-				if dot1xSettings, ok := conn["802-1x"]; ok {
-					if flagsVariant, ok := dot1xSettings["password-flags"]; ok {
-						if pwdFlags, ok := flagsVariant.Value().(uint32); ok {
-							passwordFlags = pwdFlags
-						}
-					}
-				}
-			}
-
-			if passwordFlags == 0xFFFF {
-				log.Warnf("[SecretAgent] Could not determine password-flags for empty hints - returning NoSecrets error")
-				return nil, dbus.NewError("org.freedesktop.NetworkManager.SecretAgent.Error.NoSecrets", nil)
-			} else if passwordFlags&NM_SETTING_SECRET_FLAG_NOT_REQUIRED != 0 {
-				log.Infof("[SecretAgent] Secrets not required (flags=%d)", passwordFlags)
-				out := nmSettingMap{}
-				out[settingName] = nmVariantMap{}
-				return out, nil
-			} else if passwordFlags&NM_SETTING_SECRET_FLAG_AGENT_OWNED != 0 {
-				log.Warnf("[SecretAgent] Secrets are agent-owned but we don't store secrets (flags=%d) - returning NoSecrets error", passwordFlags)
-				return nil, dbus.NewError("org.freedesktop.NetworkManager.SecretAgent.Error.NoSecrets", nil)
-			} else {
-				log.Infof("[SecretAgent] No secrets needed, using system stored secrets (flags=%d)", passwordFlags)
-				out := nmSettingMap{}
-				out[settingName] = nmVariantMap{}
-				return out, nil
-			}
+			log.Infof("[SecretAgent] No secrets needed, using system stored secrets (flags=%d)", passwordFlags)
+			out := nmSettingMap{}
+			out[settingName] = nmVariantMap{}
+			return out, nil
 		}
 	}
 
