@@ -11,7 +11,9 @@ A monorepo for dankinstall and dms (cli+go backend), a modern desktop suite for 
 - **dms** DankMaterialShell (cli + go backend)
   - The backend side of dms, provides APIs for the desktop and a management CLI.
   - Shared dbus connection for networking (NetworkManager, iwd), loginctl, accountsservice, and other interfaces.
-  - Implements various wayland protocols (such as gamma control)
+  - Implements wayland protocols
+    - wlr-gamma-control-unstable-v1 (for night mode/gamma control)
+    - dwl-ipc-unstable-v2 (for dwl/MangoWC integration)
   - Exposes a json API over unix socket for interaction with these interfaces
   - Provides plugin management APIs for the shell
   - Optionally provides `update` interface - depending on build inputs.
@@ -39,6 +41,8 @@ A part of the DankMaterialShell, that is provided by this repository. It is writ
 - **wayland**
   - Implements [wlr-gamma-control-unstable-v1](https://wayland.app/protocols/wlr-gamma-control-unstable-v1)
     - Essentially, provides auto or manual gamma control similar to a tool like [gammastep](https://gitlab.com/chinstrap/gammastep) or [wlsunset](https://github.com/kennylevinsen/wlsunset)
+  - Implements dwl-ipc-unstable-v2
+    - For dwl (tested with MangoWC) integration
 
 *run `dms debug-srv` to run the socket service in standalone mode, and see a list of available APIs*
 

@@ -116,15 +116,36 @@ func (m *Manager) setupRegistry() error {
 		case "wl_output":
 			log.Debugf("DWL: found wl_output (name=%d)", e.Name)
 			output := wlclient.NewOutput(ctx)
+
+			outState := &outputState{
+				registryName: e.Name,
+				output:       output,
+				tags:         make([]TagState, 0),
+			}
+
+			output.SetNameHandler(func(ev wlclient.OutputNameEvent) {
+				log.Debugf("DWL: Output name: %s (registry=%d)", ev.Name, e.Name)
+				outState.name = ev.Name
+			})
+
+			output.SetDescriptionHandler(func(ev wlclient.OutputDescriptionEvent) {
+				log.Debugf("DWL: Output description: %s", ev.Description)
+			})
+
 			version := e.Version
 			if version > 4 {
 				version = 4
 			}
 			if err := registry.Bind(e.Name, e.Interface, version, output); err == nil {
 				outputID := output.ID()
+				outState.id = outputID
 				log.Infof("DWL: Bound wl_output id=%d registry_name=%d", outputID, e.Name)
 				outputs = append(outputs, output)
 				outputRegNames[outputID] = e.Name
+
+				m.outputsMutex.Lock()
+				m.outputs[outputID] = outState
+				m.outputsMutex.Unlock()
 			} else {
 				log.Errorf("DWL: Failed to bind wl_output: %v", err)
 			}
@@ -193,28 +214,21 @@ func (m *Manager) setupOutput(manager *dwl_ipc.ZdwlIpcManagerV2, output *wlclien
 		return fmt.Errorf("failed to get dwl output: %w", err)
 	}
 
-	outState := &outputState{
-		id:           output.ID(),
-		registryName: regName,
-		output:       output,
-		ipcOutput:    ipcOutput,
-		tags:         make([]TagState, 0),
+	m.outputsMutex.Lock()
+	outState, exists := m.outputs[output.ID()]
+	if !exists {
+		m.outputsMutex.Unlock()
+		return fmt.Errorf("output state not found for id %d", output.ID())
 	}
-
-	ipcOutput.SetToggleVisibilityHandler(func(e dwl_ipc.ZdwlIpcOutputV2ToggleVisibilityEvent) {
-		log.Debug("DWL: Toggle visibility event")
-	})
+	outState.ipcOutput = ipcOutput
+	m.outputsMutex.Unlock()
 
 	ipcOutput.SetActiveHandler(func(e dwl_ipc.ZdwlIpcOutputV2ActiveEvent) {
-		log.Debugf("DWL: Output %d active: %d", outState.id, e.Active)
 		outState.active = e.Active
-		m.updateState()
 	})
 
 	ipcOutput.SetTagHandler(func(e dwl_ipc.ZdwlIpcOutputV2TagEvent) {
-		log.Debugf("DWL: Output %d tag %d: state=%d clients=%d focused=%d",
-			outState.id, e.Tag, e.State, e.Clients, e.Focused)
-
+		updated := false
 		for i, tag := range outState.tags {
 			if tag.Tag == e.Tag {
 				outState.tags[i] = TagState{
@@ -223,52 +237,42 @@ func (m *Manager) setupOutput(manager *dwl_ipc.ZdwlIpcManagerV2, output *wlclien
 					Clients: e.Clients,
 					Focused: e.Focused,
 				}
-				m.updateState()
-				return
+				updated = true
+				break
 			}
 		}
 
-		outState.tags = append(outState.tags, TagState{
-			Tag:     e.Tag,
-			State:   e.State,
-			Clients: e.Clients,
-			Focused: e.Focused,
-		})
+		if !updated {
+			outState.tags = append(outState.tags, TagState{
+				Tag:     e.Tag,
+				State:   e.State,
+				Clients: e.Clients,
+				Focused: e.Focused,
+			})
+		}
+
 		m.updateState()
 	})
 
 	ipcOutput.SetLayoutHandler(func(e dwl_ipc.ZdwlIpcOutputV2LayoutEvent) {
-		log.Debugf("DWL: Output %d layout: %d", outState.id, e.Layout)
 		outState.layout = e.Layout
-		m.updateState()
 	})
 
 	ipcOutput.SetTitleHandler(func(e dwl_ipc.ZdwlIpcOutputV2TitleEvent) {
-		log.Debugf("DWL: Output %d title: %s", outState.id, e.Title)
 		outState.title = e.Title
-		m.updateState()
 	})
 
 	ipcOutput.SetAppidHandler(func(e dwl_ipc.ZdwlIpcOutputV2AppidEvent) {
-		log.Debugf("DWL: Output %d appid: %s", outState.id, e.Appid)
 		outState.appID = e.Appid
-		m.updateState()
 	})
 
 	ipcOutput.SetLayoutSymbolHandler(func(e dwl_ipc.ZdwlIpcOutputV2LayoutSymbolEvent) {
-		log.Debugf("DWL: Output %d layout symbol: %s", outState.id, e.Layout)
 		outState.layoutSymbol = e.Layout
-		m.updateState()
 	})
 
 	ipcOutput.SetFrameHandler(func(e dwl_ipc.ZdwlIpcOutputV2FrameEvent) {
-		log.Debugf("DWL: Output %d frame", outState.id)
 		m.updateState()
 	})
-
-	m.outputsMutex.Lock()
-	m.outputs[output.ID()] = outState
-	m.outputsMutex.Unlock()
 
 	return nil
 }
@@ -284,10 +288,13 @@ func (m *Manager) updateState() {
 			name = fmt.Sprintf("output-%d", out.id)
 		}
 
+		tagsCopy := make([]TagState, len(out.tags))
+		copy(tagsCopy, out.tags)
+
 		outputs[name] = &OutputState{
 			Name:         name,
 			Active:       out.active,
-			Tags:         out.tags,
+			Tags:         tagsCopy,
 			Layout:       out.layout,
 			LayoutSymbol: out.layoutSymbol,
 			Title:        out.title,
@@ -334,8 +341,10 @@ func (m *Manager) notifier() {
 			}
 			timer = time.AfterFunc(minGap, func() {
 				m.subMutex.RLock()
-				if len(m.subscribers) == 0 {
-					m.subMutex.RUnlock()
+				subCount := len(m.subscribers)
+				m.subMutex.RUnlock()
+
+				if subCount == 0 {
 					pending = false
 					return
 				}
@@ -343,15 +352,16 @@ func (m *Manager) notifier() {
 				currentState := m.GetState()
 
 				if m.lastNotified != nil && !stateChanged(m.lastNotified, &currentState) {
-					m.subMutex.RUnlock()
 					pending = false
 					return
 				}
 
+				m.subMutex.RLock()
 				for _, ch := range m.subscribers {
 					select {
 					case ch <- currentState:
 					default:
+						log.Warn("DWL: subscriber channel full, dropping update")
 					}
 				}
 				m.subMutex.RUnlock()
@@ -368,18 +378,20 @@ func (m *Manager) SetTags(outputName string, tagmask uint32, toggleTagset uint32
 	m.outputsMutex.RLock()
 	defer m.outputsMutex.RUnlock()
 
+	availableOutputs := make([]string, 0, len(m.outputs))
 	for _, out := range m.outputs {
 		name := out.name
 		if name == "" {
 			name = fmt.Sprintf("output-%d", out.id)
 		}
+		availableOutputs = append(availableOutputs, name)
 		if name == outputName {
 			ipcOut := out.ipcOutput.(*dwl_ipc.ZdwlIpcOutputV2)
 			return ipcOut.SetTags(tagmask, toggleTagset)
 		}
 	}
 
-	return fmt.Errorf("output not found: %s", outputName)
+	return fmt.Errorf("output not found: %s (available: %v)", outputName, availableOutputs)
 }
 
 func (m *Manager) SetClientTags(outputName string, andTags uint32, xorTags uint32) error {

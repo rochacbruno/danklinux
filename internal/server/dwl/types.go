@@ -127,5 +127,41 @@ func stateChanged(old, new *State) bool {
 	if len(old.Outputs) != len(new.Outputs) {
 		return true
 	}
+
+	for name, newOut := range new.Outputs {
+		oldOut, exists := old.Outputs[name]
+		if !exists {
+			return true
+		}
+		if oldOut.Active != newOut.Active {
+			return true
+		}
+		if oldOut.Layout != newOut.Layout {
+			return true
+		}
+		if oldOut.LayoutSymbol != newOut.LayoutSymbol {
+			return true
+		}
+		if oldOut.Title != newOut.Title {
+			return true
+		}
+		if oldOut.AppID != newOut.AppID {
+			return true
+		}
+		if len(oldOut.Tags) != len(newOut.Tags) {
+			return true
+		}
+		for i, newTag := range newOut.Tags {
+			if i >= len(oldOut.Tags) {
+				return true
+			}
+			oldTag := oldOut.Tags[i]
+			if oldTag.Tag != newTag.Tag || oldTag.State != newTag.State ||
+				oldTag.Clients != newTag.Clients || oldTag.Focused != newTag.Focused {
+				return true
+			}
+		}
+	}
+
 	return false
 }
